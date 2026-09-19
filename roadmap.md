@@ -10,3 +10,15 @@
 - [x] Validar telas atuais em desktop e mobile
 - [ ] Validar fluxos críticos autenticados e concorrentes
 - [ ] Conectar gerador de vídeo (bloqueado: integração da equipe inexistente)
+
+## Primeira integração de verificação, 19/09
+
+- [x] Conferir vínculo de pedido, contrato, entrega e relatório antes de apresentar aprovação.
+- [x] Implementar assistente autenticado que consulta evidências e chama a NeuraLake pelo servidor.
+- [x] Preparar endpoint Custom LLM da Agora com sessão curta limitada ao relatório.
+- [x] Testar a migração financeira em PostgreSQL local com liquidações simultâneas.
+- [ ] Aplicar a migração 0002 no banco do Lovable e validar a chamada real à NeuraLake.
+- [ ] Configurar o projeto Agora e implementar a sessão de áudio no navegador.
+- [ ] Executar uma contratação nova com arquivo real e verificador no servidor.
+
+Instruções e limites em [Verificação e Agora](docs/verification-agora.md). O tipo de serviço da demo permanece aberto; a revisão trabalha com os critérios do contrato.

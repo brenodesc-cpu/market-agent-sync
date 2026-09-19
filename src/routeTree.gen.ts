@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicOpenapiRouteImport } from './routes/api/public/openapi'
+import { Route as ApiReviewsOrderIdChatCompletionsRouteImport } from './routes/api/reviews/$orderId/chat/completions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,46 @@ const ApiPublicOpenapiRoute = ApiPublicOpenapiRouteImport.update({
   path: '/api/public/openapi',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReviewsOrderIdChatCompletionsRoute =
+  ApiReviewsOrderIdChatCompletionsRouteImport.update({
+    id: '/api/reviews/$orderId/chat/completions',
+    path: '/api/reviews/$orderId/chat/completions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
+  '/api/reviews/$orderId/chat/completions': typeof ApiReviewsOrderIdChatCompletionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
+  '/api/reviews/$orderId/chat/completions': typeof ApiReviewsOrderIdChatCompletionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
+  '/api/reviews/$orderId/chat/completions': typeof ApiReviewsOrderIdChatCompletionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/openapi'
+  fullPaths:
+    '/' | '/api/public/openapi' | '/api/reviews/$orderId/chat/completions'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/openapi'
-  id: '__root__' | '/' | '/api/public/openapi'
+  to: '/' | '/api/public/openapi' | '/api/reviews/$orderId/chat/completions'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/public/openapi'
+    | '/api/reviews/$orderId/chat/completions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiPublicOpenapiRoute: typeof ApiPublicOpenapiRoute
+  ApiReviewsOrderIdChatCompletionsRoute: typeof ApiReviewsOrderIdChatCompletionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +81,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicOpenapiRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/reviews/$orderId/chat/completions': {
+      id: '/api/reviews/$orderId/chat/completions'
+      path: '/api/reviews/$orderId/chat/completions'
+      fullPath: '/api/reviews/$orderId/chat/completions'
+      preLoaderRoute: typeof ApiReviewsOrderIdChatCompletionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiPublicOpenapiRoute: ApiPublicOpenapiRoute,
+  ApiReviewsOrderIdChatCompletionsRoute: ApiReviewsOrderIdChatCompletionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

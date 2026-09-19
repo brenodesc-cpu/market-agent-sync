@@ -4,6 +4,8 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
+    "test": "node --experimental-strip-types --test tests/review-*.test.ts tests/review-*.test.mjs",
+    "test:finance": "node --test tests/finance.postgres.test.mjs",
     "dev": "vite dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",

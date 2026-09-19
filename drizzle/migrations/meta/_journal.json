@@ -15,6 +15,13 @@
       "when": 1789832757684,
       "tag": "0001_add_financial_workflow_and_storage_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789834503985,
+      "tag": "0002_harden_verification_settlement",
+      "breakpoints": true
     }
   ]
 }

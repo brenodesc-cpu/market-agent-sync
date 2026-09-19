@@ -27,7 +27,7 @@ export const getDemoWorkspace = createServerFn({ method: "GET" }).handler(async 
     db.from("orders").select("id,buyer_company_id,supplier_company_id,offer_id,title,brief,budget_cap_units,status,selected_reason,current_delivery_version,revision_count,created_at").eq("is_demo", true).limit(1).single(),
     db.from("contracts").select("*").limit(1).single(),
     db.from("deliveries").select("id,order_id,version,file_name,byte_size,sha256,test_upload,supplier_message,created_at").order("version"),
-    db.from("verification_reports").select("id,delivery_id,delivery_version,rules_version,tool_name,checks,decision,summary,created_at").order("delivery_version"),
+    db.from("verification_reports").select("id,order_id,delivery_id,delivery_version,rules_version,tool_name,checks,decision,summary,created_at").order("delivery_version"),
     db.from("order_events").select("id,actor_label,event_type,result,created_at").order("created_at"),
     db.from("integrations").select("provider,status,last_checked_at,safe_message").order("provider"),
     db.from("ledger_entries").select("id,company_id,entry_type,amount_units,description,created_at").order("created_at"),
