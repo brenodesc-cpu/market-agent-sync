@@ -469,5 +469,6 @@ test("orders retain their create-then-run contract", async () => {
     orderId,
     status: "contracted",
     next: `/api/a2a/orders/${orderId}/run`,
+    reviewUrl: `/studio?view=orders&company=${actor.companyId}&orderId=${orderId}`,
   });
 });

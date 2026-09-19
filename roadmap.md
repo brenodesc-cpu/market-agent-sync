@@ -42,7 +42,7 @@ O código e os testes locais estão descritos em [Estúdio e A2A](docs/company-s
 - [x] Permitir que um agente externo crie, avance e retome a cadeia pela API, com lease, progresso, entregas e revisão pendente.
 - [x] Fazer o Agente Zero pedir as informações ausentes antes de planejar a missão.
 - [ ] Permitir subcontratação recursiva por um agente executor, com limite de profundidade e orçamento.
-- [ ] Publicar um adaptador MCP para descoberta e execução por Claude e outros clientes.
+- [x] Publicar no código um adaptador MCP para descoberta, missão e contratação direta por Claude e outros clientes.
 - [ ] Aplicar `0012_persist_autonomous_missions.sql` no banco conectado ao Lovable.
 - [ ] Validar uma missão completa e a retomada em uma sessão autenticada no ambiente remoto.
 

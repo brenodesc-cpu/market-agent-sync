@@ -6,7 +6,6 @@ import {
   Search,
   LoaderCircle,
   ShieldCheck,
-  Network,
   WalletCards,
   CircleAlert,
   RotateCcw,
@@ -84,6 +83,62 @@ export function AgentMarket({
   );
   const firstOrderAwaitingReview =
     chain?.steps.find((step) => step.order && step.order.order.status !== "settled")?.order ?? null;
+  const deliveryReady = chain?.status === "awaiting_review" || chain?.status === "completed";
+  const missionFlow = [
+    {
+      title: "Agente Zero alinha",
+      detail: "Fecha o briefing antes de gastar créditos.",
+      state: brief?.ready || chain ? "done" : "active",
+      status:
+        brief?.ready || chain
+          ? "Briefing pronto"
+          : busy === "brief"
+            ? "Analisando sua meta"
+            : brief
+              ? "Aguardando suas respostas"
+              : "Comece aqui",
+    },
+    {
+      title: "Rede executa",
+      detail: "Compara especialistas e produz as entregas em sequência.",
+      state: deliveryReady ? "done" : chain || brief?.ready ? "active" : "pending",
+      status: deliveryReady
+        ? "Entregas prontas"
+        : chain?.status === "planning"
+          ? "Montando a equipe"
+          : chain?.status === "running"
+            ? "Agentes trabalhando"
+            : chain?.status === "failed"
+              ? "Execução pausada"
+              : brief?.ready
+                ? "Pronta para iniciar"
+                : "Depois do briefing",
+    },
+    {
+      title: "Auditor verifica",
+      detail: "Confere cada entrega contra o contrato combinado.",
+      state: deliveryReady ? "done" : "pending",
+      status: deliveryReady ? "Verificação concluída" : "Depois das entregas",
+    },
+    {
+      title: "Você aprova",
+      detail: "Revisa o resultado e libera ou bloqueia os créditos.",
+      state:
+        chain?.status === "completed"
+          ? "done"
+          : chain?.status === "awaiting_review"
+            ? "active"
+            : "pending",
+      status:
+        chain?.status === "completed"
+          ? "Missão encerrada"
+          : chain?.status === "awaiting_review"
+            ? busy === "review"
+              ? "Atualizando seu aceite"
+              : "Aguardando sua revisão"
+            : "No final",
+    },
+  ] as const;
   useEffect(() => {
     if (!workspace.companies.some((c) => c.id === company))
       setCompany(workspace.companies[0]?.id ?? "");
@@ -355,6 +410,20 @@ export function AgentMarket({
             : "Escreva o resultado que espera. A plataforma divide o trabalho, escolhe quem vai fazê-lo e reúne as entregas."}
         </p>
       </div>
+      {mode === "mission" && (
+        <ol className="mission-flow" aria-label="Etapas da missão">
+          {missionFlow.map((stage, index) => (
+            <li className={stage.state} key={stage.title}>
+              <span>{index + 1}</span>
+              <div>
+                <strong>{stage.title}</strong>
+                <p>{stage.detail}</p>
+                <small>{stage.status}</small>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
       <div className="agent-market-columns">
         <section className="agent-request">
           <label className={mode === "mission" ? "mission-owner" : undefined}>
@@ -925,40 +994,7 @@ export function AgentMarket({
                 </div>
               )}
             </>
-          ) : mode === "mission" ? (
-            <div className="mission-explainer">
-              <Network size={28} />
-              <h2>Você pede. A equipe trabalha.</h2>
-              <p>As decisões e entregas aparecem aqui.</p>
-              <ol>
-                <li>
-                  <span>1</span>
-                  <div>
-                    <strong>Entendemos o pedido</strong>
-                    <small>O trabalho é dividido em etapas claras.</small>
-                  </div>
-                </li>
-                <li>
-                  <span>2</span>
-                  <div>
-                    <strong>Escolhemos a equipe</strong>
-                    <small>Comparamos especialistas ou criamos um para a tarefa.</small>
-                  </div>
-                </li>
-                <li>
-                  <span>3</span>
-                  <div>
-                    <strong>O resultado é conferido</strong>
-                    <small>Cada etapa usa o trabalho anterior até concluir a missão.</small>
-                  </div>
-                </li>
-              </ol>
-              <div>
-                <ShieldCheck size={16} />
-                Pagamentos ficam reservados até a verificação.
-              </div>
-            </div>
-          ) : (
+          ) : mode === "mission" ? null : (
             <>
               <div className="agent-search">
                 <Search size={17} />

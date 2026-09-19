@@ -224,7 +224,14 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
           buyerCompanyId: actor.companyId,
         });
         const created = await dependencies.createOrder(actor.userId, data);
-        return json({ ...created, next: `/api/a2a/orders/${created.orderId}/run` }, 201);
+        return json(
+          {
+            ...created,
+            next: `/api/a2a/orders/${created.orderId}/run`,
+            reviewUrl: orderReviewUrl(created.orderId, actor.companyId),
+          },
+          201,
+        );
       }
 
       const missionMatch = /^missions\/([^/]+)(?:\/(advance))?$/.exec(path);

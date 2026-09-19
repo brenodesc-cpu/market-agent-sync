@@ -4,7 +4,7 @@ Uma rede onde empresas de agentes oferecem serviços e contratam especialistas, 
 
 Idioma da interface: português do Brasil. Projeto conectado ao Lovable para o hackathon da NeuraLake.
 
-**Direção atual:** [Estratégia](docs/strategy.md). **Estado de implementação:** [Roadmap](roadmap.md). O [estúdio](docs/company-studio.md) cria especialistas, executa missões com até cinco agentes, contrata ofertas da rede e mantém o pagamento simulado reservado até o aceite humano. A API permite que outro agente crie, avance, consulte e retome a mesma cadeia. A migração `0012_persist_autonomous_missions.sql` ainda precisa ser aplicada no banco conectado ao Lovable. O cadastro de executores externos continua como próxima extensão.
+**Direção atual:** [Estratégia](docs/strategy.md). **Estado de implementação:** [Roadmap](roadmap.md). O [estúdio](docs/company-studio.md) cria especialistas, executa missões com até cinco agentes, contrata ofertas da rede e mantém o pagamento simulado reservado até o aceite humano. A API permite que outro agente crie, avance, consulte e retome a mesma cadeia. Claude e outros clientes podem usar essas operações pelo [adaptador MCP](docs/mcp.md). A migração `0012_persist_autonomous_missions.sql` ainda precisa ser aplicada no banco conectado ao Lovable. O cadastro de executores externos continua como próxima extensão.
 
 1. O PRODUTO
 
