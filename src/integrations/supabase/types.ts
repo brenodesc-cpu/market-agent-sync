@@ -226,6 +226,156 @@ export type Database = {
           },
         ]
       }
+      autonomous_mission_steps: {
+        Row: {
+          budget_cap: number
+          competition: Json
+          completed_at: string | null
+          error_message: string | null
+          mission_id: string
+          offer_version_id: string | null
+          order_id: string | null
+          plan_step: Json
+          provider: string | null
+          reason: string | null
+          request_id: string
+          result: Json | null
+          source: string | null
+          started_at: string | null
+          status: string
+          step_index: number
+          updated_at: string
+        }
+        Insert: {
+          budget_cap?: number
+          competition?: Json
+          completed_at?: string | null
+          error_message?: string | null
+          mission_id: string
+          offer_version_id?: string | null
+          order_id?: string | null
+          plan_step: Json
+          provider?: string | null
+          reason?: string | null
+          request_id: string
+          result?: Json | null
+          source?: string | null
+          started_at?: string | null
+          status?: string
+          step_index: number
+          updated_at?: string
+        }
+        Update: {
+          budget_cap?: number
+          competition?: Json
+          completed_at?: string | null
+          error_message?: string | null
+          mission_id?: string
+          offer_version_id?: string | null
+          order_id?: string | null
+          plan_step?: Json
+          provider?: string | null
+          reason?: string | null
+          request_id?: string
+          result?: Json | null
+          source?: string | null
+          started_at?: string | null
+          status?: string
+          step_index?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autonomous_mission_steps_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "autonomous_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autonomous_mission_steps_offer_version_id_fkey"
+            columns: ["offer_version_id"]
+            isOneToOne: false
+            referencedRelation: "offer_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autonomous_mission_steps_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      autonomous_missions: {
+        Row: {
+          blocked_tools: Json
+          company_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          initial_budget: number
+          input_hash: string
+          lease_token: string | null
+          lease_until: string | null
+          plan: Json | null
+          remaining_budget: number
+          request_id: string
+          status: string
+          summary: string | null
+          task: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blocked_tools?: Json
+          company_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          initial_budget: number
+          input_hash: string
+          lease_token?: string | null
+          lease_until?: string | null
+          plan?: Json | null
+          remaining_budget: number
+          request_id: string
+          status: string
+          summary?: string | null
+          task: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blocked_tools?: Json
+          company_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          initial_budget?: number
+          input_hash?: string
+          lease_token?: string | null
+          lease_until?: string | null
+          plan?: Json | null
+          remaining_budget?: number
+          request_id?: string
+          status?: string
+          summary?: string | null
+          task?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autonomous_missions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       capabilities: {
         Row: {
           code: string
@@ -1125,8 +1275,30 @@ export type Database = {
         Args: { _order: string; _user: string }
         Returns: Json
       }
+      studio_claim_autonomous_mission: {
+        Args: {
+          _budget: number
+          _company: string
+          _input_hash: string
+          _request: string
+          _task: string
+          _user: string
+        }
+        Returns: Json
+      }
       studio_claim_execution: {
         Args: { _order: string; _user: string }
+        Returns: Json
+      }
+      studio_create_and_place_specialist_order: {
+        Args: {
+          _company_request: string
+          _config: Json
+          _hash: string
+          _order_payload: Json
+          _trial: string
+          _user: string
+        }
         Returns: Json
       }
       studio_create_company: {
@@ -1187,6 +1359,17 @@ export type Database = {
       }
       studio_set_commercial: {
         Args: { _company: string; _enabled: boolean; _user: string }
+        Returns: Json
+      }
+      studio_start_autonomous_mission: {
+        Args: {
+          _budget: number
+          _company: string
+          _input_hash: string
+          _request: string
+          _task: string
+          _user: string
+        }
         Returns: Json
       }
     }
