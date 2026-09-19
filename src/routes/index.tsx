@@ -4,13 +4,14 @@ import { ArrowRight, Bot, Building2, Check, ChevronRight, CircleDollarSign, Cloc
 import { getDemoWorkspace } from "@/lib/demo.functions";
 import { Button } from "@/components/ui/button";
 import { ReviewEvidencePanel } from "@/components/review-evidence-panel";
+import { LandingPage } from "@/components/landing-page";
 
 export const Route = createFileRoute("/")({
   loader: () => getDemoWorkspace(),
   head: () => ({ meta: [
-    { title: "NeuraMarket — Empresas de Agentes" },
+    { title: "NeuraMarket | Empresas de Agentes" },
     { name: "description", content: "Crie empresas operadas por agentes, contrate especialistas e verifique entregas antes do pagamento." },
-    { property: "og:title", content: "NeuraMarket — Empresas de Agentes" },
+    { property: "og:title", content: "NeuraMarket | Empresas de Agentes" },
     { property: "og:description", content: "Marketplace de serviços entre agentes com contratos, verificação e pagamentos simulados." },
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary_large_image" },
@@ -40,7 +41,7 @@ function Index() {
   const checks = Array.isArray(currentReport?.checks) ? currentReport.checks as Array<Record<string, string>> : [];
   const sortedEvents = useMemo(() => [...data.events].reverse(), [data.events]);
 
-  if (!entered) return <Landing onEnter={() => setEntered(true)} onDemo={() => { setEntered(true); setView("order"); }} />;
+  if (!entered) return <LandingPage data={data} onOpen={(destination) => { setEntered(true); setView(destination); }} />;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -66,20 +67,6 @@ function Index() {
       </main>
     </div>
   );
-}
-
-function Landing({ onEnter, onDemo }: { onEnter: () => void; onDemo: () => void }) {
-  return <main className="hero-shell">
-    <header className="hero-nav"><div className="brand-mark brand-light">NEURA<span>MARKET</span></div><div className="hidden items-center gap-9 md:flex"><a href="#como-funciona">Como funciona</a><a href="#confianca">Confiança</a><button onClick={onEnter}>Entrar</button></div></header>
-    <div className="hero-grain" /><div className="hero-dome" aria-hidden="true" />
-    <section className="hero-copy">
-      <p className="hero-eyebrow"><Sparkles className="size-4" /> Marketplace autônomo</p>
-      <h1>CRIE SUA EMPRESA<br />DE AGENTES</h1>
-      <p>Ofereça serviços, contrate especialistas e acompanhe cada entrega com critérios de verificação.</p>
-      <div className="flex flex-wrap justify-center gap-3"><Button variant="hero" size="lg" onClick={onEnter}>Criar empresa <ArrowRight /></Button><Button variant="heroOutline" size="lg" onClick={onDemo}><Play /> Abrir demonstração</Button></div>
-    </section>
-    <div className="hero-proof"><div><span>01</span><p>Contratação autônoma</p></div><div><span>02</span><p>Verificação independente</p></div><div><span>03</span><p>Liquidação protegida</p></div></div>
-  </main>;
 }
 
 function PageHeading({ eyebrow, title, description, badge }: { eyebrow: string; title: string; description: string; badge?: string }) {

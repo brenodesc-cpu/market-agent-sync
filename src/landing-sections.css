@@ -1,0 +1,423 @@
+.nm-sections {
+  background: #f3f3f3;
+  color: #1d1c1b;
+  padding: 72px 0 120px;
+  font-family: "Inter", sans-serif;
+}
+
+.nm-section-container {
+  width: calc(100% - 40px);
+  max-width: 1400px;
+  margin-inline: auto;
+}
+
+.nm-section-eyebrow {
+  margin: 0 0 24px;
+  color: #656565;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.nm-capabilities-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.nm-capability {
+  display: flex;
+  min-height: 314px;
+  flex-direction: column;
+  gap: 40px;
+  padding: 40px;
+  border-top: 1px solid #d7d7d7;
+  border-right: 1px solid #d7d7d7;
+}
+
+.nm-capability:nth-child(3n) {
+  border-right: 0;
+  padding-right: 0;
+}
+.nm-capability:nth-child(3n + 1) {
+  padding-left: 0;
+}
+.nm-capability h3 {
+  min-height: 53px;
+  margin-bottom: 28px;
+}
+
+.nm-capability:nth-last-child(-n + 3) {
+  border-bottom: 1px solid #d7d7d7;
+}
+
+.nm-capability svg {
+  flex-shrink: 0;
+}
+
+.nm-capability h3,
+.nm-step h3 {
+  margin: 0 0 12px;
+  font-family: "Funnel Display", sans-serif;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.12;
+  text-transform: uppercase;
+}
+
+.nm-capability p {
+  max-width: 330px;
+  margin: 0;
+  color: #656565;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.nm-how,
+.nm-trust {
+  margin-top: 120px;
+  scroll-margin-top: 100px;
+}
+
+.nm-section-heading {
+  margin: 0;
+  font-family: "Funnel Display", sans-serif;
+  font-size: clamp(40px, 4.75vw, 66px);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  text-align: center;
+}
+
+.nm-section-intro {
+  max-width: 570px;
+  margin: 24px auto 48px;
+  color: #656565;
+  font-size: 16px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.nm-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nm-step {
+  display: flex;
+  min-width: 0;
+  min-height: 480px;
+  flex-direction: column;
+  padding: 32px;
+  border-radius: 0;
+  background: #fff;
+}
+
+.nm-step-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.nm-step h3 {
+  max-width: 190px;
+  margin: 0;
+  font-size: 20px;
+}
+
+.nm-step-number {
+  display: none;
+  padding-top: 2px;
+  color: #81817b;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.nm-step-illustration {
+  display: flex;
+  min-height: 260px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+.nm-step p {
+  margin: 0;
+  color: #656565;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.nm-section-action {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+}
+
+.nm-section-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 13px 21px;
+  border: 1px solid #c8c8c4;
+  border-radius: 12px;
+  background: transparent;
+  color: #1d1c1b;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.nm-section-button:hover {
+  border-color: #1d1c1b;
+  background: #e9e9e4;
+}
+
+.nm-section-button:focus-visible {
+  outline: 3px solid #2941be;
+  outline-offset: 4px;
+}
+
+.nm-section-button svg {
+  flex-shrink: 0;
+}
+
+.nm-trust-panel {
+  padding: 32px 40px 40px;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.nm-trust-panel-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nm-flow-label {
+  font-family: "Funnel Display", sans-serif;
+  font-size: 15px;
+  text-transform: uppercase;
+}
+
+.nm-simulated-label {
+  padding: 7px 12px;
+  border: 1px solid #d7d7d7;
+  border-radius: 100px;
+  color: #656565;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.nm-contract-flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+  margin: 64px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nm-contract-stage {
+  position: relative;
+  min-width: 0;
+  text-align: center;
+}
+
+.nm-contract-node {
+  display: flex;
+  width: 88px;
+  height: 88px;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  border: 1px solid #d7d7d7;
+  border-radius: 50%;
+  background: #f5f5f0;
+}
+
+.nm-contract-stage:nth-child(3) .nm-contract-node {
+  border-color: #b5ca89;
+  background: #e5edcf;
+}
+
+.nm-contract-stage h3 {
+  margin: 0 0 6px;
+  font-family: "Funnel Display", sans-serif;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.nm-contract-stage p {
+  margin: 0;
+  color: #656565;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.nm-contract-arrow {
+  position: absolute;
+  top: 33px;
+  right: -23px;
+  color: #95958c;
+}
+
+.nm-trust-explanation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  padding-top: 28px;
+  border-top: 1px solid #d7d7d7;
+}
+
+.nm-trust-explanation h3 {
+  margin: 0 0 10px;
+  font-family: "Funnel Display", sans-serif;
+  font-size: 23px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.nm-trust-explanation p {
+  max-width: 720px;
+  margin: 0;
+  color: #656565;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.nm-trust-explanation .nm-section-button {
+  flex-shrink: 0;
+}
+
+.nm-prototype-note {
+  margin: 20px 0 0;
+  color: #656565;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 1000px) {
+  .nm-capability {
+    padding: 32px 28px;
+  }
+
+  .nm-step {
+    padding: 28px 24px;
+  }
+
+  .nm-step-title {
+    gap: 10px;
+  }
+
+  .nm-trust-explanation {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 24px;
+  }
+}
+
+@media (max-width: 700px) {
+  .nm-sections {
+    padding-top: 48px;
+    padding-bottom: 72px;
+  }
+
+  .nm-capabilities-grid,
+  .nm-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .nm-capability {
+    min-height: 250px;
+    gap: 44px;
+    padding: 32px 8px;
+    border-right: 0;
+  }
+
+  .nm-capability:nth-last-child(-n + 3) {
+    border-bottom: 0;
+  }
+
+  .nm-capability:last-child {
+    border-bottom: 1px solid #d7d7d7;
+  }
+
+  .nm-capability p {
+    max-width: 420px;
+  }
+
+  .nm-how,
+  .nm-trust {
+    margin-top: 80px;
+  }
+
+  .nm-section-heading {
+    font-size: 40px;
+    letter-spacing: -0.04em;
+  }
+
+  .nm-section-intro {
+    margin: 20px auto 32px;
+    font-size: 15px;
+  }
+
+  .nm-step {
+    min-height: 430px;
+    padding: 28px;
+  }
+
+  .nm-step-illustration {
+    min-height: 230px;
+  }
+
+  .nm-trust-panel {
+    padding: 24px;
+  }
+
+  .nm-contract-flow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 48px;
+    margin: 40px 0;
+  }
+
+  .nm-contract-node {
+    margin-bottom: 14px;
+  }
+
+  .nm-contract-arrow {
+    top: auto;
+    right: calc(50% - 11px);
+    bottom: -36px;
+    transform: rotate(90deg);
+  }
+
+  .nm-trust-explanation h3 {
+    font-size: 22px;
+  }
+
+  .nm-trust-explanation .nm-section-button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nm-section-button {
+    transition: none;
+  }
+}
