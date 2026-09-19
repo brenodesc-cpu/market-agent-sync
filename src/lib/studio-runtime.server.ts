@@ -207,11 +207,36 @@ async function infer(system: string, input: unknown, model = "text") {
   const content = payload?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim())
     throw new Error("A NeuraLake devolveu uma resposta vazia.");
-  const trimmed = content
-    .trim()
-    .replace(/^```(?:json)?\s*/, "")
-    .replace(/\s*```$/, "");
-  return JSON.parse(trimmed) as unknown;
+  const candidates: string[] = [];
+  let start = -1;
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = 0; index < content.length; index++) {
+    const character = content[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') quoted = false;
+      continue;
+    }
+    if (character === '"') quoted = true;
+    else if (character === "{") {
+      if (depth === 0) start = index;
+      depth++;
+    } else if (character === "}" && depth > 0) {
+      depth--;
+      if (depth === 0 && start >= 0) candidates.push(content.slice(start, index + 1));
+    }
+  }
+  for (const candidate of candidates.reverse()) {
+    try {
+      return JSON.parse(candidate) as unknown;
+    } catch {
+      // A reasoning preamble can contain JSON-like text; try the prior complete object.
+    }
+  }
+  throw new Error("A NeuraLake não devolveu um JSON válido.");
 }
 export async function draftWithAI(prompt: string, current?: CompanyDraft) {
   const result = await infer(
