@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test:chain": "node --experimental-strip-types --test tests/chain.test.ts",
-    "test": "node --experimental-strip-types --test tests/review-*.test.ts tests/review-*.test.mjs tests/a2a-contract.test.ts tests/agora-provider.test.ts tests/studio-access.test.ts tests/auth-flow.test.ts",
+    "test": "node --experimental-strip-types --test tests/review-*.test.ts tests/review-*.test.mjs tests/a2a-contract.test.ts tests/agora-provider.test.ts tests/studio-access.test.ts tests/auth-flow.test.ts tests/chain.test.ts tests/economy.test.ts",
     "test:finance": "node --test tests/finance.postgres.test.mjs",
     "dev": "vite dev",
     "build": "vite build",

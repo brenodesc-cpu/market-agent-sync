@@ -1,6 +1,16 @@
 export const CHAIN_ID = "nmk-devnet-1";
 
-export type TransactionType = "MINT" | "TRANSFER" | "FEE" | "RESERVE" | "RELEASE" | "ANCHOR";
+export type TransactionType =
+  | "MINT"
+  | "TRANSFER"
+  | "FEE"
+  | "RESERVE"
+  | "RELEASE"
+  | "ANCHOR"
+  | "STAKE"
+  | "UNSTAKE"
+  | "SLASH"
+  | "REDEEM";
 export type TransactionPayload = {
   amount: number;
   chain_id: string;
@@ -10,7 +20,7 @@ export type TransactionPayload = {
   nonce: number;
   payload_hash: string | null;
   ref_id: string | null;
-  ref_kind: "genesis" | "order" | "delivery" | "report" | "treasury" | null;
+  ref_kind: "genesis" | "order" | "delivery" | "report" | "treasury" | "offer" | "purchase" | null;
   to: string | null;
   type: TransactionType;
 };
@@ -44,7 +54,7 @@ export type ChainBlock = BlockHeader & { block_hash: string; created_at?: string
 export type ChainWalletPublic = {
   id: string;
   company_id: string | null;
-  kind: "company" | "treasury" | "custody";
+  kind: "company" | "treasury" | "custody" | "stake";
   address: string;
   public_key: string;
   key_version: number;
@@ -60,4 +70,30 @@ export type AnchorState = {
   status: "unavailable" | "pending" | "submitted" | "confirmed" | "failed";
   safe_message: string;
   checked_at: string;
+};
+
+/** Collateral position of one offer, derived from the signed history. */
+export type StakePosition = {
+  offerId: string;
+  address: string;
+  stakedUnits: number;
+  releasedUnits: number;
+  slashedUnits: number;
+  activeUnits: number;
+};
+
+/** Everything a buyer can check about a supplier without trusting this server. */
+export type Reputation = {
+  address: string;
+  settledContracts: number;
+  earnedUnits: number;
+  slashes: number;
+  slashedUnits: number;
+  activeStakeUnits: number;
+};
+
+export type ListingTier = {
+  name: string;
+  minUnits: number;
+  maxPublishedOffers: number;
 };

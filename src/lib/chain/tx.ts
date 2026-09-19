@@ -56,7 +56,9 @@ export function assertTransactionPayload(tx: TransactionPayload): void {
     (tx.payload_hash !== null &&
       (typeof tx.payload_hash !== "string" || !/^[0-9a-f]{64}$/.test(tx.payload_hash))) ||
     (tx.ref_id !== null && typeof tx.ref_id !== "string") ||
-    ![null, "genesis", "order", "delivery", "report", "treasury"].includes(tx.ref_kind)
+    ![null, "genesis", "order", "delivery", "report", "treasury", "offer", "purchase"].includes(
+      tx.ref_kind,
+    )
   )
     throw new Error("Transação NMK inválida.");
   switch (tx.type) {
@@ -68,8 +70,37 @@ export function assertTransactionPayload(tx: TransactionPayload): void {
     case "FEE":
     case "RESERVE":
     case "RELEASE":
+    case "REDEEM":
       if (tx.from === null || tx.to === null || tx.from === tx.to || tx.amount <= 0)
         throw new Error("Movimentação NMK inválida.");
+      break;
+    // Collateral always names the offer it answers for: without that link a stake cannot be
+    // attributed to a supplier, and a burn cannot be attributed to an offer.
+    case "STAKE":
+    case "UNSTAKE":
+      if (
+        tx.from === null ||
+        tx.to === null ||
+        tx.from === tx.to ||
+        tx.amount <= 0 ||
+        tx.ref_kind !== "offer" ||
+        tx.ref_id === null
+      )
+        throw new Error("Movimentação de colateral NMK inválida.");
+      break;
+    // payload_hash is required and is the report that justified the burn. Without it the burn
+    // would be an assertion by the platform rather than something anyone can check.
+    case "SLASH":
+      if (
+        tx.from === null ||
+        tx.to === null ||
+        tx.from === tx.to ||
+        tx.amount <= 0 ||
+        tx.ref_kind !== "offer" ||
+        tx.ref_id === null ||
+        tx.payload_hash === null
+      )
+        throw new Error("Queima de colateral NMK inválida.");
       break;
     case "ANCHOR":
       if (tx.from === null || tx.to !== null || tx.amount !== 0 || tx.payload_hash === null)
