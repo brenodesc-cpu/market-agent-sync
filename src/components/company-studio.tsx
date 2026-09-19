@@ -111,6 +111,16 @@ function friendlyError(error: unknown) {
   )
     return "A estrutura do marketplace ainda precisa ser ativada no Lovable. Confira a aba Integrações.";
   if (/Unauthorized|authentication|JWT/.test(message)) return "Entre na sua conta para continuar.";
+  if (/stale_review/.test(message))
+    return "A entrega mudou. Abra o pedido novamente e confira a versão atual.";
+  if (/objective_checks_required/.test(message))
+    return "O arquivo precisa passar em todos os testes antes do seu aceite.";
+  if (/review_already_recorded/.test(message))
+    return "Esta versão já recebeu uma decisão. Confira o histórico do pedido.";
+  if (/human_approval_required/.test(message))
+    return "O pagamento aguarda o aceite do responsável pela compra.";
+  if (/review_access_denied/.test(message))
+    return "Somente o responsável pela empresa compradora pode aceitar a entrega.";
   if (/revision_limit/.test(message))
     return "O contrato já usou a correção permitida. Você pode cancelar e recuperar a reserva.";
   if (/deadline_expired/.test(message))
@@ -314,7 +324,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
         { role: "user", text: request },
         {
           role: "assistant",
-          text: "A NeuraLake preparou este rascunho. Revise o nome, o serviço e o preço. Ao publicar, criaremos no banco o gerente e o especialista em catálogo da empresa.",
+          text: "A NeuraLake preparou este rascunho. Revise o nome, o serviço e o preço. Ao criar a empresa, registraremos o gerente e o especialista em catálogo. A oferta fica privada até você autorizar sua publicação.",
         },
       ]);
     });
@@ -568,8 +578,9 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             <p>
               Descreva o que você quer oferecer.
               <br />
-              Revise a configuração e publique para criar seus agentes. O serviço disponível nesta
-              versão é a organização de catálogos em CSV.
+              Revise a configuração e crie seus agentes. Você escolhe se a oferta fica privada ou
+              aparece na rede. O serviço disponível nesta versão é a organização de catálogos em
+              CSV.
             </p>
             <form
               className="studio-composer welcome-composer"
@@ -1469,19 +1480,23 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                       <p className="studio-help">{order.order.selected_reason}</p>
                       {buyerOwned && (
                         <div className="studio-order-actions">
-                          {!["cancelled", "expired", "accepted"].includes(order.order.status) && (
-                            <button
-                              className="studio-primary wide"
-                              disabled={Boolean(busy)}
-                              onClick={() => void execute()}
-                            >
-                              {order.order.status === "revision_requested"
-                                ? "Solicitar correção"
-                                : order.order.status === "settled"
-                                  ? "Conferir pagamento único"
-                                  : "Continuar execução"}
-                            </button>
-                          )}
+                          {!["cancelled", "expired"].includes(order.order.status) &&
+                            !(
+                              order.order.status === "accepted" &&
+                              order.contract.requires_human_review
+                            ) && (
+                              <button
+                                className="studio-primary wide"
+                                disabled={Boolean(busy)}
+                                onClick={() => void execute()}
+                              >
+                                {order.order.status === "revision_requested"
+                                  ? "Solicitar correção"
+                                  : order.order.status === "settled"
+                                    ? "Conferir pagamento único"
+                                    : "Continuar execução"}
+                              </button>
+                            )}
                           {!["settled", "cancelled", "expired"].includes(order.order.status) && (
                             <button
                               className="studio-secondary wide"
@@ -1498,7 +1513,9 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                       <>
                         <ReviewAssistant key={currentReport.id} orderId={order.order.id} />
                         {buyerOwned &&
-                          !["settled", "cancelled", "expired"].includes(order.order.status) && (
+                          !["settled", "cancelled", "expired", "accepted"].includes(
+                            order.order.status,
+                          ) && (
                             <div className="studio-section-card">
                               <h3>Orientação para a correção</h3>
                               <p className="studio-help">

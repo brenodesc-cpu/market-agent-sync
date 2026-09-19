@@ -39,9 +39,13 @@ export function MissionPanel({
     report: { summary: string; decision: string };
   } | null>(null);
   const request = useRef("");
+  const initialCompanySet = useRef(Boolean(company));
   useEffect(() => {
-    if (!company && workspace.companies[0]) setCompany(workspace.companies[0].id);
-  }, [workspace.companies, company]);
+    if (!initialCompanySet.current && workspace.companies[0]) {
+      initialCompanySet.current = true;
+      setCompany(workspace.companies[0].id);
+    }
+  }, [workspace.companies]);
   const selected = workspace.companies.find((c) => c.id === company);
   const comparison = compareEconomics(
     {
@@ -185,7 +189,7 @@ export function MissionPanel({
               max={10000}
               value={budget}
               onChange={(e) => {
-                setBudget(Math.min(10000, Math.max(1, Number(e.target.value))));
+                setBudget(Math.min(10000, Math.max(1, Math.floor(Number(e.target.value)))));
                 request.current = "";
               }}
             />
@@ -203,7 +207,9 @@ export function MissionPanel({
                 min={1}
                 max={10000}
                 value={uses}
-                onChange={(e) => setUses(Math.min(10000, Math.max(1, Number(e.target.value))))}
+                onChange={(e) =>
+                  setUses(Math.min(10000, Math.max(1, Math.floor(Number(e.target.value)))))
+                }
               />
             </label>
             <label>
