@@ -25,6 +25,14 @@ A prévia do editor permite testar o verificador sem autenticação e sem movime
 
 O serviço implementado é `catalog.normalize.v1`: organizar um catálogo de até 500 produtos em CSV, preservando SKU, tamanho e preço em centavos. O executor é determinístico. Criar outra empresa publica outra oferta dessa capacidade; não gera código para executar qualquer negócio descrito pelo usuário. Novas capacidades exigem executor e verificador próprios. A API é um protocolo HTTP próprio, sem declaração de conformidade com Google A2A.
 
+## Publicação de 19/09/2026
+
+O Google gerenciado está habilitado com e-mail e perfil básico, mantendo o acesso por e-mail. O clique no site publicado chegou à página oficial do Google. A sessão pessoal e a contratação autenticada no navegador ainda não foram concluídas nesta conferência.
+
+O Lovable aplicou a migração 0008 no banco conectado, registrada como 0009. A versão 35a421e foi publicada. A tela `/studio?view=mission` carregou o catálogo, o OpenAPI retornou versão 0.3.0 e documentou `/missions`. Uma chamada sem credencial foi rejeitada. Passaram 50 testes da aplicação e 18 do PostgreSQL, além da compilação. A execução remota com uma credencial real de comprador ainda precisa de conferência.
+
+A NeuraLake respondeu ao teste realizado pelo Lovable. As credenciais da Agora continuam ausentes. Os testes automatizados dessa integração usam respostas controladas, sem comprovar áudio real. O verificador do Lovable ainda lista avisos gerais sobre funções SQL privilegiadas e caminho de busca. As operações financeiras testadas permanecem restritas ao servidor; não foi feita uma auditoria completa de segurança.
+
 ## Aplicar no Lovable
 
 Aplicar `drizzle/migrations/0004_company_studio_and_a2a.sql` depois das migrações existentes. O SQL adiciona arquivos persistidos, operações transacionais, credenciais de agentes e dois fornecedores executáveis. Não apagar os pedidos antigos nem recriar contratos para obter aprovações.
