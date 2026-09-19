@@ -210,6 +210,7 @@ export type Database = {
           operational: boolean
           owner_user_id: string | null
           slug: string
+          visibility: string
         }
         Insert: {
           created_at?: string
@@ -221,6 +222,7 @@ export type Database = {
           operational?: boolean
           owner_user_id?: string | null
           slug: string
+          visibility?: string
         }
         Update: {
           created_at?: string
@@ -232,6 +234,7 @@ export type Database = {
           operational?: boolean
           owner_user_id?: string | null
           slug?: string
+          visibility?: string
         }
         Relationships: []
       }
@@ -280,6 +283,7 @@ export type Database = {
           order_data: Json
           order_id: string
           price_units: number
+          requires_human_review: boolean
           revision_limit: number
           supplier_company_id: string
         }
@@ -295,6 +299,7 @@ export type Database = {
           order_data: Json
           order_id: string
           price_units: number
+          requires_human_review?: boolean
           revision_limit: number
           supplier_company_id: string
         }
@@ -310,6 +315,7 @@ export type Database = {
           order_data?: Json
           order_id?: string
           price_units?: number
+          requires_human_review?: boolean
           revision_limit?: number
           supplier_company_id?: string
         }
@@ -403,6 +409,64 @@ export type Database = {
             columns: ["submitted_by_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      human_reviews: {
+        Row: {
+          created_at: string
+          decision: string
+          delivery_id: string
+          id: string
+          note: string
+          order_id: string
+          report_id: string
+          reviewed_by: string
+          sha256: string
+        }
+        Insert: {
+          created_at?: string
+          decision: string
+          delivery_id: string
+          id?: string
+          note: string
+          order_id: string
+          report_id: string
+          reviewed_by: string
+          sha256: string
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          delivery_id?: string
+          id?: string
+          note?: string
+          order_id?: string
+          report_id?: string
+          reviewed_by?: string
+          sha256?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "human_reviews_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: true
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "human_reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "human_reviews_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "verification_reports"
             referencedColumns: ["id"]
           },
         ]
@@ -815,6 +879,53 @@ export type Database = {
           },
         ]
       }
+      private_runs: {
+        Row: {
+          artifact_content: string
+          company_id: string
+          created_at: string
+          duration_ms: number
+          id: string
+          input_hash: string
+          report: Json
+          request_id: string
+          requested_by: string
+          sha256: string
+        }
+        Insert: {
+          artifact_content: string
+          company_id: string
+          created_at?: string
+          duration_ms: number
+          id?: string
+          input_hash: string
+          report: Json
+          request_id: string
+          requested_by: string
+          sha256: string
+        }
+        Update: {
+          artifact_content?: string
+          company_id?: string
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          input_hash?: string
+          report?: Json
+          request_id?: string
+          requested_by?: string
+          sha256?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -964,6 +1075,22 @@ export type Database = {
           _report: Json
           _token: string
         }
+        Returns: Json
+      }
+      studio_review_delivery: {
+        Args: {
+          _decision: string
+          _delivery: string
+          _note: string
+          _order: string
+          _report: string
+          _sha: string
+          _user: string
+        }
+        Returns: Json
+      }
+      studio_set_commercial: {
+        Args: { _company: string; _enabled: boolean; _user: string }
         Returns: Json
       }
     }

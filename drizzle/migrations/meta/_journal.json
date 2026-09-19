@@ -64,6 +64,13 @@
       "when": 1789844000000,
       "tag": "0008_complete_agent_chain",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789844130177,
+      "tag": "0009_complete_agent_chain",
+      "breakpoints": true
     }
   ]
 }
