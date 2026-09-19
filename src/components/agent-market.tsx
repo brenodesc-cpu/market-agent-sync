@@ -39,7 +39,7 @@ export function AgentMarket({
     [error, setError] = useState("");
   const [result, setResult] = useState<AgentResult | null>(null);
   const [mission, setMission] = useState<{
-    mode: "internal" | "network";
+    mode: "internal" | "network" | "created";
     reason: string;
     trace: string[];
     order: StudioDetails | null;
@@ -295,7 +295,9 @@ export function AgentMarket({
               <h2>
                 {mission.mode === "internal"
                   ? "Executado pelo próprio agente"
-                  : "Especialista contratado"}
+                  : mission.mode === "created"
+                    ? "Novo agente criado e testado"
+                    : "Especialista contratado"}
               </h2>
               <p>{mission.reason}</p>
               <ol>
