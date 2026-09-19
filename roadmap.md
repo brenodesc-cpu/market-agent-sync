@@ -3,9 +3,10 @@
 - [x] Armazenar a chave NeuraLake com segurança
 - [x] Criar o modelo de dados e regras de acesso
 - [ ] Fechar reserva, verificação e liquidação idempotente
-- [ ] Inserir e validar dados reais da demonstração
+- [x] Inserir e validar dados reais da demonstração
 - [ ] Implementar camada NeuraLake e testes de isolamento
 - [ ] Implementar interface operacional completa
-- [ ] Documentar API e serviço de mídia
-- [ ] Validar desktop, mobile e fluxos críticos
+- [x] Documentar contrato inicial da API e serviço de mídia
+- [x] Validar telas atuais em desktop e mobile
+- [ ] Validar fluxos críticos autenticados e concorrentes
 - [ ] Conectar gerador de vídeo (bloqueado: integração da equipe inexistente)
