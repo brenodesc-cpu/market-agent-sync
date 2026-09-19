@@ -220,3 +220,34 @@ banco de dados**:
 6. Nonce repetido rejeitado. Saldo insuficiente rejeitado.
 7. Cifra da chave privada: ida e volta correta, e falha de `auth_tag` ao alterar o texto
    cifrado.
+
+## 11. Superfície de módulos
+
+Nomes fixos: a interface e as funções de servidor são escritas contra eles em paralelo.
+
+`src/lib/chain/types.ts` — tipos `ChainTransaction`, `ChainBlock`, `ChainWalletPublic`
+(endereço, chave pública, empresa), `ChainValidation`, `ChainIssue`, `MerkleProofStep`,
+`AnchorState`.
+
+`src/lib/chain/keys.ts` — `generateKeyPair`, `deriveAddress`, `validateAddress`,
+`signPayload`, `verifyPayload`.
+
+`src/lib/chain/tx.ts` — `canonicalize`, `txid`, `buildTransaction`, `verifyTransaction`.
+
+`src/lib/chain/merkle.ts` — `merkleRoot`, `merkleProof`, `verifyMerkleProof`.
+
+`src/lib/chain/block.ts` — `canonicalizeHeader`, `blockHash`, `GENESIS_PREV_HASH`.
+
+`src/lib/chain/validate.ts` — `validateChain`, `deriveBalances`.
+
+`src/lib/chain/node.server.ts` — `ensureGenesis`, `sealPendingBlock`, `getChainHead`,
+`listBlocks`, `getBlock`, `listTransactions`, `getTransaction`, `verifyStoredChain`,
+`reconcileWithLedger`, `submitSignedTransactions`.
+
+`src/lib/chain/wallet.server.ts` — `ensureCompanyWallet`, `getCompanyWalletPublic`,
+`signAsCompany`, `treasuryAddress`.
+
+`src/lib/chain/anchor.server.ts` — `anchorStatus`, `requestAnchor`.
+
+Os arquivos sem sufixo `.server` são puros: apenas `node:crypto`, sem Supabase, sem
+`process.env`, sem rede. Os testes dependem dessa separação.
