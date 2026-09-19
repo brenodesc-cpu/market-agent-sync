@@ -4,6 +4,7 @@ export type StudioCompany = {
   name: string;
   description: string;
   operational: boolean;
+  kind?: string;
   owner_user_id: string | null;
   visibility: "private" | "commercial";
 };

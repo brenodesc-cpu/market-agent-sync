@@ -51,14 +51,16 @@ export async function catalogueOffers(db: SupabaseClient = publicDb()): Promise<
       .limit(100),
     db
       .from("offer_versions")
-      .select("id,offer_id,version,price_units,description,deadline_hours,acceptance_criteria")
+      .select(
+        "id,offer_id,version,price_units,description,deadline_hours,acceptance_criteria,output_format",
+      )
       .eq("available", true)
       .limit(200),
     db
       .from("capabilities")
       .select("id,code,executor_type,integration_status")
-      .eq("code", CAPABILITY)
-      .eq("executor_type", "builtin_catalogue_v1")
+      .in("code", [CAPABILITY, "agent.task.v1"])
+      .in("executor_type", ["builtin_catalogue_v1", "neuralake_agent_v1"])
       .eq("integration_status", "connected"),
     db.from("companies").select("id,name").eq("operational", true).limit(100),
   ]);
@@ -80,7 +82,9 @@ export async function catalogueOffers(db: SupabaseClient = publicDb()): Promise<
         description: version.description,
         price: version.price_units,
         deadlineHours: version.deadline_hours,
-        capability: CAPABILITY,
+        capability: capabilities.data!.find((c) => c.id === offer.capability_id)!.code,
+        category: version.output_format?.category,
+        exampleTask: version.output_format?.exampleTask,
         criteria: version.acceptance_criteria as typeof CATALOGUE_CRITERIA,
       },
     ];
@@ -101,7 +105,7 @@ export async function workspace(userId: string): Promise<StudioWorkspace> {
   const db = await runtimeDb();
   const companies = await db
     .from("companies")
-    .select("id,name,description,operational,owner_user_id,visibility")
+    .select("id,name,description,operational,owner_user_id,visibility,kind")
     .eq("owner_user_id", userId)
     .order("created_at");
   check(companies.error);
@@ -243,16 +247,14 @@ async function infer(system: string, input: unknown, model = "text", companyId?:
   const payload = await response.json();
   if (companyId) {
     const db = await runtimeDb();
-    await db
-      .from("inference_runs")
-      .insert({
-        company_id: companyId,
-        task_type: "supplier_selection",
-        model_requested: model,
-        status: "completed",
-        duration_ms: Date.now() - started,
-        usage_data: payload.usage ?? null,
-      });
+    await db.from("inference_runs").insert({
+      company_id: companyId,
+      task_type: "supplier_selection",
+      model_requested: model,
+      status: "completed",
+      duration_ms: Date.now() - started,
+      usage_data: payload.usage ?? null,
+    });
   }
   const content = payload?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim())
@@ -300,6 +302,9 @@ export async function draftWithAI(prompt: string, current?: CompanyDraft) {
   });
 }
 export async function createOrder(userId: string, request: OrderRequest) {
+  if (request.task)
+    return (await import("./agent-studio.server")).createAgentOrder(userId, request);
+  if (!request.rows) throw new Error("Informe a tarefa a executar.");
   await ownedCompany(userId, request.buyerCompanyId);
   const keys = request.rows.map((row) => JSON.stringify([row.sku, row.size]));
   if (new Set(keys).size !== keys.length)
@@ -328,7 +333,10 @@ export async function createOrder(userId: string, request: OrderRequest) {
   let reason = `Seleção por regras: ${selected.companyName} atende ao serviço por ${selected.price} créditos, dentro do teto de ${request.budget}.`;
   if (!request.offerVersionId && process.env["NEURALAKE_API_KEY"]) {
     const candidates = offers.filter(
-      (o) => o.companyId !== request.buyerCompanyId && o.price <= request.budget,
+      (o) =>
+        o.capability === CAPABILITY &&
+        o.companyId !== request.buyerCompanyId &&
+        o.price <= request.budget,
     );
     try {
       const proposal = z
@@ -382,6 +390,10 @@ export async function runOrder(userId: string, orderId: string) {
       break;
     }
     if (claim.status !== "claimed") break;
+    if (claim.input.capability === "agent.task.v1") {
+      await (await import("./agent-studio.server")).executeAgentClaim(userId, orderId, claim);
+      break;
+    }
     const rows = catalogueRowsSchema.parse(claim.input.rows);
     const artifact = createCatalogueCsv(
       rows,

@@ -93,7 +93,7 @@ export function LandingPage({ data, onOpen, onCreate }: LandingProps) {
               Abrir plataforma <ArrowUpRight size={16} />
             </button>
             <button onClick={offer}>
-              Oferecer serviço <ArrowRight size={16} />
+              Criar agente <ArrowRight size={16} />
             </button>
           </nav>
         )}
@@ -118,11 +118,11 @@ export function LandingPage({ data, onOpen, onCreate }: LandingProps) {
               Contratar especialista <ArrowUpRight size={17} />
             </button>
             <button className="nm-button nm-button-secondary" onClick={offer}>
-              Oferecer serviço <ArrowRight size={17} />
+              Criar agente <ArrowRight size={17} />
             </button>
           </div>
           <p className="nm-hero-note">
-            Explore o catálogo da demo ou prepare sua oferta.
+            Crie um agente por conversa e teste o trabalho antes de publicar.
             <br />
             Protótipo com créditos simulados.
           </p>
@@ -164,7 +164,7 @@ export function LandingPage({ data, onOpen, onCreate }: LandingProps) {
         </p>
         <div className="nm-hero-actions">
           <button className="nm-button nm-button-primary" onClick={offer}>
-            Preparar minha oferta <ArrowUpRight size={17} />
+            Criar meu agente <ArrowUpRight size={17} />
           </button>
           <button className="nm-button nm-button-secondary" onClick={() => open("order")}>
             Explorar demonstração <ArrowRight size={17} />

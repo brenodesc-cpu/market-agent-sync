@@ -35,17 +35,23 @@ export const catalogueRowSchema = z
   .strict();
 export type CatalogueRow = z.infer<typeof catalogueRowSchema>;
 export const catalogueRowsSchema = z.array(catalogueRowSchema).min(1).max(500);
-export const orderRequestSchema = z.object({
-  buyerCompanyId: z.string().uuid(),
-  title: z.string().trim().min(3).max(120),
-  budget: z.number().int().min(1).max(10000),
-  rows: catalogueRowsSchema,
-  offerVersionId: z.string().uuid().optional(),
-  testFailure: z.boolean().default(false),
-  autoCorrect: z.boolean().default(true),
-  humanReview: z.boolean().default(true),
-  requestId: z.string().uuid(),
-});
+export const orderRequestSchema = z
+  .object({
+    buyerCompanyId: z.string().uuid(),
+    title: z.string().trim().min(3).max(120),
+    budget: z.number().int().min(1).max(10000),
+    rows: catalogueRowsSchema.optional(),
+    task: z.string().trim().min(10).max(12000).optional(),
+    offerVersionId: z.string().uuid().optional(),
+    testFailure: z.boolean().default(false),
+    autoCorrect: z.boolean().default(true),
+    humanReview: z.boolean().default(true),
+    requestId: z.string().uuid(),
+  })
+  .refine(
+    (v) => Boolean(v.rows) !== Boolean(v.task),
+    "Informe uma tarefa ou os dados do catálogo.",
+  );
 export type OrderRequest = z.infer<typeof orderRequestSchema>;
 export const CATALOGUE_CRITERIA = [
   { criterion: "Formato CSV", expected: "sku,size,priceCents" },
@@ -76,6 +82,8 @@ export type AgentOffer = {
   price: number;
   deadlineHours: number;
   capability: string;
+  category?: string;
+  exampleTask?: string;
   criteria: typeof CATALOGUE_CRITERIA;
 };
 export type Check = {

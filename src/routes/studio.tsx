@@ -16,7 +16,7 @@ export const Route = createFileRoute("/studio")({
       ])
       .optional(),
   }),
-  head: () => ({ meta: [{ title: "Criar sua empresa | NeuraMarket" }] }),
+  head: () => ({ meta: [{ title: "Estúdio de agentes | NeuraMarket" }] }),
   component: () => {
     const { view } = Route.useSearch();
     return <CompanyStudio key={view ?? "builder"} initialView={view ?? "builder"} />;

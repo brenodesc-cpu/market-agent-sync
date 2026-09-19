@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  ArrowUp,
   ArrowRight,
   Bot,
   Building2,
@@ -17,7 +16,6 @@ import {
   Menu,
   MessageSquare,
   Plus,
-  Send,
   Settings2,
   ShieldCheck,
   Sparkles,
@@ -33,23 +31,10 @@ import {
   loginReturnUrl,
   PUBLISHED_STUDIO,
 } from "@/lib/auth-flow";
-import {
-  CAPABILITY,
-  STARTER_DRAFT,
-  SAMPLE_ROWS,
-  companyDraftSchema,
-  createCatalogueCsv,
-  parseCatalogueCsv,
-} from "@/lib/a2a-contract";
-import type { CompanyDraft, AgentOffer } from "@/lib/a2a-contract";
 import type { StudioWorkspace, StudioDetails } from "@/lib/studio.types";
 import {
   getStudioBootstrap,
   getStudioWorkspace,
-  generateCompanyDraft,
-  publishCompany,
-  previewCatalogue,
-  placeStudioOrder,
   executeStudioOrder,
   getStudioOrder,
   cancelStudioOrder,
@@ -59,19 +44,20 @@ import {
   submitHumanReview,
   setCompanyCommercial,
 } from "@/lib/studio.functions";
-import { withStudioAccess, StudioAccessError, confirmThenRefresh } from "@/lib/studio-access";
-import { MissionPanel } from "./mission-panel";
+import { StudioAccessError } from "@/lib/studio-access";
+import { AgentMarket } from "./agent-market";
+import { AgentBuilder } from "./agent-builder";
+import { AgentOutput, downloadAgentFile } from "./agent-output";
 import { ReviewAssistant } from "./review-assistant";
 import "@/studio.css";
 
 type View =
   "mission" | "builder" | "companies" | "market" | "orders" | "wallet" | "api" | "integrations";
 type Bootstrap = Awaited<ReturnType<typeof getStudioBootstrap>>;
-type Preview = Awaited<ReturnType<typeof previewCatalogue>>;
 const navigation = [
   { id: "mission", label: "Meu agente", icon: Bot },
-  { id: "builder", label: "Criar empresa", icon: Plus },
-  { id: "companies", label: "Minhas empresas", icon: Building2 },
+  { id: "builder", label: "Criar agente", icon: Plus },
+  { id: "companies", label: "Meus agentes", icon: Building2 },
   { id: "market", label: "Marketplace", icon: Store },
   { id: "orders", label: "Pedidos", icon: FileCheck2 },
   { id: "wallet", label: "Carteira", icon: Wallet },
@@ -131,15 +117,6 @@ function friendlyError(error: unknown) {
     ? message
     : "Não foi possível concluir. Seus dados permanecem disponíveis; tente novamente.";
 }
-function download(content: string, filename: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 export function CompanyStudio({ initialView = "builder" }: { initialView?: View }) {
   const [view, setView] = useState<View>(initialView);
   const [sidebar, setSidebar] = useState(false);
@@ -157,28 +134,15 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
     agoraConfigured: false,
   });
   const [workspace, setWorkspace] = useState<StudioWorkspace>(EMPTY_WORKSPACE);
-  const [draft, setDraft] = useState<CompanyDraft>(STARTER_DRAFT);
-  const [started, setStarted] = useState(false);
-  const [prompt, setPrompt] = useState("");
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
-  const [previewTab, setPreviewTab] = useState<"company" | "service" | "test">("company");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [preview, setPreview] = useState<Preview | null>(null);
-  const [csv, setCsv] = useState(createCatalogueCsv(SAMPLE_ROWS));
   const [buyer, setBuyer] = useState("");
-  const [budget, setBudget] = useState(30);
-  const [selectedOffer, setSelectedOffer] = useState("");
-  const [testFailure, setTestFailure] = useState(false);
-  const [autoCorrect, setAutoCorrect] = useState(true);
   const [order, setOrder] = useState<StudioDetails | null>(null);
   const [note, setNote] = useState("");
   const [credential, setCredential] = useState("");
   const [apiCompany, setApiCompany] = useState("");
   const [origin, setOrigin] = useState("");
-  const publishId = useRef("");
-  const orderRequestId = useRef("");
   const alive = useRef(true);
   const activeUser = useRef(user);
   activeUser.current = user;
@@ -207,22 +171,6 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
       for (const key of ["error", "error_code", "error_description", "state"])
         clean.searchParams.delete(key);
       window.history.replaceState(window.history.state, "", clean.pathname + clean.search);
-    }
-    try {
-      const saved = localStorage.getItem("neuramarket:company-draft");
-      if (saved) {
-        setDraft(companyDraftSchema.parse(JSON.parse(saved)));
-        setStarted(true);
-      }
-      const pending = localStorage.getItem("neuramarket:pending-prompt");
-      if (pending) setPrompt(pending);
-      const initial = sessionStorage.getItem("neuramarket:initial-prompt");
-      if (initial) {
-        setPrompt(initial);
-        sessionStorage.removeItem("neuramarket:initial-prompt");
-      }
-    } catch {
-      /* An invalid local draft never blocks the editor. */
     }
     void getStudioBootstrap()
       .then((data) => {
@@ -274,12 +222,6 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
       setOrder(null);
     }
   }, [user]);
-  useEffect(() => {
-    if (started) localStorage.setItem("neuramarket:company-draft", JSON.stringify(draft));
-  }, [draft, started]);
-  useEffect(() => {
-    if (authReady) localStorage.setItem("neuramarket:pending-prompt", prompt);
-  }, [prompt, authReady]);
   const readiness = {
     checked: connectionReady && authReady,
     backendConfigured: bootstrap.backendConfigured,
@@ -290,10 +232,6 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
     setSidebar(false);
     setError("");
     setNotice("");
-  }
-  function updateDraft(update: Partial<CompanyDraft>) {
-    setDraft((current) => ({ ...current, ...update }));
-    publishId.current = "";
   }
   async function action(label: string, work: () => Promise<void>) {
     setBusy(label);
@@ -308,93 +246,10 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
       setBusy("");
     }
   }
-  async function buildCompany() {
-    if (!prompt.trim() || busy) return;
-    const request = prompt.trim();
-    await action("draft", async () => {
-      const proposal = await withStudioAccess("draft", readiness, user, () =>
-        generateCompanyDraft({ data: { prompt: request, current: draft } }),
-      );
-      setDraft(proposal);
-      setStarted(true);
-      setPrompt("");
-      publishId.current = "";
-      setMessages((current) => [
-        ...current,
-        { role: "user", text: request },
-        {
-          role: "assistant",
-          text: "A NeuraLake preparou este rascunho. Revise o nome, o serviço e o preço. Ao criar a empresa, registraremos o gerente e o especialista em catálogo. A oferta fica privada até você autorizar sua publicação.",
-        },
-      ]);
-    });
-  }
-  async function publish() {
-    if (busy) return;
-    await action("publish", async () => {
-      await withStudioAccess("publish", readiness, user, async () => {
-        const checked = companyDraftSchema.parse(draft);
-        if (!publishId.current) publishId.current = crypto.randomUUID();
-        const { result, refreshFailed } = await confirmThenRefresh(
-          () => publishCompany({ data: { requestId: publishId.current, draft: checked } }),
-          refresh,
-        );
-        setBuyer(result.companyId);
-        setApiCompany(result.companyId);
-        setView("companies");
-        setNotice(
-          refreshFailed
-            ? "Empresa criada. A lista não carregou; use Atualizar empresas."
-            : checked.visibility === "private"
-              ? "Empresa privada criada. Use Meu agente para executar uma tarefa ou contratar na rede."
-              : "Empresa publicada. Sua oferta já pode receber pedidos. Você tem 100 créditos simulados.",
-        );
-        localStorage.removeItem("neuramarket:company-draft");
-      });
-    });
-  }
-  async function testService(fail: boolean) {
-    await action("preview", async () => {
-      setPreview(
-        await previewCatalogue({ data: { rows: parseCatalogueCsv(csv), testFailure: fail } }),
-      );
-    });
-  }
   async function loadOrder(id: string) {
     await action("load-order", async () => {
       setOrder(await getStudioOrder({ data: { orderId: id } }));
       setView("orders");
-    });
-  }
-  async function hire() {
-    if (!user) {
-      setLogin(true);
-      return;
-    }
-    await action("hire", async () => {
-      const rows = parseCatalogueCsv(csv);
-      if (!buyer) throw new Error("Publique sua empresa antes de contratar.");
-      if (!orderRequestId.current) orderRequestId.current = crypto.randomUUID();
-      const created = await placeStudioOrder({
-        data: {
-          buyerCompanyId: buyer,
-          title: "Preparar catálogo para importação",
-          budget,
-          rows,
-          ...(selectedOffer ? { offerVersionId: selectedOffer } : {}),
-          testFailure,
-          autoCorrect,
-          humanReview: true,
-          requestId: orderRequestId.current,
-        },
-      });
-      setOrder(await getStudioOrder({ data: { orderId: created.orderId } }));
-      setView("orders");
-      await refresh();
-      setBusy("execute");
-      setOrder(await executeStudioOrder({ data: { orderId: created.orderId } }));
-      orderRequestId.current = "";
-      await refresh();
     });
   }
   async function execute() {
@@ -413,7 +268,6 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
       });
   }
   const offers = user ? workspace.offers : bootstrap.offers;
-  const buyerAccount = workspace.accounts.find((account) => account.company_id === buyer);
   const currentDelivery = order?.deliveries.find(
     (delivery) => delivery.version === order.order.current_delivery_version,
   );
@@ -443,7 +297,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
           <div>
             <strong>Meu espaço</strong>
             <small>
-              {user ? `${workspace.companies.length} empresas` : "Crie sua primeira empresa"}
+              {user ? `${workspace.companies.length} agentes` : "Crie seu primeiro agente"}
             </small>
           </div>
         </div>
@@ -490,44 +344,10 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             <strong>{navigation.find((item) => item.id === view)?.label}</strong>
           </div>
           <div className="studio-header-actions">
-            {view === "builder" && started && (
-              <span className="studio-draft-label">Rascunho salvo neste navegador</span>
-            )}
-            {view === "builder" ? (
-              <button
-                className="studio-primary"
-                disabled={!started || Boolean(busy) || !readiness.checked}
-                onClick={() => void publish()}
-              >
-                {busy === "publish" ? (
-                  <LoaderCircle className="animate-spin" size={16} />
-                ) : (
-                  <Globe size={16} />
-                )}
-                {user
-                  ? draft.visibility === "private"
-                    ? "Criar empresa privada"
-                    : "Publicar empresa"
-                  : "Entrar para criar"}
-              </button>
-            ) : (
-              <button
-                className="studio-secondary"
-                onClick={() => {
-                  localStorage.removeItem("neuramarket:company-draft");
-                  setStarted(false);
-                  setDraft(STARTER_DRAFT);
-                  setMessages([]);
-                  setPreview(null);
-                  publishId.current = "";
-                  navigate("builder");
-                }}
-              >
-                {" "}
-                <Plus size={16} />
-                Nova empresa
-              </button>
-            )}
+            <button className="studio-secondary" onClick={() => navigate("builder")}>
+              <Plus size={16} />
+              Criar agente
+            </button>
           </div>
         </header>
         {(error || notice) && (
@@ -552,13 +372,13 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
           <div className="studio-connection-notice" role="status">
             <strong>
               {!bootstrap.backendConfigured
-                ? "Este endereço permite apenas editar e testar rascunhos"
+                ? "Este ambiente precisa do servidor conectado"
                 : "A criação com IA está indisponível neste ambiente"}
             </strong>
             <p>
               {!bootstrap.backendConfigured
                 ? "A criação dos agentes e a publicação precisam do servidor conectado. Seu rascunho permanece neste navegador."
-                : "Você pode editar e publicar manualmente. Sua descrição será preservada até a conexão com a NeuraLake estar disponível."}
+                : "A criação e os testes dos agentes precisam da conexão com a NeuraLake. Use a versão online para continuar."}
             </p>
             {origin && new URL(origin).hostname !== "market-agent-sync.lovable.app" && (
               <a className="studio-secondary" href="https://market-agent-sync.lovable.app/studio">
@@ -568,370 +388,38 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
           </div>
         )}
 
-        {view === "builder" && !started && (
-          <div className="studio-welcome">
-            <div className="studio-orbit">
-              <Bot size={26} />
-            </div>
-            <span className="studio-eyebrow">DA IDEIA À PRIMEIRA CONTRATAÇÃO</span>
-            <h1>Qual empresa vamos criar?</h1>
-            <p>
-              Descreva o que você quer oferecer.
-              <br />
-              Revise a configuração e crie seus agentes. Você escolhe se a oferta fica privada ou
-              aparece na rede. O serviço disponível nesta versão é a organização de catálogos em
-              CSV.
-            </p>
-            <form
-              className="studio-composer welcome-composer"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void buildCompany();
-              }}
-            >
-              <textarea
-                aria-label="Descreva sua empresa"
-                placeholder="Uma empresa que prepara catálogos para lojas online..."
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                maxLength={3000}
-              />
-              <div>
-                <span>
-                  <Sparkles size={14} />{" "}
-                  {user && bootstrap.neuralakeConfigured
-                    ? "NeuraLake"
-                    : !bootstrap.neuralakeConfigured
-                      ? "IA indisponível neste ambiente"
-                      : "Entre para criar com IA"}
-                </span>
-                <button
-                  aria-label="Criar configuração da empresa"
-                  disabled={!prompt.trim() || Boolean(busy) || !readiness.checked}
-                >
-                  <ArrowUp size={20} />
-                </button>
-              </div>
-            </form>
-            <div className="studio-suggestions">
-              {[
-                "Uma operação de e-commerce",
-                "Um estúdio de dados",
-                "Minha primeira empresa de agentes",
-              ].map((text) => (
-                <button key={text} onClick={() => setPrompt(text)}>
-                  <Plus size={14} />
-                  {text}
-                </button>
-              ))}
-            </div>
-            <button
-              className="studio-text-button"
-              onClick={() => {
-                setStarted(true);
-                setMessages([
-                  {
-                    role: "assistant",
-                    text: "Configure o nome, a oferta e o preço ao lado. Você pode testar o catálogo antes de publicar.",
-                  },
-                ]);
-              }}
-            >
-              Prefiro configurar manualmente <ArrowRight size={15} />
-            </button>
-            <div className="studio-welcome-foot">
-              <ShieldCheck size={15} /> Seu primeiro serviço já vem com uma verificação de entrega.
-            </div>
-          </div>
-        )}
-
-        {view === "builder" && started && (
-          <div className="studio-builder">
-            <section className="studio-chat">
-              <div className="studio-chat-heading">
-                <span className="studio-agent-icon">
-                  <Sparkles size={17} />
-                </span>
-                <div>
-                  <strong>Vamos montar sua empresa</strong>
-                  <small>
-                    {user && bootstrap.neuralakeConfigured
-                      ? "Assistente NeuraLake"
-                      : "Editor da empresa"}
-                  </small>
-                </div>
-              </div>
-              <div className="studio-chat-messages">
-                {messages.length === 0 && (
-                  <div className="studio-chat-message assistant">
-                    Seu rascunho foi restaurado. Os agentes serão criados quando você publicar a
-                    empresa.
-                  </div>
-                )}
-                {messages.map((message, i) => (
-                  <div key={i} className={`studio-chat-message ${message.role}`}>
-                    {message.role === "assistant" && <Sparkles size={14} />}
-                    <p>{message.text}</p>
-                  </div>
-                ))}
-                {busy === "draft" && (
-                  <div className="studio-chat-message assistant">
-                    <LoaderCircle className="animate-spin" size={16} />
-                    Preparando sua configuração...
-                  </div>
-                )}
-                <div className="studio-chat-plan">
-                  <span>Depois da publicação</span>
-                  <p>
-                    <Check size={15} /> Receber pedidos de outros agentes
-                  </p>
-                  <p>
-                    <Check size={15} /> Entregar catálogos em CSV
-                  </p>
-                  <p>
-                    <Check size={15} /> Contratar especialistas da rede
-                  </p>
-                  <p>
-                    <ShieldCheck size={15} /> Receber após a verificação
-                  </p>
-                </div>
-              </div>
-              <form
-                className="studio-composer"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void buildCompany();
-                }}
-              >
-                <textarea
-                  aria-label="Ajustar a configuração"
-                  placeholder={
-                    user ? "Peça um ajuste na empresa..." : "Descreva melhor sua ideia..."
-                  }
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
-                  maxLength={3000}
-                />
-                <div>
-                  <span>
-                    <MessageSquare size={14} />A configuração fica ao lado
-                  </span>
-                  <button disabled={Boolean(busy) || !prompt.trim()} aria-label="Enviar ajuste">
-                    <ArrowUp size={18} />
-                  </button>
-                </div>
-              </form>
-            </section>
-            <section className="studio-preview">
-              <div className="studio-preview-toolbar">
-                <div>
-                  {(["company", "service", "test"] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      className={previewTab === tab ? "active" : ""}
-                      onClick={() => setPreviewTab(tab)}
-                    >
-                      {tab === "company" ? "Empresa" : tab === "service" ? "Serviço" : "Testar"}
-                    </button>
-                  ))}
-                </div>
-                <span>
-                  <Globe size={13} />
-                  Prévia
-                </span>
-              </div>
-              <div className="studio-preview-canvas">
-                {previewTab === "company" && (
-                  <>
-                    <div className="studio-company-banner">
-                      <span className="studio-company-mark">
-                        {draft.name.slice(0, 1).toUpperCase()}
-                      </span>
-                      <span className="studio-tag light">Empresa de agentes</span>
-                      <h2>{draft.name}</h2>
-                      <p>{draft.description}</p>
-                    </div>
-                    <div className="studio-config-card">
-                      <h3>Sua empresa</h3>
-                      <label>
-                        Visibilidade
-                        <select
-                          value={draft.visibility}
-                          onChange={(e) =>
-                            updateDraft({ visibility: e.target.value as "private" | "commercial" })
-                          }
-                        >
-                          <option value="private">Privada, apenas para mim</option>
-                          <option value="commercial">Comercial, oferecer no marketplace</option>
-                        </select>
-                      </label>
-                      <label>
-                        Nome
-                        <input
-                          value={draft.name}
-                          onChange={(e) => updateDraft({ name: e.target.value })}
-                          maxLength={70}
-                        />
-                      </label>
-                      <label>
-                        O que ela faz
-                        <textarea
-                          value={draft.description}
-                          onChange={(e) => updateDraft({ description: e.target.value })}
-                          maxLength={1000}
-                        />
-                      </label>
-                      <p className="studio-help">
-                        A empresa pode contratar serviços e oferecer a capacidade executável abaixo.
-                      </p>
-                    </div>
-                    <div className="studio-agent-grid">
-                      <div>
-                        <Bot />
-                        <strong>Gerente (ao publicar)</strong>
-                        <p>Escolhe fornecedores dentro do orçamento.</p>
-                      </div>
-                      <div>
-                        <FileCheck2 />
-                        <strong>Especialista (ao publicar)</strong>
-                        <p>Prepara o catálogo contratado.</p>
-                      </div>
-                      <div>
-                        <ShieldCheck />
-                        <strong>Verificação da plataforma</strong>
-                        <p>Confere a entrega antes do pagamento.</p>
-                      </div>
-                    </div>
-                  </>
-                )}
-                {previewTab === "service" && (
-                  <div className="studio-config-card">
-                    <span className="studio-tag">Executor disponível</span>
-                    <h2>Uma oferta que pode ser executada</h2>
-                    <label>
-                      Nome do serviço
-                      <input
-                        value={draft.serviceTitle}
-                        onChange={(e) => updateDraft({ serviceTitle: e.target.value })}
-                        maxLength={100}
-                      />
-                    </label>
-                    <label>
-                      Preço em créditos simulados
-                      <input
-                        type="number"
-                        min={1}
-                        max={1000}
-                        value={draft.price}
-                        onChange={(e) => updateDraft({ price: Number(e.target.value) })}
-                      />
-                    </label>
-                    <div className="studio-service-explainer">
-                      <strong>Catálogo pronto para importar</strong>
-                      <p>
-                        Recebe SKU, tamanho e preço. Entrega um CSV com as colunas padronizadas e os
-                        produtos organizados.
-                      </p>
-                    </div>
-                    <h3>Critérios do contrato</h3>
-                    {[
-                      "Arquivo CSV legível",
-                      "Todos os produtos preservados",
-                      "Preços iguais aos dados originais",
-                      "SKU e tamanho sem duplicatas",
-                    ].map((text) => (
-                      <p className="studio-check-line" key={text}>
-                        <ShieldCheck size={16} />
-                        {text}
-                      </p>
-                    ))}
-                    <p className="studio-help">
-                      Inclui uma correção. Comissão da plataforma: 10% sobre a contratação
-                      concluída, arredondada em créditos inteiros.
-                    </p>
-                    <button className="studio-secondary" onClick={() => setPreviewTab("test")}>
-                      Testar o serviço <ArrowRight size={16} />
-                    </button>
-                  </div>
-                )}
-                {previewTab === "test" && (
-                  <div className="studio-config-card">
-                    <span className="studio-tag">Prévia sem contratação</span>
-                    <h2>Veja a verificação funcionando</h2>
-                    <p>Edite os produtos e gere uma entrega. Esse teste não movimenta créditos.</p>
-                    <label>
-                      Dados de origem
-                      <textarea
-                        className="studio-code-input"
-                        aria-label="CSV para testar"
-                        value={csv}
-                        onChange={(e) => {
-                          setCsv(e.target.value);
-                          setPreview(null);
-                        }}
-                      />
-                    </label>
-                    <div className="studio-button-row">
-                      <button
-                        className="studio-primary"
-                        disabled={Boolean(busy)}
-                        onClick={() => void testService(false)}
-                      >
-                        Gerar e verificar
-                      </button>
-                      <button
-                        className="studio-secondary"
-                        disabled={Boolean(busy)}
-                        onClick={() => void testService(true)}
-                      >
-                        Testar preço incorreto
-                      </button>
-                    </div>
-                    {preview && (
-                      <div className="studio-preview-result">
-                        <span className={`studio-status ${preview.decision}`}>
-                          {preview.decision === "approved"
-                            ? "Entrega aprovada"
-                            : "Entrega reprovada"}
-                        </span>
-                        <p>
-                          {preview.decision === "rejected"
-                            ? "A entrega falhou neste teste. Em uma contratação, o pagamento ficaria bloqueado."
-                            : preview.summary}
-                        </p>
-                        {preview.checks.map((check) => (
-                          <div className="studio-evidence" key={check.criterion}>
-                            <span>
-                              {check.status === "passed" ? <Check size={16} /> : <X size={16} />}
-                            </span>
-                            <div>
-                              <strong>{check.criterion}</strong>
-                              <small>{check.evidence}</small>
-                            </div>
-                          </div>
-                        ))}
-                        <button
-                          className="studio-text-button"
-                          onClick={() => download(preview.content, "catalogo-preview.csv")}
-                        >
-                          <Download size={15} />
-                          Baixar o arquivo gerado
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
+        {view === "builder" && (
+          <AgentBuilder
+            key={user ?? "visitor"}
+            userId={user}
+            ready={
+              readiness.checked && bootstrap.backendConfigured && bootstrap.neuralakeConfigured
+            }
+            onLogin={() => setLogin(true)}
+            onSaved={async (id, published) => {
+              setBuyer(id);
+              setApiCompany(id);
+              setView("companies");
+              setNotice(
+                published
+                  ? "Agente publicado. Ele já pode receber pedidos no marketplace."
+                  : "Agente salvo. Use Meu agente para executar tarefas ou contratar especialistas.",
+              );
+              try {
+                await refresh();
+              } catch {
+                setNotice("Agente salvo. Use Atualizar agentes para carregar a lista.");
+              }
+            }}
+          />
         )}
 
         {view === "companies" && (
           <div className="studio-page">
             <PageTitle
               eyebrow="SEU ESPAÇO"
-              title="Suas empresas"
-              description="Veja as empresas publicadas e os agentes registrados no banco."
+              title="Seus agentes"
+              description="Use seus especialistas e gerencie os serviços que você oferece na rede."
             />
             {user && (
               <button
@@ -939,21 +427,21 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                 disabled={Boolean(busy)}
                 onClick={() => void action("refresh", refresh)}
               >
-                Atualizar empresas
+                Atualizar agentes
               </button>
             )}
             {!user ? (
               <Empty
-                title="Entre para publicar sua primeira empresa"
+                title="Entre para criar seu primeiro agente"
                 text="Seu rascunho continua salvo neste navegador."
                 action="Entrar"
                 onClick={() => setLogin(true)}
               />
             ) : workspace.companies.length === 0 ? (
               <Empty
-                title="Sua primeira empresa começa com uma ideia"
+                title="Seu primeiro agente começa com uma ideia"
                 text="Descreva o serviço, revise a oferta e publique no marketplace."
-                action="Criar empresa"
+                action="Criar agente"
                 onClick={() => navigate("builder")}
               />
             ) : (
@@ -971,7 +459,13 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                         </span>
                       </div>
                       <h2>{company.name}</h2>
-                      <button className="studio-text-button" onClick={() => navigate("mission")}>
+                      <button
+                        className="studio-text-button"
+                        onClick={() => {
+                          setBuyer(company.id);
+                          navigate("mission");
+                        }}
+                      >
                         Usar meu agente
                       </button>
                       {company.visibility === "commercial" && (
@@ -1035,8 +529,11 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
           </div>
         )}
 
-        {view === "mission" && (
-          <MissionPanel
+        {(view === "mission" || view === "market") && (
+          <AgentMarket
+            key={`${view}:${user ?? "visitor"}`}
+            mode={view}
+            initialCompany={buyer}
             workspace={{ ...workspace, offers }}
             signedIn={!!user}
             onLogin={() => setLogin(true)}
@@ -1047,194 +544,6 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               setView("orders");
             }}
           />
-        )}
-
-        {view === "market" && (
-          <div className="studio-page">
-            <PageTitle
-              eyebrow="EMPRESAS QUE TRABALHAM JUNTAS"
-              title="Contrate um especialista"
-              description="Seu gerente encontra uma oferta, reserva o valor e acompanha a entrega."
-            />
-            <div className="studio-market-layout">
-              <section className="studio-order-form">
-                <h3>O que sua empresa precisa?</h3>
-                <p>Preparar um catálogo de produtos para importação.</p>
-                <label>
-                  Empresa compradora
-                  <select
-                    value={buyer}
-                    onChange={(e) => {
-                      setBuyer(e.target.value);
-                      orderRequestId.current = "";
-                    }}
-                  >
-                    <option value="">Selecione sua empresa</option>
-                    {workspace.companies.map((c) => (
-                      <option value={c.id} key={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Fornecedor
-                  <select
-                    value={selectedOffer}
-                    onChange={(e) => {
-                      setSelectedOffer(e.target.value);
-                      orderRequestId.current = "";
-                    }}
-                  >
-                    <option value="">Meu agente escolhe</option>
-                    {offers
-                      .filter((o) => o.companyId !== buyer)
-                      .map((o) => (
-                        <option value={o.id} key={o.id}>
-                          {o.companyName} · {o.price} créditos
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label>
-                  Catálogo de origem
-                  <textarea
-                    className="studio-code-input"
-                    value={csv}
-                    onChange={(e) => {
-                      setCsv(e.target.value);
-                      orderRequestId.current = "";
-                    }}
-                  />
-                </label>
-                <div className="studio-file-row">
-                  <label className="studio-text-button">
-                    Carregar CSV
-                    <input
-                      type="file"
-                      accept=".csv,text/csv"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file && file.size > 128000) {
-                          setError("Use um CSV de até 128 KB.");
-                          return;
-                        }
-                        if (file)
-                          void file.text().then((text) => {
-                            setCsv(text);
-                            orderRequestId.current = "";
-                          });
-                      }}
-                    />
-                  </label>
-                  <span>Preço em centavos · até 500 produtos</span>
-                </div>
-                <label>
-                  Orçamento máximo
-                  <input
-                    type="number"
-                    min={1}
-                    max={10000}
-                    value={budget}
-                    onChange={(e) => {
-                      setBudget(Number(e.target.value));
-                      orderRequestId.current = "";
-                    }}
-                  />
-                </label>
-                <p className="studio-help">
-                  Saldo disponível: {buyerAccount?.available_units ?? 0} créditos simulados. O valor
-                  é reservado antes da execução.
-                </p>
-                <details className="studio-demo-options">
-                  <summary>Opções da demonstração</summary>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={testFailure}
-                      onChange={(e) => {
-                        setTestFailure(e.target.checked);
-                        orderRequestId.current = "";
-                      }}
-                    />
-                    Introduzir um erro de preço na primeira entrega
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={autoCorrect}
-                      onChange={(e) => {
-                        setAutoCorrect(e.target.checked);
-                        orderRequestId.current = "";
-                      }}
-                    />
-                    Pedir a correção automaticamente
-                  </label>
-                </details>
-                <button
-                  className="studio-primary wide"
-                  disabled={Boolean(busy) || (Boolean(user) && !buyer) || offers.length === 0}
-                  onClick={() => void hire()}
-                >
-                  {busy ? <LoaderCircle size={16} className="animate-spin" /> : <Send size={16} />}
-                  Delegar ao meu agente
-                </button>
-                {user && !buyer && (
-                  <button className="studio-text-button" onClick={() => navigate("builder")}>
-                    Publique uma empresa para contratar <ArrowRight size={14} />
-                  </button>
-                )}
-              </section>
-              <section className="studio-provider-list">
-                <h3>
-                  Ofertas da rede <span>{offers.length}</span>
-                </h3>
-                {offers.length === 0 && (
-                  <Empty
-                    title="O catálogo está sendo preparado"
-                    text={
-                      bootstrap.setupMessage ??
-                      "Ative a migração do estúdio no Lovable para disponibilizar os fornecedores."
-                    }
-                    action="Ver integrações"
-                    onClick={() => navigate("integrations")}
-                  />
-                )}
-                {offers.map((offer) => (
-                  <article
-                    key={offer.id}
-                    className={`studio-provider-card ${selectedOffer === offer.id ? "selected" : ""}`}
-                  >
-                    <div>
-                      <span className="studio-provider-avatar">
-                        {offer.companyName.slice(0, 1)}
-                      </span>
-                      <span className="studio-tag">Verificação incluída</span>
-                    </div>
-                    <h3>{offer.companyName}</h3>
-                    <strong>{offer.title}</strong>
-                    <p>{offer.description}</p>
-                    <footer>
-                      <b>
-                        {offer.price}
-                        <small> créditos</small>
-                      </b>
-                      <button
-                        className="studio-secondary"
-                        disabled={offer.companyId === buyer}
-                        onClick={() => {
-                          setSelectedOffer(offer.id);
-                          orderRequestId.current = "";
-                        }}
-                      >
-                        {offer.companyId === buyer ? "Sua empresa" : "Selecionar"}
-                      </button>
-                    </footer>
-                  </article>
-                ))}
-              </section>
-            </div>
-          </div>
         )}
 
         {view === "orders" && (
@@ -1279,14 +588,15 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                             <FileCheck2 size={34} />
                             <div>
                               <strong>{currentDelivery.file_name}</strong>
-                              <p>CSV gerado pela empresa fornecedora</p>
+                              <p>Trabalho entregue pelo agente fornecedor</p>
                             </div>
                             <button
                               className="studio-secondary"
                               onClick={() =>
-                                download(
+                                downloadAgentFile(
                                   currentDelivery.artifact_content ?? "",
                                   currentDelivery.file_name,
+                                  currentDelivery.media_type,
                                 )
                               }
                               disabled={!currentDelivery.artifact_content}
@@ -1296,6 +606,9 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                             </button>
                           </div>
                           <code className="studio-file-hash">SHA-256 {currentDelivery.sha256}</code>
+                          {currentDelivery.artifact_content && (
+                            <AgentOutput value={currentDelivery.artifact_content} />
+                          )}
                           {currentDelivery.test_upload && (
                             <p className="studio-help">
                               Cenário de teste identificado. A primeira entrega recebeu um erro
@@ -1623,13 +936,20 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             <div className="studio-section-card">
               <h3>Consumo da NeuraLake</h3>
               <p className="studio-help">
-                Tokens e duração reportados nas escolhas de fornecedor. Não são descontados da
+                Tokens e duração das execuções e escolhas de fornecedor. Não são descontados da
                 carteira de demonstração.
               </p>
               {workspace.inference?.length ? (
                 workspace.inference.map((run) => (
                   <div className="studio-ledger-row" key={run.id}>
-                    <span>Escolha de fornecedor · {(run.duration_ms / 1000).toFixed(1)} s</span>
+                    <span>
+                      {run.task_type === "private_execution"
+                        ? "Execução privada"
+                        : run.task_type === "supplier_execution"
+                          ? "Trabalho contratado"
+                          : "Escolha de fornecedor"}{" "}
+                      · {(run.duration_ms / 1000).toFixed(1)} s
+                    </span>
                     <strong>{run.usage_data?.total_tokens ?? "Não informado"} tokens</strong>
                   </div>
                 ))
@@ -1750,7 +1070,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               <h3>Descobrir ofertas</h3>
               <pre>{`GET ${origin}/api/a2a/offers`}</pre>
               <h3>Criar uma contratação</h3>
-              <pre>{`POST ${origin}/api/a2a/orders\nAuthorization: Bearer $NM_AGENT_KEY\nContent-Type: application/json\n\n${JSON.stringify({ title: "Preparar catálogo", budget: 30, rows: SAMPLE_ROWS, testFailure: false, autoCorrect: true, requestId: "UUID único por contratação" }, null, 2)}`}</pre>
+              <pre>{`POST ${origin}/api/a2a/orders\nAuthorization: Bearer $NM_AGENT_KEY\nContent-Type: application/json\n\n${JSON.stringify({ title: "Proposta comercial", budget: 30, task: "Escreva uma proposta de gestão de redes sociais para uma loja de roupas. Valor mensal de R$ 2.000.", requestId: "UUID único por contratação" }, null, 2)}`}</pre>
               <p className="studio-help">
                 A resposta informa a URL de execução. Repita a mesma solicitação com o mesmo
                 requestId para recuperar o pedido, sem criar outra contratação.
@@ -1793,8 +1113,11 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                 <FileCheck2 />
               </span>
               <div>
-                <h3>Executor de catálogo</h3>
-                <p>Gera arquivos CSV e verifica produtos, preços e identificadores.</p>
+                <h3>Verificação das entregas</h3>
+                <p>
+                  Confere o formato e as seções combinadas. O comprador avalia a qualidade antes de
+                  pagar.
+                </p>
               </div>
               <span className="studio-tag">Disponível</span>
             </div>
@@ -1804,7 +1127,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               </span>
               <div>
                 <h3>NeuraLake</h3>
-                <p>Configuração da empresa, escolha de fornecedores e explicação das evidências.</p>
+                <p>Criação dos agentes, escolha de especialistas e execução dos trabalhos.</p>
               </div>
               <span className="studio-tag">
                 {bootstrap.neuralakeConfigured ? "Chave configurada" : "Configuração pendente"}
@@ -1825,8 +1148,8 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             <details className="studio-setup-guide">
               <summary>Configuração para a equipe de desenvolvimento</summary>
               <p>
-                Aplicar a migração <code>0004_company_studio_and_a2a.sql</code> pelo Lovable. Ela
-                cria o cadastro transacional, os fornecedores de catálogo e as operações A2A.
+                Aplicar as migrações até <code>0010_neuralake_specialists.sql</code> pelo Lovable.
+                Elas criam os agentes, os contratos e as operações A2A.
               </p>
               <p>
                 Configurar os segredos no Lovable: <code>NEURALAKE_API_KEY</code>,{" "}
@@ -1870,7 +1193,6 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               disabled={Boolean(busy)}
               onClick={() =>
                 void action("login", async () => {
-                  localStorage.setItem("neuramarket:company-draft", JSON.stringify(draft));
                   const result = await lovable.auth.signInWithOAuth("google");
                   if (result.error) throw result.error;
                 })
@@ -1884,7 +1206,6 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                 event.preventDefault();
                 void action("login", async () => {
                   const redirectTo = loginReturnUrl(window.location.href);
-                  localStorage.setItem("neuramarket:company-draft", JSON.stringify(draft));
                   const result = await supabase.auth.signInWithOtp({
                     email: email.trim(),
                     options: { emailRedirectTo: redirectTo },

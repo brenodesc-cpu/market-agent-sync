@@ -47,8 +47,11 @@ export async function handleAgentApi(request: Request, path: string) {
       if (!delivery?.artifact_content) return json({ error: "artifact_not_found" }, 404);
       return new Response(delivery.artifact_content, {
         headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename="catalogo-v${delivery.version}.csv"`,
+          "Content-Type":
+            delivery.media_type === "application/json"
+              ? "application/json; charset=utf-8"
+              : "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="entrega-v${delivery.version}.${delivery.media_type === "application/json" ? "json" : "csv"}"`,
           "Cache-Control": "no-store",
           "X-Content-SHA256": delivery.sha256,
         },

@@ -73,6 +73,7 @@ before(() => {
     "0005_apply_pending_company_studio",
     "0006_restrict_unpublished_catalogue",
     "0008_complete_agent_chain",
+    "0010_neuralake_specialists",
   ]) {
     sql(readFileSync(new URL(`../drizzle/migrations/${file}.sql`, import.meta.url), "utf8"));
   }
@@ -457,5 +458,182 @@ test("reapplying the deployment migration preserves private visibility, contract
   assert.equal(
     sql(`SELECT requires_human_review FROM contracts WHERE order_id='${o.orderId}'`),
     "t",
+  );
+});
+
+function specialist() {
+  const user = randomUUID(),
+    trial = randomUUID(),
+    hash = "f".repeat(64);
+  const config = {
+    name: "Agente de propostas",
+    description: "Prepara propostas comerciais com os dados fornecidos.",
+    serviceTitle: "Proposta comercial",
+    category: "Vendas",
+    capability: "agent.task.v1",
+    instructions: "Escreva propostas completas, com premissas explícitas e linguagem simples.",
+    knowledge: "Referência privada do fornecedor",
+    sections: ["Briefing, objetivo", 'Entrega "combinada"'],
+    exampleTask: "Faça uma proposta comercial para uma loja",
+    model: "reasoning",
+    price: 15,
+    visibility: "commercial",
+  };
+  sql(
+    `INSERT INTO agent_trials(id,user_id,definition_hash,task,artifact_content,report,sha256,duration_ms) VALUES('${trial}','${user}','${hash}','Teste de proposta','{}','{"decision":"approved"}','${hash}',100);`,
+  );
+  const result = call(
+    `studio_create_specialist('${user}','${randomUUID()}',${j(config)},'${hash}','${trial}')`,
+  );
+  return { user, trial, hash, config, ...result };
+}
+function specialistOrder(s = specialist()) {
+  const buyer = company(),
+    version = sql(`SELECT id FROM offer_versions WHERE offer_id='${s.offerId}'`);
+  const payload = {
+    buyerCompanyId: buyer.companyId,
+    offerVersionId: version,
+    requestId: randomUUID(),
+    title: "Proposta para a loja",
+    task: "Prepare uma proposta de marketing por 2000 reais por mês.",
+    budget: 30,
+    humanReview: false,
+  };
+  return {
+    ...buyer,
+    ...call(`studio_place_agent_order('${buyer.user}',${j(payload)})`),
+    payload,
+    s,
+  };
+}
+test("specialist publishing requires the caller's successful test of the current execution definition", () => {
+  const s = specialist();
+  assert.throws(
+    () =>
+      call(
+        `studio_create_specialist('${randomUUID()}','${randomUUID()}',${j(s.config)},'${s.hash}','${s.trial}')`,
+      ),
+    /successful_current_agent_trial_required/,
+  );
+  assert.throws(
+    () =>
+      call(
+        `studio_create_specialist('${s.user}','${randomUUID()}',${j(s.config)},'changed','${s.trial}')`,
+      ),
+    /successful_current_agent_trial_required/,
+  );
+  assert.throws(
+    () =>
+      sql(
+        `SET ROLE authenticated; SELECT definition FROM agent_definitions WHERE company_id='${s.companyId}'`,
+      ),
+    /permission denied/,
+  );
+  assert.throws(
+    () => sql(`SET ROLE anon; SELECT artifact_content FROM agent_trials`),
+    /permission denied/,
+  );
+  assert.throws(
+    () => sql(`UPDATE agent_definitions SET definition='{}' WHERE company_id='${s.companyId}'`),
+    /immutable/,
+  );
+  const publicData = sql(
+    `SET ROLE anon; SELECT output_format::text FROM offer_versions WHERE offer_id='${s.offerId}'`,
+  );
+  assert.ok(!publicData.includes(s.config.knowledge));
+  assert.ok(!publicData.includes(s.config.instructions));
+});
+test("generic specialist contract preserves exact section names, requires human review and settles once", async () => {
+  const { verifyAgentResult, agentCriteria } = await import("../src/lib/agent-definition.ts");
+  const o = specialistOrder();
+  assert.deepEqual(
+    call(`agent_acceptance_criteria(${j(o.s.config.sections)})`),
+    agentCriteria(o.s.config.sections),
+  );
+  const c = claim(o);
+  assert.equal(c.input.capability, "agent.task.v1");
+  assert.equal(c.input.humanReview, true);
+  assert.ok(c.input.definitionId);
+  const content = JSON.stringify({
+    title: "Proposta comercial",
+    sections: o.s.config.sections.map((heading) => ({
+      heading,
+      content: "Esta é a proposta baseada nas informações fornecidas.",
+    })),
+    artifacts: [],
+  });
+  const report = verifyAgentResult(o.s.config.sections, content);
+  const d = call(
+    `studio_record_agent_delivery('${o.orderId}','${c.token}',${q(content)},${j(report)})`,
+  );
+  assert.equal(balance(o), "85,15,0");
+  assert.throws(
+    () => call(`settle_verified_order('${o.orderId}','bypass')`),
+    /human_approval_required/,
+  );
+  const rid = sql(`SELECT id FROM verification_reports WHERE delivery_id='${d.deliveryId}'`);
+  for (let i = 0; i < 2; i++)
+    call(
+      `studio_review_delivery('${o.user}','${o.orderId}','${d.deliveryId}','${rid}','${d.sha256}','approved','Revisei o conteúdo da proposta.')`,
+    );
+  assert.equal(balance(o), "85,0,15");
+  assert.equal(
+    sql(
+      `SELECT count(*) FROM ledger_entries WHERE order_id='${o.orderId}' AND entry_type='receipt'`,
+    ),
+    "1",
+  );
+  assert.equal(
+    sql(`SELECT media_type FROM deliveries WHERE id='${d.deliveryId}'`),
+    "application/json",
+  );
+});
+test("provider failure releases its execution lease while funds stay reserved for retry or cancellation", () => {
+  const o = specialistOrder(),
+    c = claim(o);
+  call(`studio_release_execution('${o.user}','${o.orderId}','${c.token}')`);
+  assert.equal(balance(o), "85,15,0");
+  assert.equal(sql(`SELECT status FROM orders WHERE id='${o.orderId}'`), "contracted");
+  const retry = claim(o);
+  assert.notEqual(retry.token, c.token);
+  assert.throws(
+    () =>
+      call(
+        `studio_record_agent_delivery('${o.orderId}','${c.token}','{}','{"decision":"approved","checks":[]}'::jsonb)`,
+      ),
+    /stale_execution/,
+  );
+  call(`studio_cancel_order('${o.user}','${o.orderId}')`);
+  assert.equal(balance(o), "100,0,0");
+  assert.throws(
+    () =>
+      call(
+        `studio_record_agent_delivery('${o.orderId}','${retry.token}','{}','{"decision":"approved","checks":[]}'::jsonb)`,
+      ),
+    /stale_execution/,
+  );
+});
+test("specialist RPCs are server-only and orders cannot exceed a budget or buy their own service", () => {
+  const o = specialistOrder();
+  assert.throws(
+    () =>
+      sql(
+        `SET ROLE authenticated; SELECT studio_place_agent_order('${o.user}',${j({ ...o.payload, requestId: randomUUID() })})`,
+      ),
+    /permission denied/,
+  );
+  assert.throws(
+    () =>
+      call(
+        `studio_place_agent_order('${o.user}',${j({ ...o.payload, budget: 1, requestId: randomUUID() })})`,
+      ),
+    /invalid_contract_price/,
+  );
+  assert.throws(
+    () =>
+      call(
+        `studio_place_agent_order('${o.s.user}',${j({ ...o.payload, buyerCompanyId: o.s.companyId, requestId: randomUUID() })})`,
+      ),
+    /offer_unavailable/,
   );
 });

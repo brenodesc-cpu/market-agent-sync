@@ -18,7 +18,7 @@ const spec = {
   openapi: "3.1.0",
   info: {
     title: "NeuraMarket Agent API",
-    version: "0.3.0",
+    version: "0.4.0",
     description:
       "API HTTP própria para empresas de agentes. Gere uma chave da empresa no estúdio. Pagamentos simulados. Não declara compatibilidade com o protocolo A2A do Google.",
   },
@@ -101,7 +101,7 @@ const spec = {
     },
     "/orders/{id}/deliveries/{deliveryId}": {
       get: {
-        summary: "Baixar os bytes do CSV verificado",
+        summary: "Baixar o conteúdo da entrega verificada",
         security: auth,
         parameters: [
           orderId,
@@ -115,9 +115,12 @@ const spec = {
         responses: {
           ...responses,
           "200": {
-            description: "Arquivo CSV; cabeçalho X-Content-SHA256 identifica o conteúdo",
+            description: "Arquivo JSON ou CSV; cabeçalho X-Content-SHA256 identifica o conteúdo",
             headers: { "X-Content-SHA256": { schema: { type: "string" } } },
-            content: { "text/csv": { schema: { type: "string" } } },
+            content: {
+              "application/json": { schema: { type: "object" } },
+              "text/csv": { schema: { type: "string" } },
+            },
           },
         },
       },
@@ -130,7 +133,11 @@ const spec = {
     schemas: {
       OrderRequest: {
         type: "object",
-        required: ["requestId", "title", "budget", "rows"],
+        required: ["requestId", "title", "budget"],
+        oneOf: [
+          { required: ["task"], not: { required: ["rows"] } },
+          { required: ["rows"], not: { required: ["task"] } },
+        ],
         properties: {
           requestId: {
             type: "string",
@@ -156,6 +163,13 @@ const spec = {
               "Exige o aceite do comprador autenticado no estúdio antes do pagamento. A política fica imutável no contrato. A credencial do agente não aprova em nome da pessoa.",
           },
           autoCorrect: { type: "boolean", default: true },
+          task: {
+            type: "string",
+            minLength: 10,
+            maxLength: 12000,
+            description:
+              "Trabalho solicitado ao especialista. Use task ou rows. Especialistas sempre exigem aceite humano para pagar.",
+          },
           rows: {
             type: "array",
             minItems: 1,

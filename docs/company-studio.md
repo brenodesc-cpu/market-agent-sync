@@ -1,55 +1,38 @@
-# Estúdio e contratação entre empresas
+# Estúdio de agentes e marketplace
 
-A rota `/studio` permite criar uma empresa privada por conversa com a NeuraLake, executar seu catálogo e publicar uma oferta com autorização do dono. O botão Criar empresa da página inicial abre esse estúdio. A demonstração anterior continua em `/demo`.
+## Fluxo atual
 
-## Demonstração completa
+Em `/studio?view=builder`, descreva um especialista. A NeuraLake produz instruções, material de referência, estrutura de entrega, tarefa de exemplo e preço. A conversa permite ajustar a definição, e a configuração permite editar instruções e referências. Testar agente executa o trabalho com a NeuraLake e apresenta o conteúdo recebido, inclusive arquivos e uma prévia HTML isolada de scripts e acesso à rede.
 
-1. Entrar com Google ou e-mail, descrever a empresa e revisar a configuração. Criar como privada registra os agentes e 100 créditos simulados; a oferta permanece oculta. Em Meu agente, executar o catálogo e conferir o resultado. Depois autorizar a publicação da oferta se quiser comercializar a capacidade.
-2. No marketplace, escolher a empresa compradora, informar o catálogo e o orçamento. Deixar o fornecedor automático para o gerente escolher. A escolha usa NeuraLake quando disponível; a alternativa por menor preço fica identificada no histórico.
-3. Marcar o erro de preço da primeira entrega e deixar a correção automática desmarcada. Delegar. O servidor reserva o preço, entrega um CSV real e compara os produtos e preços com a origem contratada.
-4. Abrir o pedido: a evidência identifica SKU, tamanho, preço esperado e preço recebido. Baixar o arquivo e conferir seu SHA-256. A reserva permanece bloqueada.
-5. Solicitar correção. A versão nova passa pela mesma verificação. O responsável comprador confere o arquivo, registra o motivo e aprova essa versão para liberar o pagamento uma única vez. A carteira mostra o valor recebido e a comissão simulada de 10%, arredondada para baixo em créditos inteiros.
-6. Repetir a execução de um pedido liquidado ou cancelar um pedido aberto. As operações repetidas não duplicam pagamento ou devolução.
+É preciso um teste aprovado da configuração atual antes de salvar. Nome, preço e visibilidade podem mudar sem refazer a execução. Instruções, referências, seções ou capacidade de inferência diferentes exigem novo teste. O backend confere o dono, a identificação da configuração e o relatório do teste. A definição persistida é imutável; para outra configuração de um agente já salvo, crie outro especialista. Os rascunhos ficam na sessão do navegador, separados por usuário.
 
-A prévia do editor permite testar o verificador sem autenticação e sem movimentar saldo. A publicação, as contratações e as credenciais exigem login. Rascunhos permanecem neste navegador.
+Salvar registra um agente privado ou uma oferta comercial, conforme a escolha explícita, e concede 100 créditos simulados para a demonstração. A execução privada usa as mesmas instruções da oferta. No marketplace, descreva o trabalho e o orçamento. O comprador pode indicar o especialista ou pedir que a NeuraLake escolha uma oferta compatível. A ausência de uma capacidade compatível gera uma mensagem para criar o agente; não substituímos por um fornecedor de outra área.
+
+A contratação reserva o preço, executa a definição privada do fornecedor, salva JSON e SHA-256 e verifica a estrutura combinada. O responsável comprador lê o conteúdo e aprova ou solicita uma correção. O pagamento simulado depende desse aceite e acontece uma única vez. Uma falha da NeuraLake libera a execução para nova tentativa, mantendo a reserva; cancelar devolve os créditos.
+
+## Limites e infraestrutura
+
+A capacidade `agent.task.v1` aceita tarefas arbitrárias de análise de texto, escrita, planejamento e geração de código/HTML. O agente não navega na internet, não executa código, não envia mensagens e não publica sites. Integrações externas dependem de ferramentas adicionais. A NeuraLake fornece inferência na API; a configuração de instruções não treina um modelo próprio. O aplicativo mantém o estado e os contratos no banco do Lovable.
+
+As verificações automáticas conferem JSON, campos, seções e tamanho. Elas não certificam fatos, criatividade, funcionamento do código nem resultado comercial. Por isso o contrato de especialistas sempre exige aceite humano. Instruções e referências não ficam no catálogo público; o conteúdo das referências pode participar da resposta produzida pelo agente. Não colocar credenciais ou segredos na base.
+
+A capacidade anterior `catalog.normalize.v1` continua atendendo contratos existentes e clientes antigos da API. O estúdio e o marketplace principais usam especialistas. Os créditos são simulados. A Agora depende das credenciais ainda ausentes. A API HTTP é própria, sem declaração de conformidade com o protocolo Google A2A.
 
 ## Os cinco desafios
 
 | Desafio | Implementação |
 | --- | --- |
-| Negócio autônomo | Gerente escolhe um fornecedor e coordena uma execução iniciada pelo cliente, com uma correção automática opcional. |
-| Marketplace | Empresas publicadas entram no mesmo cadastro dos fornecedores iniciais, sem adicionar IDs no código comprador. |
-| Economia | Comparação entre executar e contratar com premissas editáveis, reserva transacional, orçamento máximo, devolução, comissão e saldo reutilizável. |
-| Produto para agentes | API autenticada por empresa permite descobrir ofertas, contratar, executar e consumir CSV e evidências. |
-| Confiança | Verificação independente compara o arquivo com a origem imutável. Contratos novos exigem também o aceite autenticado do comprador, vinculado ao arquivo e relatório atuais. |
+| Negócio autônomo | Um pedido inicia a escolha de fornecedor e a execução automática com a NeuraLake. O responsável aceita o resultado. |
+| Marketplace | Especialistas publicados recebem pedidos de outros agentes. |
+| Economia | Orçamento máximo, reserva, cancelamento, comissão de 10% e pagamento único em créditos simulados. |
+| Produto para agentes | API com credencial por empresa recebe tarefas e devolve arquivos e evidências estruturadas. |
+| Confiança | Critérios imutáveis, verificação de formato, versão e SHA-256, seguida de aceite humano do conteúdo. |
 
-O serviço implementado é `catalog.normalize.v1`: organizar um catálogo de até 500 produtos em CSV, preservando SKU, tamanho e preço em centavos. O executor é determinístico. Criar outra empresa publica outra oferta dessa capacidade; não gera código para executar qualquer negócio descrito pelo usuário. Novas capacidades exigem executor e verificador próprios. A API é um protocolo HTTP próprio, sem declaração de conformidade com Google A2A.
+## Publicação e validação
 
-## Publicação de 19/09/2026
+A migração `0010_neuralake_specialists.sql` cria definições privadas, evidências de teste e contratos para a nova capacidade. Preserva os contratos antigos e limita as funções administrativas ao servidor. Código validado com 55 testes de aplicação e 22 testes PostgreSQL, além de TypeScript e build. Aplicação remota e inferência real dos novos especialistas serão registradas após a confirmação do ambiente.
 
-O Google gerenciado está habilitado com e-mail e perfil básico, mantendo o acesso por e-mail. O clique no site publicado chegou à página oficial do Google. A sessão pessoal e a contratação autenticada no navegador ainda não foram concluídas nesta conferência.
-
-O Lovable aplicou a migração 0008 no banco conectado, registrada como 0009. A versão 35a421e foi publicada. A tela `/studio?view=mission` carregou o catálogo, o OpenAPI retornou versão 0.3.0 e documentou `/missions`. Uma chamada sem credencial foi rejeitada. Passaram 50 testes da aplicação e 18 do PostgreSQL, além da compilação. A execução remota com uma credencial real de comprador ainda precisa de conferência.
-
-A NeuraLake respondeu ao teste realizado pelo Lovable. As credenciais da Agora continuam ausentes. Os testes automatizados dessa integração usam respostas controladas, sem comprovar áudio real. O verificador do Lovable ainda lista avisos gerais sobre funções SQL privilegiadas e caminho de busca. As operações financeiras testadas permanecem restritas ao servidor; não foi feita uma auditoria completa de segurança.
-
-## Aplicar no Lovable
-
-Aplicar `drizzle/migrations/0004_company_studio_and_a2a.sql` depois das migrações existentes. O SQL adiciona arquivos persistidos, operações transacionais, credenciais de agentes e dois fornecedores executáveis. Não apagar os pedidos antigos nem recriar contratos para obter aprovações.
-
-O servidor precisa de `SUPABASE_SERVICE_ROLE_KEY`, além da configuração pública de Supabase que o projeto já usa. A chave administrativa nunca deve ser enviada ao navegador. Confirmar `NEURALAKE_API_KEY` nos Secrets. Para o áudio, seguir [Verificação e Agora](verification-agora.md).
-
-Em 19/09/2026, o Lovable confirmou a aplicação da migração 0004, a contratação completa no banco remoto e uma resposta da NeuraLake. O catálogo remoto também retornou Atlas Dados e Prisma Commerce na conferência local. Ainda falta testar a interface com uma conta autenticada e uma chamada real da Agora.
-
-O Lovable confirmou a aplicação de `0006_restrict_unpublished_catalogue.sql`, registrada no histórico remoto como `0007_restrict_unpublished_catalogue.sql`. As políticas limitam versões de ofertas privadas e capacidades internas aos membros da empresa. O catálogo publicado continua acessível. Os 11 testes PostgreSQL do estúdio incluem essa restrição.
-
-### Editor e publicação, correção de 19/09
-
-A prévia local não tinha as chaves administrativas e da NeuraLake. O editor agora verifica a configuração e a sessão antes de gerar ou publicar. Ele preserva o pedido quando há falha ou login pendente, e só confirma a geração após uma resposta real da NeuraLake. A edição manual continua disponível. A tela mostra o limite do ambiente local e o endereço online.
-
-Depois da publicação, Minhas empresas exibe os agentes efetivamente consultados no banco. A transação cria um gerente e um especialista em catálogo. O verificador é um serviço da plataforma. Uma falha ao atualizar a lista depois da gravação não aparece como uma falha de publicação e não provoca uma segunda criação.
-
-Cinco testes cobrem os bloqueios de sessão e configuração, falha da IA e falha de leitura após publicação. O teste PostgreSQL também confere os dois agentes ativos após uma publicação repetida. O fluxo autenticado no navegador ainda precisa ser concluído. O erro inicial do provedor Google foi corrigido após a autorização explícita do responsável.
+## Histórico técnico anterior
 
 ## Estado do login em 19/09/2026
 
@@ -62,11 +45,11 @@ O cliente agora impede a navegação local ao 404, preserva o rascunho, explica 
 A documentação executável está em `GET /api/public/openapi`. No estúdio, Conectar agentes cria uma credencial vinculada a uma empresa. O valor aparece uma vez; o banco guarda apenas SHA-256. Revogar bloqueia requisições novas. Não usar credenciais reais em capturas ou na demonstração pública.
 
 - `GET /api/a2a/offers`: ofertas e critérios públicos.
-- `POST /api/a2a/orders`: cria contrato e reserva, usando a empresa da credencial. Informar UUID `requestId`, título, orçamento e linhas. O UUID deve permanecer igual em tentativas da mesma solicitação.
+- `POST /api/a2a/orders`: cria contrato e reserva, usando a empresa da credencial. Informar UUID `requestId`, título, orçamento e `task` (ou `rows` para pedidos antigos). O UUID deve permanecer igual em tentativas da mesma solicitação.
 - `POST /api/a2a/missions`: cria e executa a contratação em uma chamada. `accepted` significa que os testes passaram e o contrato aguarda o aceite humano.
 - `POST /api/a2a/orders/{id}/run`: executa e verifica. Permite retomar uma execução interrompida.
 - `GET /api/a2a/orders/{id}`: contrato, entregas, evidências e eventos dentro do escopo da empresa.
-- `GET /api/a2a/orders/{id}/deliveries/{deliveryId}`: CSV e cabeçalho `X-Content-SHA256`.
+- `GET /api/a2a/orders/{id}/deliveries/{deliveryId}`: JSON ou CSV e cabeçalho `X-Content-SHA256`.
 - `POST /api/a2a/orders/{id}/cancel`: comprador encerra a contratação e recupera a reserva antes da liquidação.
 
 Cada chamada autenticada recebe `Authorization: Bearer <credencial>`. O cliente deve consultar o pedido após uma falha de rede. Uma execução abandonada pode ser retomada depois de dois minutos. A concessão de execução usa um token temporário; um trabalhador antigo não pode gravar depois de outro assumir ou de o pedido ser cancelado.
@@ -77,9 +60,9 @@ A migração `0008_complete_agent_chain.sql` adiciona empresas privadas, execuç
 
 O aceite usa usuário autenticado, pedido, entrega, relatório e SHA-256 atuais. Falha objetiva impede a aprovação humana. A credencial comercial do agente não autoriza o aceite pessoal. Cancelar e aprovar disputam o mesmo bloqueio: só uma operação movimenta a reserva. Ser fornecedor não autoriza o aceite: a sessão precisa pertencer ao dono da empresa compradora. Uma pessoa pode administrar duas empresas distintas na demonstração.
 
-Meu agente compara o custo próprio e a contratação para a quantidade de usos prevista. As premissas são editáveis e identificadas como estimativas em créditos simulados; não medem o custo de construir um executor arbitrário. O catálogo interno não consome inferência. A carteira mostra tokens retornados pela NeuraLake nas decisões comerciais quando o provedor os informa. Os créditos do hackathon não equivalem a dinheiro.
+O comparador manual de custos pertence ao protótipo anterior. O novo fluxo mostra o preço das ofertas, o orçamento disponível e o consumo de tokens informado pela NeuraLake. Ainda não estima o custo de criar qualquer especialista. Os créditos do hackathon não equivalem a dinheiro.
 
-O cliente externo `scripts/buyer-agent.mjs` envia uma missão pela API, recebe o arquivo e confere seu hash. Configure `NM_AGENT_KEY` no ambiente e execute `node scripts/buyer-agent.mjs pedido.json`. O JSON precisa de `title`, `budget` e `rows`; o programa grava `requestId` antes de chamar a API para permitir uma repetição segura. O pagamento aguarda o aceite no site.
+O cliente externo `scripts/buyer-agent.mjs` envia uma missão pela API, recebe o arquivo e confere seu hash. Configure `NM_AGENT_KEY` no ambiente e execute `node scripts/buyer-agent.mjs pedido.json`. O JSON precisa de `title`, `budget` e `task` (ou `rows` no formato anterior); o programa grava `requestId` antes de chamar a API para permitir uma repetição segura. O pagamento aguarda o aceite no site.
 
 A Agora permanece condicionada aos Secrets do projeto. Ela explica as evidências; a conversa por voz não substitui o clique autenticado de aceite nem altera o contrato.
 

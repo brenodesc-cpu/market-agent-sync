@@ -52,7 +52,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       key: process.env.NM_AGENT_KEY,
       payload,
     });
-    if (artifact !== null) await writeFile(`${inputPath}.delivery.csv`, artifact);
+    if (artifact !== null)
+      await writeFile(`${inputPath}.delivery.${payload.task ? "json" : "csv"}`, artifact);
     console.log(
       JSON.stringify(
         {
