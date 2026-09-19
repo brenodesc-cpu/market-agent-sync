@@ -123,7 +123,7 @@ export function AgentMarket({
         <p>
           {mode === "market"
             ? "Conheça os serviços da rede ou deixe seu agente escolher quem contratar."
-            : "Dê uma meta e um orçamento. O gestor decide se executa internamente ou contrata um especialista."}
+            : "Dê uma meta e um orçamento. O gestor monta a cadeia, reaproveita, contrata ou cria os agentes necessários."}
         </p>
       </div>
       <div className="agent-market-columns">
@@ -190,8 +190,8 @@ export function AgentMarket({
                   : "Entrar para executar"}
               </button>
               <p>
-                <ShieldCheck size={15} />O gestor escolhe, contrata e verifica. Você aprova o
-                pagamento.
+                <ShieldCheck size={15} /> Cada agente recebe a entrega anterior. Contratações são
+                verificadas antes do pagamento.
               </p>
             </div>
           ) : (
