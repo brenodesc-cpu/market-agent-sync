@@ -64,7 +64,9 @@ Domínios: `amount` inteiro >= 0; `from`/`to` endereço ou `null`; `memo` até 2
 - Regras por tipo:
   - `MINT`: `from` nulo, `to` obrigatório, `amount > 0`. Só a tesouraria assina.
   - `TRANSFER` e `FEE`: `from` e `to` obrigatórios e distintos, `amount > 0`.
-  - `RESERVE` e `RELEASE`: `from` obrigatório, `to` é a conta de custódia, `amount > 0`.
+  - `RESERVE`: `from` é o comprador, `to` é a conta de custódia, `amount > 0`.
+  - `RELEASE`: `from` é a conta de custódia, `to` é o comprador, `amount > 0`.
+    É a devolução da reserva; a direção é oposta à de `RESERVE`.
   - `ANCHOR`: `amount = 0`, `to` nulo, `payload_hash` obrigatório. Não move saldo.
     É o registro de que um artefato (entrega ou relatório) existia com aquele conteúdo.
 
@@ -119,11 +121,19 @@ A função devolve `{ valid, height, issues }`, onde cada issue traz
 - `chain_transactions(id uuid PK, txid text UNIQUE, chain_id text, type text,
   from_address text, to_address text, amount_units bigint CHECK >= 0,
   nonce integer, ref_kind text, ref_id text, payload_hash text, memo text,
-  issued_at timestamptz, signature text, canonical text, block_height integer REFERENCES
-  chain_blocks(height), block_index integer, status text em pending/sealed,
-  idempotency_key text UNIQUE, created_at timestamptz)`
+  issued_at timestamptz, signature text, public_key text, canonical text,
+  block_height integer REFERENCES chain_blocks(height), block_index integer,
+  status text em pending/sealed, idempotency_key text UNIQUE, created_at timestamptz)`
+  `public_key` é a chave pública que produziu a assinatura, guardada junto da transação
+  para que a verificação seja possível sem consultar `chain_wallets`. A regra 6 da validação
+  exige que o endereço derivado dela seja igual a `from_address`, e em `MINT` igual ao
+  endereço da tesouraria.
 - `chain_wallets(id uuid PK, company_id uuid UNIQUE REFERENCES companies(id) ON DELETE CASCADE,
-  address text UNIQUE, public_key text, key_version integer, created_at timestamptz)`
+  kind text em company/treasury/custody, address text UNIQUE, public_key text,
+  key_version integer, created_at timestamptz)`
+  Carteiras de sistema (tesouraria e custódia) têm `company_id` nulo e são distinguidas por
+  `kind`. Um índice único parcial sobre `kind` onde `company_id IS NULL` garante que exista
+  no máximo uma tesouraria e uma custódia.
 - `chain_wallet_keys(wallet_id uuid PK REFERENCES chain_wallets(id) ON DELETE CASCADE,
   encrypted_private_key text, iv text, auth_tag text, created_at timestamptz)`
 - `chain_anchors(id uuid PK, block_height integer REFERENCES chain_blocks(height), network text,
