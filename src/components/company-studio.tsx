@@ -27,7 +27,12 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { isLocalPreview, loginCallbackError, loginReturnUrl, PUBLISHED_STUDIO } from "@/lib/auth-flow";
+import {
+  isLocalPreview,
+  loginCallbackError,
+  loginReturnUrl,
+  PUBLISHED_STUDIO,
+} from "@/lib/auth-flow";
 import {
   CAPABILITY,
   STARTER_DRAFT,
@@ -51,15 +56,20 @@ import {
   createAgentKey,
   revokeAgentKey,
   addReviewClarification,
+  submitHumanReview,
+  setCompanyCommercial,
 } from "@/lib/studio.functions";
 import { withStudioAccess, StudioAccessError, confirmThenRefresh } from "@/lib/studio-access";
+import { MissionPanel } from "./mission-panel";
 import { ReviewAssistant } from "./review-assistant";
 import "@/studio.css";
 
-type View = "builder" | "companies" | "market" | "orders" | "wallet" | "api" | "integrations";
+type View =
+  "mission" | "builder" | "companies" | "market" | "orders" | "wallet" | "api" | "integrations";
 type Bootstrap = Awaited<ReturnType<typeof getStudioBootstrap>>;
 type Preview = Awaited<ReturnType<typeof previewCatalogue>>;
 const navigation = [
+  { id: "mission", label: "Meu agente", icon: Bot },
   { id: "builder", label: "Criar empresa", icon: Plus },
   { id: "companies", label: "Minhas empresas", icon: Building2 },
   { id: "market", label: "Marketplace", icon: Store },
@@ -85,7 +95,7 @@ const STATUS: Record<string, string> = {
   verifying: "Verificando",
   revision_requested: "Correção necessária",
   verification_inconclusive: "Revisão pendente",
-  accepted: "Verificado",
+  accepted: "Aguardando seu aceite",
   settled: "Pagamento concluído",
   cancelled: "Cancelado",
   expired: "Expirado",
@@ -150,8 +160,8 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
   const [buyer, setBuyer] = useState("");
   const [budget, setBudget] = useState(30);
   const [selectedOffer, setSelectedOffer] = useState("");
-  const [testFailure, setTestFailure] = useState(true);
-  const [autoCorrect, setAutoCorrect] = useState(false);
+  const [testFailure, setTestFailure] = useState(false);
+  const [autoCorrect, setAutoCorrect] = useState(true);
   const [order, setOrder] = useState<StudioDetails | null>(null);
   const [note, setNote] = useState("");
   const [credential, setCredential] = useState("");
@@ -184,7 +194,8 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
       setLogin(true);
       const clean = new URL(window.location.href);
       clean.hash = "";
-      for (const key of ["error", "error_code", "error_description", "state"]) clean.searchParams.delete(key);
+      for (const key of ["error", "error_code", "error_description", "state"])
+        clean.searchParams.delete(key);
       window.history.replaceState(window.history.state, "", clean.pathname + clean.search);
     }
     try {
@@ -208,18 +219,29 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
         if (alive.current) setBootstrap(data);
       })
       .catch(() => {
-        if (alive.current) setError("Não conseguimos verificar a conexão do estúdio. Recarregue a página antes de continuar.");
+        if (alive.current)
+          setError(
+            "Não conseguimos verificar a conexão do estúdio. Recarregue a página antes de continuar.",
+          );
       })
-      .finally(() => { if (alive.current) setConnectionReady(true); });
-    void supabase.auth.getSession().then(({ data, error: sessionError }) => {
-      if (sessionError) throw sessionError;
-      if (alive.current) {
-        setUser(data.session?.user.id ?? null);
-        setAuthReady(true);
-      }
-    }).catch(() => {
-      if (alive.current) { setAuthReady(true); setError("Não foi possível verificar sua sessão. Entre novamente."); }
-    });
+      .finally(() => {
+        if (alive.current) setConnectionReady(true);
+      });
+    void supabase.auth
+      .getSession()
+      .then(({ data, error: sessionError }) => {
+        if (sessionError) throw sessionError;
+        if (alive.current) {
+          setUser(data.session?.user.id ?? null);
+          setAuthReady(true);
+        }
+      })
+      .catch(() => {
+        if (alive.current) {
+          setAuthReady(true);
+          setError("Não foi possível verificar sua sessão. Entre novamente.");
+        }
+      });
     const listener = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user.id ?? null);
       setAuthReady(true);
@@ -248,7 +270,11 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
   useEffect(() => {
     if (authReady) localStorage.setItem("neuramarket:pending-prompt", prompt);
   }, [prompt, authReady]);
-  const readiness = { checked: connectionReady && authReady, backendConfigured: bootstrap.backendConfigured, neuralakeConfigured: bootstrap.neuralakeConfigured };
+  const readiness = {
+    checked: connectionReady && authReady,
+    backendConfigured: bootstrap.backendConfigured,
+    neuralakeConfigured: bootstrap.neuralakeConfigured,
+  };
   function navigate(next: View) {
     setView(next);
     setSidebar(false);
@@ -286,7 +312,10 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
       setMessages((current) => [
         ...current,
         { role: "user", text: request },
-        { role: "assistant", text: "A NeuraLake preparou este rascunho. Revise o nome, o serviço e o preço. Ao publicar, criaremos no banco o gerente e o especialista em catálogo da empresa." },
+        {
+          role: "assistant",
+          text: "A NeuraLake preparou este rascunho. Revise o nome, o serviço e o preço. Ao publicar, criaremos no banco o gerente e o especialista em catálogo da empresa.",
+        },
       ]);
     });
   }
@@ -303,9 +332,13 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
         setBuyer(result.companyId);
         setApiCompany(result.companyId);
         setView("companies");
-        setNotice(refreshFailed
-          ? "Empresa e agentes publicados. A lista não carregou; use Atualizar empresas. A publicação já foi concluída."
-          : "Empresa publicada com seu gerente e seu especialista em catálogo. A oferta já pode receber pedidos e você tem 100 créditos simulados.");
+        setNotice(
+          refreshFailed
+            ? "Empresa criada. A lista não carregou; use Atualizar empresas."
+            : checked.visibility === "private"
+              ? "Empresa privada criada. Use Meu agente para executar uma tarefa ou contratar na rede."
+              : "Empresa publicada. Sua oferta já pode receber pedidos. Você tem 100 créditos simulados.",
+        );
         localStorage.removeItem("neuramarket:company-draft");
       });
     });
@@ -341,6 +374,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
           ...(selectedOffer ? { offerVersionId: selectedOffer } : {}),
           testFailure,
           autoCorrect,
+          humanReview: true,
           requestId: orderRequestId.current,
         },
       });
@@ -460,7 +494,11 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                 ) : (
                   <Globe size={16} />
                 )}
-                {user ? "Publicar empresa" : "Entrar para publicar"}
+                {user
+                  ? draft.visibility === "private"
+                    ? "Criar empresa privada"
+                    : "Publicar empresa"
+                  : "Entrar para criar"}
               </button>
             ) : (
               <button
@@ -502,12 +540,20 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
 
         {connectionReady && (!bootstrap.backendConfigured || !bootstrap.neuralakeConfigured) && (
           <div className="studio-connection-notice" role="status">
-            <strong>{!bootstrap.backendConfigured ? "Este endereço permite apenas editar e testar rascunhos" : "A criação com IA está indisponível neste ambiente"}</strong>
-            <p>{!bootstrap.backendConfigured
-              ? "A criação dos agentes e a publicação precisam do servidor conectado. Seu rascunho permanece neste navegador."
-              : "Você pode editar e publicar manualmente. Sua descrição será preservada até a conexão com a NeuraLake estar disponível."}</p>
+            <strong>
+              {!bootstrap.backendConfigured
+                ? "Este endereço permite apenas editar e testar rascunhos"
+                : "A criação com IA está indisponível neste ambiente"}
+            </strong>
+            <p>
+              {!bootstrap.backendConfigured
+                ? "A criação dos agentes e a publicação precisam do servidor conectado. Seu rascunho permanece neste navegador."
+                : "Você pode editar e publicar manualmente. Sua descrição será preservada até a conexão com a NeuraLake estar disponível."}
+            </p>
             {origin && new URL(origin).hostname !== "market-agent-sync.lovable.app" && (
-              <a className="studio-secondary" href="https://market-agent-sync.lovable.app/studio">Abrir versão online <ArrowRight size={15} /></a>
+              <a className="studio-secondary" href="https://market-agent-sync.lovable.app/studio">
+                Abrir versão online <ArrowRight size={15} />
+              </a>
             )}
           </div>
         )}
@@ -522,8 +568,8 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             <p>
               Descreva o que você quer oferecer.
               <br />
-              Revise a configuração e publique para criar seus agentes.
-              O serviço disponível nesta versão é a organização de catálogos em CSV.
+              Revise a configuração e publique para criar seus agentes. O serviço disponível nesta
+              versão é a organização de catálogos em CSV.
             </p>
             <form
               className="studio-composer welcome-composer"
@@ -544,9 +590,14 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                   <Sparkles size={14} />{" "}
                   {user && bootstrap.neuralakeConfigured
                     ? "NeuraLake"
-                    : !bootstrap.neuralakeConfigured ? "IA indisponível neste ambiente" : "Entre para criar com IA"}
+                    : !bootstrap.neuralakeConfigured
+                      ? "IA indisponível neste ambiente"
+                      : "Entre para criar com IA"}
                 </span>
-                <button aria-label="Criar configuração da empresa" disabled={!prompt.trim() || Boolean(busy) || !readiness.checked}>
+                <button
+                  aria-label="Criar configuração da empresa"
+                  disabled={!prompt.trim() || Boolean(busy) || !readiness.checked}
+                >
                   <ArrowUp size={20} />
                 </button>
               </div>
@@ -602,7 +653,8 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               <div className="studio-chat-messages">
                 {messages.length === 0 && (
                   <div className="studio-chat-message assistant">
-                    Seu rascunho foi restaurado. Os agentes serão criados quando você publicar a empresa.
+                    Seu rascunho foi restaurado. Os agentes serão criados quando você publicar a
+                    empresa.
                   </div>
                 )}
                 {messages.map((message, i) => (
@@ -690,6 +742,18 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                     </div>
                     <div className="studio-config-card">
                       <h3>Sua empresa</h3>
+                      <label>
+                        Visibilidade
+                        <select
+                          value={draft.visibility}
+                          onChange={(e) =>
+                            updateDraft({ visibility: e.target.value as "private" | "commercial" })
+                          }
+                        >
+                          <option value="private">Privada, apenas para mim</option>
+                          <option value="commercial">Comercial, oferecer no marketplace</option>
+                        </select>
+                      </label>
                       <label>
                         Nome
                         <input
@@ -858,7 +922,15 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               title="Suas empresas"
               description="Veja as empresas publicadas e os agentes registrados no banco."
             />
-            {user && <button className="studio-secondary" disabled={Boolean(busy)} onClick={() => void action("refresh", refresh)}>Atualizar empresas</button>}
+            {user && (
+              <button
+                className="studio-secondary"
+                disabled={Boolean(busy)}
+                onClick={() => void action("refresh", refresh)}
+              >
+                Atualizar empresas
+              </button>
+            )}
             {!user ? (
               <Empty
                 title="Entre para publicar sua primeira empresa"
@@ -883,20 +955,51 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                         <span className="studio-company-mark small">
                           {company.name.slice(0, 1)}
                         </span>
-                        <span className="studio-tag">Publicada</span>
+                        <span className="studio-tag">
+                          {company.visibility === "private" ? "Privada" : "Comercial"}
+                        </span>
                       </div>
                       <h2>{company.name}</h2>
+                      <button className="studio-text-button" onClick={() => navigate("mission")}>
+                        Usar meu agente
+                      </button>
+                      {company.visibility === "commercial" && (
+                        <button
+                          className="studio-text-button"
+                          disabled={!!busy}
+                          onClick={() =>
+                            void action("visibility", async () => {
+                              await setCompanyCommercial({
+                                data: { companyId: company.id, enabled: false },
+                              });
+                              await refresh();
+                            })
+                          }
+                        >
+                          Retirar oferta do marketplace
+                        </button>
+                      )}
                       <p>{company.description}</p>
                       <div className="studio-registered-agents">
                         <strong>Agentes criados</strong>
-                        {workspace.agents.filter((agent) => agent.company_id === company.id).map((agent) => (
-                          <details key={agent.id}>
-                            <summary>{agent.name} · {agent.active ? "Ativo" : "Inativo"}</summary>
-                            <p>{agent.instructions}</p>
-                            <small>{agent.model === "deterministic" ? "Executor de catálogo" : "NeuraLake · " + agent.model}</small>
-                          </details>
-                        ))}
-                        {!workspace.agents.some((agent) => agent.company_id === company.id) && <p>Nenhum agente registrado para esta empresa.</p>}
+                        {workspace.agents
+                          .filter((agent) => agent.company_id === company.id)
+                          .map((agent) => (
+                            <details key={agent.id}>
+                              <summary>
+                                {agent.name} · {agent.active ? "Ativo" : "Inativo"}
+                              </summary>
+                              <p>{agent.instructions}</p>
+                              <small>
+                                {agent.model === "deterministic"
+                                  ? "Executor de catálogo"
+                                  : "NeuraLake · " + agent.model}
+                              </small>
+                            </details>
+                          ))}
+                        {!workspace.agents.some((agent) => agent.company_id === company.id) && (
+                          <p>Nenhum agente registrado para esta empresa.</p>
+                        )}
                       </div>
                       <div className="studio-card-balance">
                         <strong>
@@ -919,6 +1022,20 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               </div>
             )}
           </div>
+        )}
+
+        {view === "mission" && (
+          <MissionPanel
+            workspace={{ ...workspace, offers }}
+            signedIn={!!user}
+            onLogin={() => setLogin(true)}
+            onCreate={() => navigate("builder")}
+            onRefresh={refresh}
+            onOrder={(detail) => {
+              setOrder(detail);
+              setView("orders");
+            }}
+          />
         )}
 
         {view === "market" && (
@@ -1205,6 +1322,103 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                         </p>
                       )}
                     </div>
+                    {order.contract.requires_human_review && currentDelivery && currentReport && (
+                      <div className="studio-section-card">
+                        <h3>Seu aceite libera o pagamento</h3>
+                        <p>
+                          Confira o arquivo e as evidências. Você pode conversar com a Agora abaixo
+                          antes de decidir. O aceite vale apenas para esta versão.
+                        </p>
+                        {order.humanReviews
+                          ?.filter((r) => r.delivery_id === currentDelivery.id)
+                          .map((r) => (
+                            <p key={r.id}>
+                              <strong>
+                                {r.decision === "approved"
+                                  ? "Aprovado pelo responsável"
+                                  : "Correção solicitada pelo responsável"}
+                              </strong>
+                              : {r.note}
+                            </p>
+                          ))}
+                        {buyerOwned &&
+                          !["settled", "cancelled", "expired"].includes(order.order.status) &&
+                          !order.humanReviews?.some(
+                            (r) => r.delivery_id === currentDelivery.id,
+                          ) && (
+                            <>
+                              <label>
+                                Motivo da decisão
+                                <textarea
+                                  value={note}
+                                  onChange={(e) => setNote(e.target.value)}
+                                  maxLength={1500}
+                                  placeholder="O que você conferiu ou o que precisa ser corrigido?"
+                                />
+                              </label>
+                              <div className="studio-order-actions">
+                                <button
+                                  className="studio-primary"
+                                  disabled={
+                                    !!busy ||
+                                    note.trim().length < 3 ||
+                                    currentReport.decision !== "approved"
+                                  }
+                                  onClick={() =>
+                                    void action("human-review", async () => {
+                                      const updated = await submitHumanReview({
+                                        data: {
+                                          orderId: order.order.id,
+                                          deliveryId: currentDelivery.id,
+                                          reportId: currentReport.id,
+                                          sha256: currentDelivery.sha256,
+                                          decision: "approved",
+                                          note,
+                                        },
+                                      });
+                                      setOrder(updated);
+                                      setNote("");
+                                      await refresh();
+                                    })
+                                  }
+                                >
+                                  Aprovar e liberar {order.contract.price_units} créditos
+                                </button>
+                                <button
+                                  className="studio-secondary"
+                                  disabled={!!busy || note.trim().length < 3}
+                                  onClick={() =>
+                                    void action("human-review", async () => {
+                                      setOrder(
+                                        await submitHumanReview({
+                                          data: {
+                                            orderId: order.order.id,
+                                            deliveryId: currentDelivery.id,
+                                            reportId: currentReport.id,
+                                            sha256: currentDelivery.sha256,
+                                            decision: "rejected",
+                                            note,
+                                          },
+                                        }),
+                                      );
+                                      setNote("");
+                                      await refresh();
+                                    })
+                                  }
+                                >
+                                  Solicitar correção
+                                </button>
+                              </div>
+                              {currentReport.decision !== "approved" && (
+                                <p className="studio-help">
+                                  A aprovação permanece bloqueada enquanto houver uma falha
+                                  objetiva.
+                                </p>
+                              )}
+                            </>
+                          )}
+                      </div>
+                    )}
                     <div className="studio-section-card">
                       <h3>Histórico da contratação</h3>
                       <div className="studio-timeline">
@@ -1230,6 +1444,11 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                     <div className="studio-section-card">
                       <span className="studio-eyebrow">CONTRATO</span>
                       <h3>{order.contract.price_units} créditos simulados</h3>
+                      <p className="studio-help">
+                        {order.contract.requires_human_review
+                          ? "O pagamento exige os testes do arquivo e seu aceite nesta versão da entrega."
+                          : "O pagamento segue a aprovação objetiva prevista neste contrato."}
+                      </p>
                       <dl>
                         <div>
                           <dt>Comissão</dt>
@@ -1247,7 +1466,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                       <p className="studio-help">{order.order.selected_reason}</p>
                       {buyerOwned && (
                         <div className="studio-order-actions">
-                          {!["cancelled", "expired"].includes(order.order.status) && (
+                          {!["cancelled", "expired", "accepted"].includes(order.order.status) && (
                             <button
                               className="studio-primary wide"
                               disabled={Boolean(busy)}
@@ -1380,6 +1599,23 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                   </dl>
                 </div>
               ))}
+            </div>
+            <div className="studio-section-card">
+              <h3>Consumo da NeuraLake</h3>
+              <p className="studio-help">
+                Tokens e duração reportados nas escolhas de fornecedor. Não são descontados da
+                carteira de demonstração.
+              </p>
+              {workspace.inference?.length ? (
+                workspace.inference.map((run) => (
+                  <div className="studio-ledger-row" key={run.id}>
+                    <span>Escolha de fornecedor · {(run.duration_ms / 1000).toFixed(1)} s</span>
+                    <strong>{run.usage_data?.total_tokens ?? "Não informado"} tokens</strong>
+                  </div>
+                ))
+              ) : (
+                <p className="studio-muted">Nenhuma chamada registrada para suas empresas.</p>
+              )}
             </div>
             <div className="studio-section-card">
               <h3>Movimentações</h3>
@@ -1519,9 +1755,18 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               description="Veja o que já está disponível e o que precisa ser configurado."
             />
             <div className="studio-integration-card">
-              <span className="studio-agent-icon"><Building2 /></span>
-              <div><h3>Servidor de publicação</h3><p>Cria a empresa e os agentes, salva a oferta e administra os pedidos.</p></div>
-              <span className="studio-tag">{bootstrap.backendConfigured ? "Credenciais configuradas" : "Indisponível neste ambiente"}</span>
+              <span className="studio-agent-icon">
+                <Building2 />
+              </span>
+              <div>
+                <h3>Servidor de publicação</h3>
+                <p>Cria a empresa e os agentes, salva a oferta e administra os pedidos.</p>
+              </div>
+              <span className="studio-tag">
+                {bootstrap.backendConfigured
+                  ? "Credenciais configuradas"
+                  : "Indisponível neste ambiente"}
+              </span>
             </div>
             <div className="studio-integration-card">
               <span className="studio-agent-icon">
@@ -1589,13 +1834,15 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               <X size={20} />
             </button>
             <span className="studio-brand-icon">n</span>
-            <h2 id="studio-login-title">Sua empresa começa aqui</h2>
+            <h2 id="studio-login-title">Entre para continuar</h2>
             <p>Entre para publicar, contratar e guardar seu histórico. Seu rascunho está salvo.</p>
             {origin && isLocalPreview(origin) && (
               <p role="status">
-                O login desta prévia local ainda não está autorizado. {" "}
-                <a href={PUBLISHED_STUDIO} target="_blank" rel="noopener noreferrer">Abrir a versão online</a>.
-                {" "}Seu rascunho fica salvo neste endereço e não é transferido para a versão online.
+                O login desta prévia local ainda não está autorizado.{" "}
+                <a href={PUBLISHED_STUDIO} target="_blank" rel="noopener noreferrer">
+                  Abrir a versão online
+                </a>
+                . Seu rascunho fica salvo neste endereço e não é transferido para a versão online.
               </p>
             )}
             <button
@@ -1611,7 +1858,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             >
               {busy === "login" ? "Aguardando o login…" : "Continuar com Google"}
             </button>
-            <div className="studio-login-divider">ou use seu e-mail</div>
+            <div className="studio-login-divider">ou entre com seu e-mail</div>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -1623,7 +1870,9 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                     options: { emailRedirectTo: redirectTo },
                   });
                   if (result.error) throw result.error;
-                  setLoginMessage("Solicitamos seu link de acesso. Confira a caixa de entrada e o spam e abra o link neste navegador.");
+                  setLoginMessage(
+                    "Solicitamos seu link de acesso. Confira a caixa de entrada e o spam e abra o link neste navegador.",
+                  );
                 });
               }}
             >

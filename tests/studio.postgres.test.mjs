@@ -72,6 +72,7 @@ before(() => {
     "0004_company_studio_and_a2a",
     "0005_apply_pending_company_studio",
     "0006_restrict_unpublished_catalogue",
+    "0008_complete_agent_chain",
   ]) {
     sql(readFileSync(new URL(`../drizzle/migrations/${file}.sql`, import.meta.url), "utf8"));
   }
@@ -81,7 +82,11 @@ after(() => {
     execFileSync("pg_ctl", ["-D", cluster, "-m", "immediate", "-w", "stop"], { stdio: "pipe" });
   rmSync(temp, { recursive: true, force: true });
 });
-function company(user = randomUUID(), request = randomUUID(), config = STARTER_DRAFT) {
+function company(
+  user = randomUUID(),
+  request = randomUUID(),
+  config = { ...STARTER_DRAFT, visibility: "commercial" },
+) {
   return { user, request, ...call(`studio_create_company('${user}','${request}',${j(config)})`) };
 }
 function order(c = company(), overrides = {}) {
@@ -97,6 +102,7 @@ function order(c = company(), overrides = {}) {
     requestId: randomUUID(),
     testFailure: true,
     autoCorrect: false,
+    humanReview: false,
     ...overrides,
   };
   return { ...c, payload, ...call(`studio_place_order('${c.user}',${j(payload)})`) };
@@ -121,7 +127,11 @@ test("company publication is atomic and idempotent, and registers a real offer",
   const repeated = company(c.user, c.request);
   assert.equal(repeated.companyId, c.companyId);
   assert.equal(balance(c), "100,0,0");
-  const agents = JSON.parse(sql(`SELECT json_agg(a ORDER BY a.agent_type) FROM (SELECT agent_type,model,active FROM agents WHERE company_id='${c.companyId}') a`));
+  const agents = JSON.parse(
+    sql(
+      `SELECT json_agg(a ORDER BY a.agent_type) FROM (SELECT agent_type,model,active FROM agents WHERE company_id='${c.companyId}') a`,
+    ),
+  );
   assert.deepEqual(agents, [
     { agent_type: "buyer", model: "reasoning", active: true },
     { agent_type: "supplier", model: "deterministic", active: true },
@@ -297,4 +307,137 @@ test("unpublished offers and internal capabilities are private to their company"
   sql(`UPDATE offers SET published=true WHERE company_id='${c.companyId}'`);
   assert.equal(read(outsider, "offer_versions", `id='${vid}'`), "1");
   assert.equal(read(outsider, "capabilities", `company_id='${c.companyId}'`), "1");
+});
+
+test("human contract keeps credits reserved after objective approval and pays only once after signed owner review", () => {
+  const o = order(company(), { humanReview: true, testFailure: false });
+  const delivery = record(o, claim(o));
+  const reportId = sql(
+    `SELECT id FROM verification_reports WHERE delivery_id='${delivery.deliveryId}'`,
+  );
+  assert.throws(
+    () => call(`settle_verified_order('${o.orderId}','bypass')`),
+    /human_approval_required/,
+  );
+  assert.equal(balance(o), "88,12,0");
+  const review = (actor = o.user, sha = delivery.sha256) =>
+    call(
+      `studio_review_delivery('${actor}','${o.orderId}','${delivery.deliveryId}','${reportId}','${sha}','approved','Conferi o arquivo e os preços.')`,
+    );
+  assert.throws(() => review(randomUUID()), /review_access_denied/);
+  assert.throws(() => review(o.user, "0".repeat(64)), /stale_review/);
+  review();
+  review();
+  assert.equal(balance(o), "88,0,12");
+  assert.equal(sql(`SELECT count(*) FROM human_reviews WHERE order_id='${o.orderId}'`), "1");
+});
+test("human cannot override a failed objective check or reuse an earlier version approval", () => {
+  const o = order(company(), { humanReview: true });
+  const bad = record(o, claim(o), true);
+  const r = sql(`SELECT id FROM verification_reports WHERE delivery_id='${bad.deliveryId}'`);
+  assert.throws(
+    () =>
+      call(
+        `studio_review_delivery('${o.user}','${o.orderId}','${bad.deliveryId}','${r}','${bad.sha256}','approved','Quero aprovar mesmo assim.')`,
+      ),
+    /objective_checks_required/,
+  );
+  record(o, claim(o));
+  assert.throws(
+    () =>
+      call(
+        `studio_review_delivery('${o.user}','${o.orderId}','${bad.deliveryId}','${r}','${bad.sha256}','approved','Entrega antiga.')`,
+      ),
+    /stale_review/,
+  );
+  assert.equal(balance(o), "88,12,0");
+});
+test("human rejection allows a new version and cancellation preserves funds", () => {
+  const o = order(company(), { humanReview: true, testFailure: false });
+  const d = record(o, claim(o));
+  const r = sql(`SELECT id FROM verification_reports WHERE delivery_id='${d.deliveryId}'`);
+  call(
+    `studio_review_delivery('${o.user}','${o.orderId}','${d.deliveryId}','${r}','${d.sha256}','rejected','Preciso revisar a origem antes do aceite.')`,
+  );
+  assert.equal(sql(`SELECT status FROM orders WHERE id='${o.orderId}'`), "revision_requested");
+  call(`studio_cancel_order('${o.user}','${o.orderId}')`);
+  assert.equal(balance(o), "100,0,0");
+  assert.throws(() =>
+    call(
+      `studio_review_delivery('${o.user}','${o.orderId}','${d.deliveryId}','${r}','${d.sha256}','approved','Mudança depois do cancelamento.')`,
+    ),
+  );
+});
+test("private capability stays hidden until its owner tests and explicitly commercializes it", () => {
+  const c = company(randomUUID(), randomUUID(), { ...STARTER_DRAFT, visibility: "private" });
+  assert.equal(sql(`SELECT published FROM offers WHERE id='${c.offerId}'`), "f");
+  assert.equal(sql(`SET ROLE anon;SELECT count(*) FROM offers WHERE id='${c.offerId}'`), "0");
+  assert.throws(
+    () => call(`studio_set_commercial('${randomUUID()}','${c.companyId}',true)`),
+    /company_access_denied/,
+  );
+  assert.throws(
+    () => call(`studio_set_commercial('${c.user}','${c.companyId}',true)`),
+    /successful_private_run_required/,
+  );
+  sql(
+    `INSERT INTO private_runs(company_id,requested_by,request_id,input_hash,artifact_content,sha256,report,duration_ms) VALUES('${c.companyId}','${c.user}','${randomUUID()}','input','private-data','hash','{"decision":"approved"}',1)`,
+  );
+  call(`studio_set_commercial('${c.user}','${c.companyId}',true)`);
+  assert.equal(sql(`SET ROLE anon;SELECT count(*) FROM offers WHERE id='${c.offerId}'`), "1");
+  const outsider = randomUUID();
+  assert.equal(
+    sql(
+      `SET ROLE authenticated;SET test.user_id='${outsider}';SELECT count(*) FROM private_runs WHERE company_id='${c.companyId}'`,
+    ),
+    "0",
+  );
+  call(`studio_set_commercial('${c.user}','${c.companyId}',false)`);
+  assert.equal(sql(`SET ROLE anon;SELECT count(*) FROM offers WHERE id='${c.offerId}'`), "0");
+});
+
+test("human review policy and recorded approvals are immutable", () => {
+  const o = order(company(), { humanReview: true, testFailure: false });
+  assert.throws(
+    () => sql(`UPDATE contracts SET requires_human_review=false WHERE order_id='${o.orderId}'`),
+    /immutable/,
+  );
+  const d = record(o, claim(o)),
+    r = sql(`SELECT id FROM verification_reports WHERE delivery_id='${d.deliveryId}'`);
+  call(
+    `studio_review_delivery('${o.user}','${o.orderId}','${d.deliveryId}','${r}','${d.sha256}','approved','Conferi os preços e o arquivo.')`,
+  );
+  assert.throws(
+    () => sql(`UPDATE human_reviews SET decision='rejected' WHERE order_id='${o.orderId}'`),
+    /immutable/,
+  );
+});
+test("human approval racing cancellation moves the reservation exactly once", async () => {
+  const o = order(company(), { humanReview: true, testFailure: false }),
+    d = record(o, claim(o));
+  const r = sql(`SELECT id FROM verification_reports WHERE delivery_id='${d.deliveryId}'`);
+  const concurrent = (statement) =>
+    new Promise((resolve, reject) => {
+      const child = spawn("psql", args, { stdio: ["pipe", "pipe", "pipe"] });
+      let error = "";
+      child.stderr.on("data", (v) => (error += v));
+      child.on("error", reject);
+      child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(error))));
+      child.stdin.end(statement);
+    });
+  const result = await Promise.allSettled([
+    concurrent(
+      `SELECT studio_review_delivery('${o.user}','${o.orderId}','${d.deliveryId}','${r}','${d.sha256}','approved','Conferi a entrega atual.');`,
+    ),
+    concurrent(`SELECT studio_cancel_order('${o.user}','${o.orderId}');`),
+  ]);
+  assert.equal(result.filter((r) => r.status === "fulfilled").length, 1);
+  assert.equal(
+    sql(
+      `SELECT count(*) FROM ledger_entries WHERE order_id='${o.orderId}' AND entry_type IN ('payment','refund')`,
+    ),
+    "1",
+  );
+  const status = sql(`SELECT status FROM orders WHERE id='${o.orderId}'`);
+  assert.equal(balance(o), status === "settled" ? "88,0,12" : "100,0,0");
 });

@@ -4,7 +4,16 @@ import { CompanyStudio } from "@/components/company-studio";
 export const Route = createFileRoute("/studio")({
   validateSearch: z.object({
     view: z
-      .enum(["builder", "companies", "market", "orders", "wallet", "api", "integrations"])
+      .enum([
+        "mission",
+        "builder",
+        "companies",
+        "market",
+        "orders",
+        "wallet",
+        "api",
+        "integrations",
+      ])
       .optional(),
   }),
   head: () => ({ meta: [{ title: "Criar sua empresa | NeuraMarket" }] }),

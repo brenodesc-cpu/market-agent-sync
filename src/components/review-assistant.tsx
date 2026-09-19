@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { explainReview } from "@/lib/review.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { ReviewVoiceCall } from "./review-voice-call";
-import { lovable } from "@/integrations/lovable";
+import { Link } from "@tanstack/react-router";
 
 export function ReviewAssistant({ orderId }: { orderId: string }) {
   const [signedIn, setSignedIn] = useState(false);
@@ -39,9 +39,7 @@ export function ReviewAssistant({ orderId }: { orderId: string }) {
     setReference("");
     try {
       if (!signedIn) {
-        const result = await lovable.auth.signInWithOAuth("google");
-        if (result.error)
-          setError("Não foi possível entrar. Confira a configuração de autenticação do projeto.");
+        setError("Entre com seu e-mail no estúdio para consultar esta revisão.");
         return;
       }
       const result = await explainReview({ data: { orderId, question } });
@@ -67,6 +65,11 @@ export function ReviewAssistant({ orderId }: { orderId: string }) {
         <MessageCircle className="size-5 text-primary" />
         <h3 className="text-lg font-semibold">Entenda as evidências com a NeuraLake</h3>
       </div>
+      {!signedIn && (
+        <Link to="/studio" className="studio-text-button">
+          Entrar com e-mail no estúdio
+        </Link>
+      )}
       <p className="mt-2 text-sm text-muted-foreground">
         O agente consulta a revisão deste pedido. A conversa não altera a verificação ou o
         pagamento.

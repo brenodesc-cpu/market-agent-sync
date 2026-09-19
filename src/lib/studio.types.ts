@@ -5,6 +5,7 @@ export type StudioCompany = {
   description: string;
   operational: boolean;
   owner_user_id: string | null;
+  visibility: "private" | "commercial";
 };
 export type StudioAccount = {
   company_id: string;
@@ -63,14 +64,31 @@ export type StudioDetails = {
     acceptance_criteria: { criterion: string; expected: string | boolean }[];
     deadline_at: string;
     revision_limit: number;
+    requires_human_review: boolean;
   };
   deliveries: StudioDelivery[];
   reports: StudioReport[];
   events: StudioEvent[];
+  humanReviews: {
+    id: string;
+    delivery_id: string;
+    decision: string;
+    note: string;
+    reviewed_by: string;
+    created_at: string;
+  }[];
 };
 export type StudioWorkspace = {
   companies: StudioCompany[];
-  agents: { id: string; company_id: string; name: string; agent_type: string; model: string; instructions: string; active: boolean }[];
+  agents: {
+    id: string;
+    company_id: string;
+    name: string;
+    agent_type: string;
+    model: string;
+    instructions: string;
+    active: boolean;
+  }[];
   accounts: StudioAccount[];
   orders: StudioOrder[];
   offers: AgentOffer[];
@@ -88,5 +106,23 @@ export type StudioWorkspace = {
     prefix: string;
     created_at: string;
     revoked_at: string | null;
+  }[];
+  privateRuns?: {
+    id: string;
+    company_id: string;
+    sha256: string;
+    report: { decision: string; summary: string };
+    created_at: string;
+  }[];
+  inference?: {
+    id: string;
+    task_type: string;
+    duration_ms: number;
+    usage_data: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+    } | null;
+    created_at: string;
   }[];
 };

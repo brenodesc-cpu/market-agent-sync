@@ -16,7 +16,20 @@ export const startReviewCall = createServerFn({ method: "POST" })
       { reviewId: data.orderId, ownerId: context.userId, reportId: evidence.report.id },
       config.secret,
     );
-    return startAgoraVoice(config, context.userId, data.orderId, session.token);
+    const call = await startAgoraVoice(config, context.userId, data.orderId, session.token);
+    const { runtimeDb } = await import("./studio-runtime.server");
+    const db = await runtimeDb();
+    await db
+      .from("order_events")
+      .insert({
+        order_id: data.orderId,
+        actor_type: "human",
+        actor_label: "Responsável em revisão com Agora",
+        event_type: "voice_review_started",
+        result: "Sessão de voz aberta para conferir as evidências antes do aceite.",
+        metadata: { reportId: evidence.report.id, userId: context.userId },
+      });
+    return call;
   });
 export const stopReviewCall = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -101,44 +101,73 @@ export async function workspace(userId: string): Promise<StudioWorkspace> {
   const db = await runtimeDb();
   const companies = await db
     .from("companies")
-    .select("id,name,description,operational,owner_user_id")
+    .select("id,name,description,operational,owner_user_id,visibility")
     .eq("owner_user_id", userId)
     .order("created_at");
   check(companies.error);
   const ids = (companies.data ?? []).map((c) => c.id as string);
   const offers = await catalogueOffers(db);
   if (!ids.length)
-    return { companies: [], agents: [], accounts: [], orders: [], offers, ledger: [], credentials: [] };
-  const [accounts, orders, ledger, credentials, agents] = await Promise.all([
-    db
-      .from("accounts")
-      .select("company_id,available_units,reserved_units,paid_units,received_units")
-      .in("company_id", ids),
-    db
-      .from("orders")
-      .select(
-        "id,title,status,buyer_company_id,supplier_company_id,current_delivery_version,budget_cap_units,selected_reason,created_at",
-      )
-      .or(`buyer_company_id.in.(${ids.join(",")}),supplier_company_id.in.(${ids.join(",")})`)
-      .order("created_at", { ascending: false })
-      .limit(50),
-    db
-      .from("ledger_entries")
-      .select("id,company_id,entry_type,amount_units,description,created_at")
-      .in("company_id", ids)
-      .order("created_at", { ascending: false })
-      .limit(100),
-    db
-      .from("agent_credentials")
-      .select("id,company_id,prefix,created_at,revoked_at")
-      .in("company_id", ids)
-      .order("created_at", { ascending: false }),
-    db.from("agents").select("id,company_id,name,agent_type,model,instructions,active").in("company_id", ids).order("created_at"),
-  ]);
-  for (const result of [accounts, orders, ledger, credentials, agents]) check(result.error);
+    return {
+      companies: [],
+      agents: [],
+      accounts: [],
+      orders: [],
+      offers,
+      ledger: [],
+      credentials: [],
+    };
+  const [accounts, orders, ledger, credentials, agents, privateRuns, inference] = await Promise.all(
+    [
+      db
+        .from("accounts")
+        .select("company_id,available_units,reserved_units,paid_units,received_units")
+        .in("company_id", ids),
+      db
+        .from("orders")
+        .select(
+          "id,title,status,buyer_company_id,supplier_company_id,current_delivery_version,budget_cap_units,selected_reason,created_at",
+        )
+        .or(`buyer_company_id.in.(${ids.join(",")}),supplier_company_id.in.(${ids.join(",")})`)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      db
+        .from("ledger_entries")
+        .select("id,company_id,entry_type,amount_units,description,created_at")
+        .in("company_id", ids)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      db
+        .from("agent_credentials")
+        .select("id,company_id,prefix,created_at,revoked_at")
+        .in("company_id", ids)
+        .order("created_at", { ascending: false }),
+      db
+        .from("agents")
+        .select("id,company_id,name,agent_type,model,instructions,active")
+        .in("company_id", ids)
+        .order("created_at"),
+      db
+        .from("private_runs")
+        .select("id,company_id,sha256,report,created_at")
+        .in("company_id", ids)
+        .order("created_at", { ascending: false })
+        .limit(30),
+      db
+        .from("inference_runs")
+        .select("id,task_type,duration_ms,usage_data,created_at")
+        .in("company_id", ids)
+        .order("created_at", { ascending: false })
+        .limit(30),
+    ],
+  );
+  for (const result of [accounts, orders, ledger, credentials, agents, privateRuns, inference])
+    check(result.error);
   return {
     companies: companies.data as StudioCompany[],
     agents: agents.data ?? [],
+    privateRuns: privateRuns.data ?? [],
+    inference: inference.data ?? [],
     accounts: accounts.data ?? [],
     orders: orders.data as StudioOrder[],
     offers,
@@ -160,7 +189,7 @@ export async function orderDetails(
   const owners = await db.from("companies").select("id").eq("owner_user_id", userId).in("id", ids);
   if (owners.error || !owners.data?.length)
     throw new Error("Pedido indisponível para este usuário.");
-  const [contract, deliveries, reports, events] = await Promise.all([
+  const [contract, deliveries, reports, events, humanReviews] = await Promise.all([
     db.from("contracts").select("*").eq("order_id", orderId).single(),
     db
       .from("deliveries")
@@ -175,18 +204,24 @@ export async function orderDetails(
       .select("id,actor_label,event_type,result,created_at")
       .eq("order_id", orderId)
       .order("created_at"),
+    db
+      .from("human_reviews")
+      .select("id,delivery_id,decision,note,reviewed_by,created_at")
+      .eq("order_id", orderId),
   ]);
-  for (const result of [contract, deliveries, reports, events]) check(result.error);
+  for (const result of [contract, deliveries, reports, events, humanReviews]) check(result.error);
   return {
     order: order.data,
     contract: contract.data,
     deliveries: deliveries.data ?? [],
     reports: reports.data ?? [],
     events: events.data ?? [],
+    humanReviews: humanReviews.data ?? [],
   } as StudioDetails;
 }
 
-async function infer(system: string, input: unknown, model = "text") {
+async function infer(system: string, input: unknown, model = "text", companyId?: string) {
+  const started = Date.now();
   const key = process.env["NEURALAKE_API_KEY"];
   if (!key) throw new Error("NEURALAKE_API_KEY não configurada no servidor.");
   const response = await fetch("https://api.neuralake.cloud/v1/chat/completions", {
@@ -206,6 +241,19 @@ async function infer(system: string, input: unknown, model = "text") {
   });
   if (!response.ok) throw new Error(`NeuraLake indisponível (${response.status}).`);
   const payload = await response.json();
+  if (companyId) {
+    const db = await runtimeDb();
+    await db
+      .from("inference_runs")
+      .insert({
+        company_id: companyId,
+        task_type: "supplier_selection",
+        model_requested: model,
+        status: "completed",
+        duration_ms: Date.now() - started,
+        usage_data: payload.usage ?? null,
+      });
+  }
   const content = payload?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim())
     throw new Error("A NeuraLake devolveu uma resposta vazia.");
@@ -246,7 +294,10 @@ export async function draftWithAI(prompt: string, current?: CompanyDraft) {
     { prompt, current },
     "reasoning",
   );
-  return companyDraftSchema.parse(result);
+  return companyDraftSchema.parse({
+    ...(result as object),
+    visibility: current?.visibility ?? "private",
+  });
 }
 export async function createOrder(userId: string, request: OrderRequest) {
   await ownedCompany(userId, request.buyerCompanyId);
@@ -296,6 +347,7 @@ export async function createOrder(userId: string, request: OrderRequest) {
               })),
             },
             "reasoning",
+            request.buyerCompanyId,
           ),
         );
       selected = selectAffordableOffer(
@@ -321,6 +373,8 @@ export async function runOrder(userId: string, orderId: string) {
   for (let step = 0; step < 2; step++) {
     const claim = await rpc("studio_claim_execution", { _user: userId, _order: orderId });
     if (claim.status === "accepted") {
+      const detail = await orderDetails(userId, orderId);
+      if (detail.contract.requires_human_review) break;
       await rpc("settle_verified_order", {
         _order_id: orderId,
         _idempotency_key: `order:${orderId}`,
@@ -343,6 +397,7 @@ export async function runOrder(userId: string, orderId: string) {
       _report: report,
     });
     if (report.decision === "approved") {
+      if ((await orderDetails(userId, orderId)).contract.requires_human_review) break;
       await rpc("settle_verified_order", {
         _order_id: orderId,
         _idempotency_key: `order:${orderId}`,
@@ -385,4 +440,59 @@ export async function authenticateAgent(request: Request) {
   if (result.error || !result.data) throw new Error("Credencial inválida ou revogada.");
   await ownedCompany(result.data.created_by, result.data.company_id);
   return { userId: result.data.created_by as string, companyId: result.data.company_id as string };
+}
+
+export async function executePrivate(
+  userId: string,
+  companyId: string,
+  requestId: string,
+  input: unknown,
+) {
+  await ownedCompany(userId, companyId);
+  const rows = catalogueRowsSchema.parse(input);
+  if (new Set(rows.map((row) => JSON.stringify([row.sku, row.size]))).size !== rows.length)
+    throw new Error("Existem identificadores duplicados.");
+  const db = await runtimeDb();
+  const inputHash = createHash("sha256").update(JSON.stringify(rows)).digest("hex");
+  const prior = await db
+    .from("private_runs")
+    .select("*")
+    .eq("company_id", companyId)
+    .eq("request_id", requestId)
+    .maybeSingle();
+  check(prior.error);
+  if (prior.data) {
+    if (prior.data.input_hash !== inputHash) throw new Error("idempotency_conflict");
+    return prior.data;
+  }
+  const started = Date.now();
+  const content = createCatalogueCsv(rows);
+  const report = verifyCatalogue(rows, content);
+  const saved = await db
+    .from("private_runs")
+    .insert({
+      company_id: companyId,
+      requested_by: userId,
+      request_id: requestId,
+      input_hash: inputHash,
+      artifact_content: content,
+      sha256: createHash("sha256").update(content).digest("hex"),
+      report,
+      duration_ms: Date.now() - started,
+    })
+    .select("*")
+    .single();
+  if (saved.error?.code === "23505") {
+    const winner = await db
+      .from("private_runs")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("request_id", requestId)
+      .single();
+    check(winner.error);
+    if (winner.data?.input_hash !== inputHash) throw new Error("idempotency_conflict");
+    return winner.data;
+  }
+  check(saved.error);
+  return saved.data;
 }

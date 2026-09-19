@@ -15,7 +15,9 @@ export const getStudioBootstrap = createServerFn({ method: "GET" }).handler(asyn
   return {
     offers,
     setupMessage,
-    backendConfigured: Boolean(process.env["SUPABASE_URL"] && process.env["SUPABASE_SERVICE_ROLE_KEY"]),
+    backendConfigured: Boolean(
+      process.env["SUPABASE_URL"] && process.env["SUPABASE_SERVICE_ROLE_KEY"],
+    ),
     neuralakeConfigured: Boolean(process.env["NEURALAKE_API_KEY"]),
     agoraConfigured: Boolean(
       process.env["AGORA_APP_ID"] &&
@@ -128,5 +130,60 @@ export const addReviewClarification = createServerFn({ method: "POST" })
       _order: data.orderId,
       _version: data.deliveryVersion,
       _note: data.note,
+    }),
+  );
+
+export const submitHumanReview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(
+    z.object({
+      orderId: z.string().uuid(),
+      deliveryId: z.string().uuid(),
+      reportId: z.string().uuid(),
+      sha256: z.string().regex(/^[a-f0-9]{64}$/),
+      decision: z.enum(["approved", "rejected"]),
+      note: z.string().trim().min(3).max(1500),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { rpc, orderDetails } = await import("./studio-runtime.server");
+    await rpc("studio_review_delivery", {
+      _user: context.userId,
+      _order: data.orderId,
+      _delivery: data.deliveryId,
+      _report: data.reportId,
+      _sha: data.sha256,
+      _decision: data.decision,
+      _note: data.note,
+    });
+    return orderDetails(context.userId, data.orderId);
+  });
+
+export const executePrivateService = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(
+    z.object({
+      companyId: z.string().uuid(),
+      requestId: z.string().uuid(),
+      rows: catalogueRowsSchema,
+    }),
+  )
+  .handler(async ({ data, context }) =>
+    (await import("./studio-runtime.server")).executePrivate(
+      context.userId,
+      data.companyId,
+      data.requestId,
+      data.rows,
+    ),
+  );
+
+export const setCompanyCommercial = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(z.object({ companyId: z.string().uuid(), enabled: z.boolean() }))
+  .handler(async ({ data, context }) =>
+    (await import("./studio-runtime.server")).rpc("studio_set_commercial", {
+      _user: context.userId,
+      _company: data.companyId,
+      _enabled: data.enabled,
     }),
   );

@@ -57,6 +57,13 @@
       "when": 1789841133010,
       "tag": "0007_restrict_unpublished_catalogue",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789844000000,
+      "tag": "0008_complete_agent_chain",
+      "breakpoints": true
     }
   ]
 }

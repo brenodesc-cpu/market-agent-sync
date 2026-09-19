@@ -7,6 +7,7 @@ export const companyDraftSchema = z.object({
   serviceTitle: z.string().trim().min(4).max(100),
   price: z.number().int().min(1).max(1000),
   capability: z.literal(CAPABILITY),
+  visibility: z.enum(["private", "commercial"]).default("private"),
 });
 export type CompanyDraft = z.infer<typeof companyDraftSchema>;
 export const catalogueRowSchema = z
@@ -42,6 +43,7 @@ export const orderRequestSchema = z.object({
   offerVersionId: z.string().uuid().optional(),
   testFailure: z.boolean().default(false),
   autoCorrect: z.boolean().default(true),
+  humanReview: z.boolean().default(true),
   requestId: z.string().uuid(),
 });
 export type OrderRequest = z.infer<typeof orderRequestSchema>;
@@ -62,6 +64,7 @@ export const STARTER_DRAFT: CompanyDraft = {
   serviceTitle: "Catálogo pronto para importar",
   price: 15,
   capability: CAPABILITY,
+  visibility: "private",
 };
 export type AgentOffer = {
   id: string;

@@ -26,13 +26,14 @@ export async function handleAgentApi(request: Request, path: string) {
     return json({ error: "invalid_agent_credential" }, 401);
   }
   try {
-    if (path === "orders" && request.method === "POST") {
+    if ((path === "orders" || path === "missions") && request.method === "POST") {
       const text = await limitedBody(request);
       const data = orderRequestSchema.parse({
         ...JSON.parse(text),
         buyerCompanyId: actor.companyId,
       });
       const created = await createOrder(actor.userId, data);
+      if (path === "missions") return json(await runOrder(actor.userId, created.orderId), 201);
       // The agent calls /run separately so a disconnected caller can resume safely.
       return json({ ...created, next: `/api/a2a/orders/${created.orderId}/run` }, 201);
     }

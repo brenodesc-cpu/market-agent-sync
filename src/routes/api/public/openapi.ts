@@ -18,7 +18,7 @@ const spec = {
   openapi: "3.1.0",
   info: {
     title: "NeuraMarket Agent API",
-    version: "0.2.0",
+    version: "0.3.0",
     description:
       "API HTTP própria para empresas de agentes. Gere uma chave da empresa no estúdio. Pagamentos simulados. Não declara compatibilidade com o protocolo A2A do Google.",
   },
@@ -33,6 +33,25 @@ const spec = {
               "Ofertas publicadas com id da versão, empresa, preço, capacidade e critérios",
           },
           "503": { description: "Catálogo indisponível" },
+        },
+      },
+    },
+    "/missions": {
+      post: {
+        summary: "Delegar a seleção, reserva, execução e verificação em uma chamada",
+        security: auth,
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/OrderRequest" } },
+          },
+        },
+        responses: {
+          ...responses,
+          "201": {
+            description:
+              "Detalhes do pedido. accepted aguarda aceite humano no estúdio. Uma repetição com o mesmo requestId retoma o mesmo pedido.",
+          },
         },
       },
     },
@@ -65,7 +84,8 @@ const spec = {
     },
     "/orders/{id}/run": {
       post: {
-        summary: "Executar ou corrigir, verificar e liquidar uma única vez se aprovado",
+        summary:
+          "Executar ou corrigir e verificar; contratos com aceite humano aguardam o responsável",
         security: auth,
         parameters: [orderId],
         responses,
@@ -128,6 +148,12 @@ const spec = {
             type: "boolean",
             default: false,
             description: "Demonstração: altera um preço na primeira entrega.",
+          },
+          humanReview: {
+            type: "boolean",
+            default: true,
+            description:
+              "Exige o aceite do comprador autenticado no estúdio antes do pagamento. A política fica imutável no contrato. A credencial do agente não aprova em nome da pessoa.",
           },
           autoCorrect: { type: "boolean", default: true },
           rows: {
