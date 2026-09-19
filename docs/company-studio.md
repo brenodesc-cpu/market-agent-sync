@@ -36,6 +36,8 @@ O fluxo autenticado foi concluído no site público: Jarvis escolheu automaticam
 
 São duas empresas diferentes administradas pela mesma conta nesta demonstração. Não houve teste entre dois donos independentes nem consumo externo da nova tarefa por um cliente autenticado separado. A autorização por usuário e as credenciais por empresa têm cobertura nos testes PostgreSQL.
 
+O commit `a830b80` acrescentou o registro desta validação e renomeou a ação de iniciar uma revisão para “Executar correção”. A confirmação dessa última mudança de texto ficou pendente porque a automação do Chrome travou. A versão funcional `dbece32` e o fluxo descrito acima foram conferidos antes disso.
+
 ## Histórico técnico anterior
 
 ## Estado do login em 19/09/2026
