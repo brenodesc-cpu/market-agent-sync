@@ -1,0 +1,1 @@
+COMMENT ON SCHEMA public IS 'standard public schema';

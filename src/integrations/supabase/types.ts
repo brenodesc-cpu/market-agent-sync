@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      a2a_requests: {
+        Row: {
+          payload_hash: string
+          purpose: string
+          request_id: string
+          result: Json
+          user_id: string
+        }
+        Insert: {
+          payload_hash: string
+          purpose: string
+          request_id: string
+          result: Json
+          user_id: string
+        }
+        Update: {
+          payload_hash?: string
+          purpose?: string
+          request_id?: string
+          result?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       accounts: {
         Row: {
           available_units: number
@@ -50,6 +74,44 @@ export type Database = {
             foreignKeyName: "accounts_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_credentials: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string
+          id: string
+          prefix: string
+          revoked_at: string | null
+          token_hash: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          prefix: string
+          revoked_at?: string | null
+          token_hash: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          prefix?: string
+          revoked_at?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_credentials_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
@@ -284,6 +346,7 @@ export type Database = {
       }
       deliveries: {
         Row: {
+          artifact_content: string | null
           byte_size: number
           created_at: string
           file_name: string
@@ -298,6 +361,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          artifact_content?: string | null
           byte_size: number
           created_at?: string
           file_name: string
@@ -312,6 +376,7 @@ export type Database = {
           version: number
         }
         Update: {
+          artifact_content?: string | null
           byte_size?: number
           created_at?: string
           file_name?: string
@@ -440,6 +505,8 @@ export type Database = {
           id: string
           idempotency_key: string
           kind: string
+          lease_token: string | null
+          lease_until: string | null
           order_id: string
           provider: string
           started_at: string | null
@@ -453,6 +520,8 @@ export type Database = {
           id?: string
           idempotency_key: string
           kind: string
+          lease_token?: string | null
+          lease_until?: string | null
           order_id: string
           provider: string
           started_at?: string | null
@@ -466,6 +535,8 @@ export type Database = {
           id?: string
           idempotency_key?: string
           kind?: string
+          lease_token?: string | null
+          lease_until?: string | null
           order_id?: string
           provider?: string
           started_at?: string | null
@@ -842,6 +913,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      catalogue_acceptance_criteria: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["company_role"]
@@ -863,6 +935,35 @@ export type Database = {
       }
       settle_verified_order: {
         Args: { _idempotency_key: string; _order_id: string }
+        Returns: Json
+      }
+      studio_add_clarification: {
+        Args: { _note: string; _order: string; _user: string; _version: number }
+        Returns: Json
+      }
+      studio_cancel_order: {
+        Args: { _order: string; _user: string }
+        Returns: Json
+      }
+      studio_claim_execution: {
+        Args: { _order: string; _user: string }
+        Returns: Json
+      }
+      studio_create_company: {
+        Args: { _config: Json; _request: string; _user: string }
+        Returns: Json
+      }
+      studio_place_order: {
+        Args: { _payload: Json; _user: string }
+        Returns: Json
+      }
+      studio_record_delivery: {
+        Args: {
+          _content: string
+          _order: string
+          _report: Json
+          _token: string
+        }
         Returns: Json
       }
     }
