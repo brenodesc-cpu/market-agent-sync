@@ -117,6 +117,74 @@ export type Database = {
           },
         ]
       }
+      agent_definitions: {
+        Row: {
+          company_id: string
+          created_at: string
+          definition: Json
+          definition_hash: string
+          id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          definition: Json
+          definition_hash: string
+          id?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          definition?: Json
+          definition_hash?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_definitions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_trials: {
+        Row: {
+          artifact_content: string
+          created_at: string
+          definition_hash: string
+          duration_ms: number
+          id: string
+          report: Json
+          sha256: string
+          task: string
+          user_id: string
+        }
+        Insert: {
+          artifact_content: string
+          created_at?: string
+          definition_hash: string
+          duration_ms: number
+          id?: string
+          report: Json
+          sha256: string
+          task: string
+          user_id: string
+        }
+        Update: {
+          artifact_content?: string
+          created_at?: string
+          definition_hash?: string
+          duration_ms?: number
+          id?: string
+          report?: Json
+          sha256?: string
+          task?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           active: boolean
@@ -1024,6 +1092,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      agent_acceptance_criteria: { Args: { _sections: Json }; Returns: Json }
       catalogue_acceptance_criteria: { Args: never; Returns: Json }
       has_role: {
         Args: {
@@ -1064,8 +1133,31 @@ export type Database = {
         Args: { _config: Json; _request: string; _user: string }
         Returns: Json
       }
+      studio_create_specialist: {
+        Args: {
+          _config: Json
+          _hash: string
+          _request: string
+          _trial: string
+          _user: string
+        }
+        Returns: Json
+      }
+      studio_place_agent_order: {
+        Args: { _payload: Json; _user: string }
+        Returns: Json
+      }
       studio_place_order: {
         Args: { _payload: Json; _user: string }
+        Returns: Json
+      }
+      studio_record_agent_delivery: {
+        Args: {
+          _content: string
+          _order: string
+          _report: Json
+          _token: string
+        }
         Returns: Json
       }
       studio_record_delivery: {
@@ -1075,6 +1167,10 @@ export type Database = {
           _report: Json
           _token: string
         }
+        Returns: Json
+      }
+      studio_release_execution: {
+        Args: { _order: string; _token: string; _user: string }
         Returns: Json
       }
       studio_review_delivery: {
