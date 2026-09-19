@@ -54,6 +54,7 @@ import {
 } from "@/lib/studio.functions";
 import { withStudioAccess, StudioAccessError, confirmThenRefresh } from "@/lib/studio-access";
 import { ReviewAssistant } from "./review-assistant";
+import { NmkWallet } from "./nmk-wallet";
 import "@/studio.css";
 
 type View = "builder" | "companies" | "market" | "orders" | "wallet" | "api" | "integrations";
@@ -1378,6 +1379,13 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                       <dd>{account.received_units}</dd>
                     </div>
                   </dl>
+                  <NmkWallet
+                    companyId={account.company_id}
+                    companyName={
+                      workspace.companies.find((c) => c.id === account.company_id)?.name ??
+                      "esta empresa"
+                    }
+                  />
                 </div>
               ))}
             </div>

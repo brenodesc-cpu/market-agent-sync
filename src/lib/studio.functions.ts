@@ -88,10 +88,7 @@ export const cancelStudioOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator(z.object({ orderId: z.string().uuid() }))
   .handler(async ({ data, context }) =>
-    (await import("./studio-runtime.server")).rpc("studio_cancel_order", {
-      _user: context.userId,
-      _order: data.orderId,
-    }),
+    (await import("./studio-runtime.server")).cancelOrder(context.userId, data.orderId),
   );
 export const createAgentKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

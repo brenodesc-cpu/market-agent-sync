@@ -596,3 +596,63 @@
     flex-basis: 100%;
   }
 }
+
+/* --- carteira no estúdio --- */
+
+.nmk-wallet {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.nmk-wallet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.nmk-wallet strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 600 12px var(--font-display);
+}
+.nmk-wallet p {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+.nmk-wallet-address {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--muted);
+  padding: 9px 11px;
+  font: 400 11px var(--nmk-mono, ui-monospace, monospace);
+  overflow-wrap: anywhere;
+}
+.nmk-wallet-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 11px;
+}
+.nmk-wallet-note svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--primary);
+}
+.nmk-wallet-pending {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+.nmk-wallet-pending svg {
+  margin-top: 2px;
+  color: oklch(0.6 0.15 70);
+}
+.nmk-wallet-empty {
+  justify-items: start;
+}

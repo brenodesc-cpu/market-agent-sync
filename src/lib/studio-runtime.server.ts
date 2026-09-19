@@ -310,21 +310,22 @@ export async function createOrder(userId: string, request: OrderRequest) {
     }
   } else if (request.offerVersionId)
     reason = `Fornecedor escolhido pelo responsável: ${selected.companyName}, por ${selected.price} créditos.`;
-  const result = await rpc("studio_place_order", {
+  const result = (await rpc("studio_place_order", {
     _user: userId,
     _payload: { ...request, requestHash, offerVersionId: selected.id, selectionReason: reason },
-  });
-  return result as { orderId: string; status: string };
+  })) as { orderId: string; status: string };
+  // The reserve is already committed by the function above; the chain entry follows it and is
+  // never allowed to undo a contract that succeeded. A gap here shows up in reconciliation.
+  const { recordReservation } = await import("./chain-bridge.server");
+  await recordReservation(result.orderId, request.buyerCompanyId, selected.price);
+  return result;
 }
 
 export async function runOrder(userId: string, orderId: string) {
   for (let step = 0; step < 2; step++) {
     const claim = await rpc("studio_claim_execution", { _user: userId, _order: orderId });
     if (claim.status === "accepted") {
-      await rpc("settle_verified_order", {
-        _order_id: orderId,
-        _idempotency_key: `order:${orderId}`,
-      });
+      await settleOrder(orderId);
       break;
     }
     if (claim.status !== "claimed") break;
@@ -336,22 +337,105 @@ export async function runOrder(userId: string, orderId: string) {
     // The verifier examines the actual file bytes produced by the supplier.
     // It receives contract input, never the supplier's private prompt or an LLM approval.
     const report = verifyCatalogue(rows, artifact);
-    await rpc("studio_record_delivery", {
+    const recorded = (await rpc("studio_record_delivery", {
       _order: orderId,
       _token: claim.token,
       _content: artifact,
       _report: report,
-    });
+    })) as { deliveryId: string; version: number; decision: string; sha256: string };
+    // Anchors carry no value, so a failure to write them cannot block the delivery. They record
+    // that this exact content and this exact report existed, nothing about their quality.
+    const { recordVerificationAnchors } = await import("./chain-bridge.server");
+    const contract = await contractParties(orderId);
+    if (contract)
+      await recordVerificationAnchors(
+        orderId,
+        contract.supplierCompanyId,
+        recorded.sha256,
+        report,
+        recorded.version,
+      );
     if (report.decision === "approved") {
-      await rpc("settle_verified_order", {
-        _order_id: orderId,
-        _idempotency_key: `order:${orderId}`,
-      });
+      await settleOrder(orderId);
       break;
     }
     if (!claim.input.autoCorrect) break;
   }
   return orderDetails(userId, orderId);
+}
+
+/**
+ * Cancels through the chain wrapper, which returns the reserve and records the release in one
+ * database transaction. A missing chain layer falls back to the original function, because a
+ * buyer is entitled to their money back whether or not the record can be written.
+ */
+export async function cancelOrder(userId: string, orderId: string) {
+  const contract = await contractParties(orderId);
+  if (contract) {
+    const { releaseTransactions } = await import("./chain-bridge.server");
+    const txs = await releaseTransactions(orderId, contract.buyerCompanyId, contract.priceUnits);
+    if (txs && txs.length > 0) {
+      try {
+        return await rpc("studio_cancel_order_nmk", {
+          _user: userId,
+          _order: orderId,
+          _chain_txs: txs,
+        });
+      } catch {
+        // The wrapper may be absent until migration 0008 is applied to this database.
+      }
+    }
+  }
+  return rpc("studio_cancel_order", { _user: userId, _order: orderId });
+}
+
+async function contractParties(orderId: string) {
+  const db = await runtimeDb();
+  const result = await db
+    .from("contracts")
+    .select("buyer_company_id,supplier_company_id,price_units,commission_bps")
+    .eq("order_id", orderId)
+    .maybeSingle();
+  if (result.error || !result.data) return null;
+  return {
+    buyerCompanyId: result.data.buyer_company_id as string,
+    supplierCompanyId: result.data.supplier_company_id as string,
+    priceUnits: result.data.price_units as number,
+    commissionBps: result.data.commission_bps as number,
+  };
+}
+
+/**
+ * Settles through the chain wrapper, which commits the payment and the signed transfer in one
+ * database transaction. When the chain layer cannot sign, the original function runs instead,
+ * so a missing record never withholds a payment that the verification already earned.
+ */
+export async function settleOrder(orderId: string) {
+  const contract = await contractParties(orderId);
+  if (contract) {
+    const { settlementTransactions } = await import("./chain-bridge.server");
+    const txs = await settlementTransactions(
+      orderId,
+      contract.supplierCompanyId,
+      contract.priceUnits,
+      contract.commissionBps,
+    );
+    if (txs && txs.length > 0) {
+      try {
+        return await rpc("settle_verified_order_nmk", {
+          _order_id: orderId,
+          _idempotency_key: `order:${orderId}`,
+          _chain_txs: txs,
+        });
+      } catch {
+        // The wrapper may be absent until migration 0008 is applied to this database.
+      }
+    }
+  }
+  return rpc("settle_verified_order", {
+    _order_id: orderId,
+    _idempotency_key: `order:${orderId}`,
+  });
 }
 export async function mintAgentCredential(userId: string, companyId: string) {
   await ownedCompany(userId, companyId);

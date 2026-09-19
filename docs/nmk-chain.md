@@ -175,7 +175,22 @@ adiciona dois invólucros que executam numa única transação do banco:
 public.reserve_demo_order_nmk(_order_id uuid, _offer_version_id uuid,
                               _idempotency_key text, _chain_txs jsonb)
 public.settle_verified_order_nmk(_order_id uuid, _idempotency_key text, _chain_txs jsonb)
+public.studio_cancel_order_nmk(_user uuid, _order uuid, _chain_txs jsonb)
 ```
+
+**Onde a atomicidade não é possível, e por quê.** `studio_place_order` gera o identificador do
+pedido dentro da própria função e chama `reserve_demo_order` por dentro, então o caminho real
+do aplicativo nunca passa por `reserve_demo_order_nmk`. Assinar a `RESERVE` antes da função
+executar exigiria um marcador substituído depois da assinatura, e qualquer substituição dentro
+da forma canônica invalida a assinatura. Tirar o pedido de dentro da forma canônica resolveria
+a assinatura, mas deixaria a transação sem vínculo provável com o contrato.
+
+A escolha registrada é perder a atomicidade nesse ponto: a `RESERVE` é emitida depois que
+`studio_place_order` retorna, com o identificador real do pedido dentro da forma canônica. Uma
+falha entre as duas etapas deixa uma reserva sem entrada na cadeia, que a reconciliação
+detecta e mostra como divergência. O caminho que move dinheiro — a liquidação — continua
+atômico pelo invólucro, e o cancelamento também, porque ali o pedido já existe antes de
+assinar.
 
 Cada invólucro chama a função original, e só se ela tiver sucesso insere as transações
 assinadas recebidas em `chain_transactions` com `status = 'pending'`. Como o corpo de uma
