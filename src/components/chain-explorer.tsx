@@ -129,8 +129,8 @@ export function ChainExplorer({ data, selectedHeight, selectedTxid }: Props) {
               <h2>Registro ainda não publicado neste ambiente</h2>
               <p>{data.setup.message}</p>
               <p className="nmk-muted">
-                Enquanto a migration não for aplicada, os contratos continuam sendo liquidados
-                pelo ledger de créditos, que permanece a fonte de verdade financeira.
+                Enquanto a migration não for aplicada, os contratos continuam sendo liquidados pelo
+                ledger de créditos, que permanece a fonte de verdade financeira.
               </p>
             </div>
           </div>
@@ -166,8 +166,8 @@ export function ChainExplorer({ data, selectedHeight, selectedTxid }: Props) {
             </h2>
             <p>
               A conferência recalcula todo hash de bloco, toda raiz de Merkle e toda assinatura
-              desde a gênese, e compara os saldos derivados da cadeia com o ledger de créditos.
-              O resultado vem do mesmo código que um auditor externo pode rodar.
+              desde a gênese, e compara os saldos derivados da cadeia com o ledger de créditos. O
+              resultado vem do mesmo código que um auditor externo pode rodar.
             </p>
           </div>
           <button
@@ -232,20 +232,21 @@ function ExplorerHeader({
         </span>
         <h1>Cada contrato, entrega e pagamento em um registro assinado</h1>
         <p>
-          A NMK é a moeda desta rede e a cadeia guarda a prova de cada etapa: o que foi
-          contratado, o conteúdo exato que foi entregue, o que a verificação observou e quanto
-          foi pago. O registro é público e conferível por quem quiser.
+          A NMK é a moeda desta rede e a cadeia guarda a prova de cada etapa: o que foi contratado,
+          o conteúdo exato que foi entregue, o que a verificação observou e quanto foi pago. O
+          registro é público e conferível por quem quiser.
         </p>
         <div className="nmk-head-meta">
           <span className="nmk-chip">
             <Link2 size={12} /> {chainId ?? "nmk-devnet-1"}
           </span>
-          <span className="nmk-chip nmk-chip-warn" title="A cadeia é mantida por um validador único">
+          <span
+            className="nmk-chip nmk-chip-warn"
+            title="A cadeia é mantida por um validador único"
+          >
             Autoridade única
           </span>
-          {head && (
-            <span className="nmk-chip">Último bloco selado em {when(head.sealedAt)}</span>
-          )}
+          {head && <span className="nmk-chip">Último bloco selado em {when(head.sealedAt)}</span>}
         </div>
       </div>
     </header>
@@ -273,8 +274,13 @@ function Stat({
 }
 
 function AuditResult({ result }: { result: Awaited<ReturnType<typeof auditChain>> }) {
-  const divergent = result.reconciliation.filter((row) => row.ledgerUnits !== row.chainUnits);
-  const ok = result.validation.valid && divergent.length === 0;
+  const divergent = result.reconciliation.filter(
+    (row) =>
+      row.ledgerUnits !== row.chainUnits ||
+      (row.reservedLedgerUnits !== undefined && row.reservedLedgerUnits !== row.reservedChainUnits),
+  );
+  const ok =
+    result.validation.valid && divergent.length === 0 && result.missingAnchors.length === 0;
   return (
     <div className={`nmk-audit-result nm-enter ${ok ? "is-ok" : "is-bad"}`}>
       <p className="nmk-audit-verdict">
@@ -307,8 +313,32 @@ function AuditResult({ result }: { result: Awaited<ReturnType<typeof auditChain>
               <code>ledger_divergente</code>
               <span>Empresa {short(row.companyId, 8, 6)}</span>
               <p>
-                Ledger registra {amount(row.ledgerUnits)} e a cadeia deriva{" "}
-                {amount(row.chainUnits)}.
+                Ledger registra {amount(row.ledgerUnits)} e a cadeia deriva {amount(row.chainUnits)}
+                .
+                {row.reservedLedgerUnits !== undefined &&
+                  ` Reservado: ${amount(row.reservedLedgerUnits)} no ledger e ${amount(
+                    row.reservedChainUnits ?? 0,
+                  )} na cadeia.`}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {result.missingAnchors.length > 0 && (
+        <ul className="nmk-issues">
+          {result.missingAnchors.map((row) => (
+            <li key={`${row.orderId}-${row.kind}-${row.version}`}>
+              <code>ancora_ausente</code>
+              <span>
+                Pedido {short(row.orderId, 8, 6)} · versão {row.version}
+              </span>
+              <p>
+                {row.kind === "delivery"
+                  ? "A entrega existe no banco mas não tem registro de conteúdo na cadeia."
+                  : "O relatório de verificação existe no banco mas não tem registro na cadeia."}{" "}
+                Uma âncora não move saldo, então essa ausência não aparece na comparação de saldos:
+                ela só é encontrada conferindo os artefatos um a um, o que foi feito aqui.
               </p>
             </li>
           ))}
@@ -318,7 +348,13 @@ function AuditResult({ result }: { result: Awaited<ReturnType<typeof auditChain>
   );
 }
 
-function BlockList({ blocks, onOpen }: { blocks: ChainOverview["blocks"]; onOpen: (h: number) => void }) {
+function BlockList({
+  blocks,
+  onOpen,
+}: {
+  blocks: ChainOverview["blocks"];
+  onOpen: (h: number) => void;
+}) {
   if (blocks.length === 0)
     return (
       <Empty
@@ -332,7 +368,7 @@ function BlockList({ blocks, onOpen }: { blocks: ChainOverview["blocks"]; onOpen
       <h2 className="nmk-section-title">
         <Blocks size={16} /> Blocos recentes
       </h2>
-      <ul className="nmk-blocks">
+      <ul className="nmk-blocks nm-stagger">
         {blocks.map((b) => (
           <li key={b.height}>
             <button className="nmk-block nm-interactive" onClick={() => onOpen(b.height)}>
@@ -375,7 +411,7 @@ function TransactionList({
       <h2 className="nmk-section-title">
         <ScrollText size={16} /> Transações recentes
       </h2>
-      <ul className="nmk-txs">
+      <ul className="nmk-txs nm-stagger">
         {transactions.map((t) => {
           const Icon = TX_ICON[t.type] ?? Coins;
           return (
@@ -504,9 +540,9 @@ function TransactionPanel({
 
       {t.payload_hash && (
         <p className="nmk-note">
-          Esse valor é o SHA-256 do conteúdo entregue ou do relatório de verificação. Ele prova
-          que aquele conteúdo exato existia quando a transação foi registrada. Ele não afirma
-          nada sobre a qualidade do conteúdo — isso é papel do relatório de verificação.
+          Esse valor é o SHA-256 do conteúdo entregue ou do relatório de verificação. Ele prova que
+          aquele conteúdo exato existia quando a transação foi registrada. Ele não afirma nada sobre
+          a qualidade do conteúdo — isso é papel do relatório de verificação.
         </p>
       )}
 

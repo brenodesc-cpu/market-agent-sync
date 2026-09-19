@@ -1,0 +1,194 @@
+/* Shared UI utilities (no screen-specific selectors):
+ * nm-reveal + nm-reveal-pending: one-time entrance managed by useScrollReveal;
+ *   --nm-reveal-delay accepts a time; visible by default, hidden only after observe().
+ * nm-interactive: mouse lift, touch press and visible keyboard focus; use on actions.
+ * nm-skeleton: reserved placeholder; mount only for an actual pending request.
+ * nm-state + nm-state-empty / nm-state-error / nm-state-success: readable state panels.
+ * nm-enter: brief entrance for a newly mounted result or state, never simulated progress.
+ * nm-item-enter: emphasis for a newly received item; add only when real data arrives.
+ * nm-stagger: direct children receive delays (first eight, then capped); combine with
+ *   nm-enter / nm-item-enter, or nm-reveal plus its hook. --nm-index overrides the index.
+ * nm-number: stable, tabular numeric presentation.
+ * nm-scroll-region: wide content scrolls locally; provide tabIndex and accessible label.
+ * nm-sr-only: accessible text without visual layout (e.g. the final count-up value).
+ * No utility infers backend state. Consumers own status, aria-busy and live regions.
+ */
+:root {
+  --nm-dur-instant: 90ms;
+  --nm-dur-fast: 150ms;
+  --nm-dur-base: 240ms;
+  --nm-dur-slow: 420ms;
+  --nm-dur-scene: 700ms;
+  --nm-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --nm-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --nm-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --nm-stagger: 60ms;
+}
+.nm-reveal {
+  opacity: 1;
+  transform: none;
+}
+.nm-stagger > * {
+  --nm-index: 7;
+  --nm-reveal-delay: calc(var(--nm-index) * var(--nm-stagger));
+}
+.nm-stagger > :nth-child(1) {
+  --nm-index: 0;
+}
+.nm-stagger > :nth-child(2) {
+  --nm-index: 1;
+}
+.nm-stagger > :nth-child(3) {
+  --nm-index: 2;
+}
+.nm-stagger > :nth-child(4) {
+  --nm-index: 3;
+}
+.nm-stagger > :nth-child(5) {
+  --nm-index: 4;
+}
+.nm-stagger > :nth-child(6) {
+  --nm-index: 5;
+}
+.nm-stagger > :nth-child(7) {
+  --nm-index: 6;
+}
+.nm-interactive {
+  touch-action: manipulation;
+}
+.nm-interactive:focus-visible,
+.nm-scroll-region:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 4px;
+}
+.nm-skeleton {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+  min-height: 1em;
+  min-width: 4ch;
+  border-radius: 6px;
+  background: var(--muted);
+}
+.nm-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent, var(--card), transparent);
+  opacity: 0.5;
+}
+.nm-state {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+.nm-state p {
+  margin-block: 8px 16px;
+  line-height: 1.65;
+}
+.nm-state-empty {
+  border-style: dashed;
+}
+.nm-state-error {
+  border-inline-start: 4px solid var(--destructive);
+}
+.nm-state-success {
+  border-inline-start: 4px solid var(--primary);
+  background: color-mix(in oklch, var(--lime) 15%, var(--card));
+}
+.nm-number {
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  min-width: 2ch;
+}
+.nm-scroll-region {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.nm-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nm-reveal {
+    transition:
+      opacity var(--nm-dur-slow) var(--nm-ease-out),
+      transform var(--nm-dur-slow) var(--nm-ease-out);
+    transition-delay: var(--nm-reveal-delay, 0ms);
+  }
+  .nm-reveal.nm-reveal-pending:not(:focus-within) {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  .nm-interactive {
+    transition:
+      transform var(--nm-dur-fast) var(--nm-ease-out),
+      filter var(--nm-dur-fast) var(--nm-ease-out);
+  }
+  .nm-interactive:active {
+    transform: scale(0.98);
+  }
+  .nm-skeleton::after {
+    animation: nm-shimmer 1.5s var(--nm-ease-in-out) infinite;
+  }
+  .nm-enter {
+    animation: nm-enter var(--nm-dur-base) var(--nm-ease-out);
+  }
+  .nm-item-enter {
+    animation: nm-item-enter var(--nm-dur-slow) var(--nm-ease-out);
+  }
+  .nm-stagger > :is(.nm-enter, .nm-item-enter) {
+    animation-delay: calc(var(--nm-index) * var(--nm-stagger));
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .nm-interactive:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.04);
+    }
+    .nm-interactive:active {
+      transform: translateY(0) scale(0.98);
+    }
+  }
+  @keyframes nm-shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes nm-enter {
+    from {
+      opacity: 0.2;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes nm-item-enter {
+    from {
+      opacity: 0.35;
+      transform: translateY(-8px);
+      filter: brightness(1.15);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+  }
+}

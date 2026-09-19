@@ -187,8 +187,8 @@ a assinatura, mas deixaria a transação sem vínculo provável com o contrato.
 
 A escolha registrada é perder a atomicidade nesse ponto: a `RESERVE` é emitida depois que
 `studio_place_order` retorna, com o identificador real do pedido dentro da forma canônica. Uma
-falha entre as duas etapas deixa uma reserva sem entrada na cadeia, que a reconciliação
-detecta e mostra como divergência. O caminho que move dinheiro — a liquidação — continua
+falha entre as duas etapas deixa uma reserva sem entrada na cadeia. Essa é detectável pela
+reconciliação, porque a reserva move saldo — ao contrário de uma âncora ausente. O caminho que move dinheiro — a liquidação — continua
 atômico pelo invólucro, e o cancelamento também, porque ali o pedido já existe antes de
 assinar.
 
@@ -216,6 +216,19 @@ Eventos registrados na cadeia, por pedido:
 A soma dos saldos derivados da cadeia precisa bater com `accounts` para toda empresa com
 carteira. Exponha essa comparação numa função de reconciliação, e mostre divergência como
 erro visível — não a esconda.
+
+**Três perguntas independentes, e o que cada uma não responde.** A conferência do registro
+precisa separar:
+
+1. *As entradas presentes são internamente sãs?* É o que `validateChain` responde: hashes,
+   raízes, assinaturas, nonces e saldos não negativos.
+2. *Os saldos que elas derivam batem com o ledger?* É o que a reconciliação responde.
+3. *Existe artefato sem nenhuma âncora?* Nenhuma das duas anteriores responde isso. Uma âncora
+   não move saldo, então a ausência dela deixa todos os saldos corretos e a reconciliação
+   fecha. A única forma de encontrar é conferir os artefatos contra as âncoras existentes,
+   uma auditoria de cobertura separada.
+
+Não afirme que a reconciliação detecta âncora ausente. Ela não detecta, por construção.
 
 ## 9. Âncora em rede pública
 

@@ -1635,3 +1635,29 @@
 .studio-registered-agents details { padding-top: .7rem; }
 .studio-registered-agents summary { cursor: pointer; font-size: .88rem; }
 .studio-registered-agents small { color: #777080; }
+
+/* Public record entry point: a link out of the authenticated studio, not a view inside it. */
+.studio-record-link {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 11px 13px;
+  background: var(--card);
+  color: var(--foreground);
+  font: 500 12px var(--font-display);
+  text-decoration: none;
+}
+.studio-record-link svg {
+  flex: none;
+  color: var(--primary);
+}
+.studio-record-link small {
+  display: block;
+  margin-top: 2px;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}

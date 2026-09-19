@@ -1,6 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "./motion.css";
 
 @theme inline {
   --font-sans: "Inter", sans-serif; --font-display: "Funnel Display", sans-serif; --font-hero: "Poppins", sans-serif;

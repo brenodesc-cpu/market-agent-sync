@@ -15,7 +15,9 @@ export const getStudioBootstrap = createServerFn({ method: "GET" }).handler(asyn
   return {
     offers,
     setupMessage,
-    backendConfigured: Boolean(process.env["SUPABASE_URL"] && process.env["SUPABASE_SERVICE_ROLE_KEY"]),
+    backendConfigured: Boolean(
+      process.env["SUPABASE_URL"] && process.env["SUPABASE_SERVICE_ROLE_KEY"],
+    ),
     neuralakeConfigured: Boolean(process.env["NEURALAKE_API_KEY"]),
     agoraConfigured: Boolean(
       process.env["AGORA_APP_ID"] &&

@@ -430,3 +430,56 @@ function reasonOf(error: unknown) {
   if (/relation .* does not exist|schema cache/i.test(message)) return "migration_pending";
   return "write_failed";
 }
+
+export type AnchorCoverage = {
+  orderId: string;
+  version: number;
+  kind: "delivery" | "report";
+  expectedHash: string | null;
+};
+
+/**
+ * Deliveries and verification reports that exist in the database but have no anchor.
+ *
+ * Financial reconciliation cannot find these: an anchor moves no value, so a missing one leaves
+ * every balance correct. Coverage has to be audited against the artefacts themselves, which is
+ * what this does — otherwise claiming that a gap would be detected is simply false.
+ */
+export async function auditAnchorCoverage(limit = 200): Promise<AnchorCoverage[]> {
+  const { runtimeDb } = await import("./studio-runtime.server");
+  const db = await runtimeDb();
+  const [deliveries, reports, anchors] = await Promise.all([
+    db.from("deliveries").select("order_id,version,sha256").limit(limit),
+    db.from("verification_reports").select("order_id,delivery_version").limit(limit),
+    db
+      .from("chain_transactions")
+      .select("idempotency_key")
+      .eq("type", "ANCHOR")
+      .limit(limit * 2),
+  ]);
+  if (deliveries.error || reports.error || anchors.error) return [];
+
+  const covered = new Set((anchors.data ?? []).map((row) => row.idempotency_key));
+  const missing: AnchorCoverage[] = [];
+  for (const row of deliveries.data ?? []) {
+    const key = `order:${row.order_id}:delivery:${row.version}`;
+    if (!covered.has(key))
+      missing.push({
+        orderId: row.order_id as string,
+        version: row.version as number,
+        kind: "delivery",
+        expectedHash: (row.sha256 as string | null) ?? null,
+      });
+  }
+  for (const row of reports.data ?? []) {
+    const key = `order:${row.order_id}:report:${row.delivery_version}`;
+    if (!covered.has(key))
+      missing.push({
+        orderId: row.order_id as string,
+        version: row.delivery_version as number,
+        kind: "report",
+        expectedHash: null,
+      });
+  }
+  return missing;
+}

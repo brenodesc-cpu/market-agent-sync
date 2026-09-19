@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoRouteImport } from './routes/demo'
+import { Route as ExplorerRouteImport } from './routes/explorer'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as ApiA2aSplatRouteImport } from './routes/api/a2a/$'
 import { Route as ApiPublicOpenapiRouteImport } from './routes/api/public/openapi'
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const DemoRoute = DemoRouteImport.update({
   id: '/demo',
   path: '/demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExplorerRoute = ExplorerRouteImport.update({
+  id: '/explorer',
+  path: '/explorer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudioRoute = StudioRouteImport.update({
@@ -51,6 +57,7 @@ const ApiReviewsOrderIdChatCompletionsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/explorer': typeof ExplorerRoute
   '/studio': typeof StudioRoute
   '/api/a2a/$': typeof ApiA2aSplatRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/explorer': typeof ExplorerRoute
   '/studio': typeof StudioRoute
   '/api/a2a/$': typeof ApiA2aSplatRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/explorer': typeof ExplorerRoute
   '/studio': typeof StudioRoute
   '/api/a2a/$': typeof ApiA2aSplatRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/demo'
+    | '/explorer'
     | '/studio'
     | '/api/a2a/$'
     | '/api/public/openapi'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/demo'
+    | '/explorer'
     | '/studio'
     | '/api/a2a/$'
     | '/api/public/openapi'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/demo'
+    | '/explorer'
     | '/studio'
     | '/api/a2a/$'
     | '/api/public/openapi'
@@ -103,6 +115,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DemoRoute: typeof DemoRoute
+  ExplorerRoute: typeof ExplorerRoute
   StudioRoute: typeof StudioRoute
   ApiA2aSplatRoute: typeof ApiA2aSplatRoute
   ApiPublicOpenapiRoute: typeof ApiPublicOpenapiRoute
@@ -123,6 +136,13 @@ declare module '@tanstack/react-router' {
       path: '/demo'
       fullPath: '/demo'
       preLoaderRoute: typeof DemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/explorer': {
+      id: '/explorer'
+      path: '/explorer'
+      fullPath: '/explorer'
+      preLoaderRoute: typeof ExplorerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/studio': {
@@ -159,6 +179,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DemoRoute: DemoRoute,
+  ExplorerRoute: ExplorerRoute,
   StudioRoute: StudioRoute,
   ApiA2aSplatRoute: ApiA2aSplatRoute,
   ApiPublicOpenapiRoute: ApiPublicOpenapiRoute,

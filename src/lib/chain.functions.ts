@@ -20,6 +20,7 @@ const MISSING_TABLES =
 const MISSING_MODULES =
   /cannot find module|failed to (resolve import|load url)|does the file exist|ERR_MODULE_NOT_FOUND/i;
 const MISSING_SECRET = /NMK_WALLET_SECRET/i;
+const MISSING_BACKEND = /Missing Supabase environment variable|SUPABASE_SERVICE_ROLE_KEY|Backend indisponível/i;
 
 export type ChainSetupState = { applied: true } | { applied: false; message: string };
 
@@ -36,6 +37,12 @@ function setupState(error: unknown): ChainSetupState {
       applied: false,
       message:
         "A camada NMK ainda não foi aplicada neste banco. Rode a migration 0008_nmk_chain.sql para publicar o registro.",
+    };
+  if (MISSING_BACKEND.test(message))
+    return {
+      applied: false,
+      message:
+        "Este ambiente está sem a conexão de servidor necessária para ler o registro. Use a versão online.",
     };
   if (MISSING_SECRET.test(message))
     return {
@@ -139,20 +146,35 @@ export const getTransactionDetails = createServerFn({ method: "GET" })
 
 export type ChainAudit = {
   validation: ChainValidation;
-  reconciliation: { companyId: string; ledgerUnits: number; chainUnits: number }[];
+  reconciliation: {
+    companyId: string;
+    ledgerUnits: number;
+    chainUnits: number;
+    reservedLedgerUnits?: number;
+    reservedChainUnits?: number;
+  }[];
+  missingAnchors: { orderId: string; version: number; kind: "delivery" | "report" }[];
   checkedAt: string;
 };
 
-// Verification is deliberately exposed to anyone: the point of the layer is that the record
-// can be audited without trusting this server. A divergence is returned, never swallowed.
+// Verification is deliberately exposed to anyone: the point of the layer is that the record can
+// be audited without trusting this server. A divergence is returned, never swallowed.
+//
+// Three different questions are asked, because no single one covers the others. Validation asks
+// whether the entries present are internally sound. Reconciliation asks whether the balances
+// they derive match the ledger. Coverage asks whether an artefact exists with no anchor at all —
+// which the other two cannot see, since an anchor moves no value and its absence leaves every
+// balance correct.
 export const auditChain = createServerFn({ method: "POST" }).handler(
   async (): Promise<ChainAudit> => {
     const node = await import("./chain/node.server");
-    const [validation, reconciliation] = await Promise.all([
+    const { auditAnchorCoverage } = await import("./chain-bridge.server");
+    const [validation, reconciliation, missingAnchors] = await Promise.all([
       node.verifyStoredChain(),
       node.reconcileWithLedger(),
+      auditAnchorCoverage(),
     ]);
-    return { validation, reconciliation, checkedAt: new Date().toISOString() };
+    return { validation, reconciliation, missingAnchors, checkedAt: new Date().toISOString() };
   },
 );
 

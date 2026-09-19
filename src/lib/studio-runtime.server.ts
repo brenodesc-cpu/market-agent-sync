@@ -108,7 +108,15 @@ export async function workspace(userId: string): Promise<StudioWorkspace> {
   const ids = (companies.data ?? []).map((c) => c.id as string);
   const offers = await catalogueOffers(db);
   if (!ids.length)
-    return { companies: [], agents: [], accounts: [], orders: [], offers, ledger: [], credentials: [] };
+    return {
+      companies: [],
+      agents: [],
+      accounts: [],
+      orders: [],
+      offers,
+      ledger: [],
+      credentials: [],
+    };
   const [accounts, orders, ledger, credentials, agents] = await Promise.all([
     db
       .from("accounts")
@@ -133,7 +141,11 @@ export async function workspace(userId: string): Promise<StudioWorkspace> {
       .select("id,company_id,prefix,created_at,revoked_at")
       .in("company_id", ids)
       .order("created_at", { ascending: false }),
-    db.from("agents").select("id,company_id,name,agent_type,model,instructions,active").in("company_id", ids).order("created_at"),
+    db
+      .from("agents")
+      .select("id,company_id,name,agent_type,model,instructions,active")
+      .in("company_id", ids)
+      .order("created_at"),
   ]);
   for (const result of [accounts, orders, ledger, credentials, agents]) check(result.error);
   return {
@@ -343,8 +355,10 @@ export async function runOrder(userId: string, orderId: string) {
       _content: artifact,
       _report: report,
     })) as { deliveryId: string; version: number; decision: string; sha256: string };
-    // Anchors carry no value, so a failure to write them cannot block the delivery. They record
-    // that this exact content and this exact report existed, nothing about their quality.
+    // Anchors carry no value, so a failure to write them cannot block the delivery, and for the
+    // same reason a missing one is invisible to balance reconciliation — the coverage audit in
+    // the bridge is what finds it. They record that this exact content and this exact report
+    // existed, nothing about their quality.
     const { recordVerificationAnchors } = await import("./chain-bridge.server");
     const contract = await contractParties(orderId);
     if (contract)

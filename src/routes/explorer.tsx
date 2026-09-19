@@ -6,7 +6,10 @@ import { getChainOverview } from "@/lib/chain.functions";
 export const Route = createFileRoute("/explorer")({
   validateSearch: z.object({
     bloco: z.number().int().min(0).optional(),
-    tx: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    tx: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
   }),
   loader: () => getChainOverview(),
   head: () => ({

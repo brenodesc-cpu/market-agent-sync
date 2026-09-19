@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { LandingPage } from "@/components/landing-page";
+import { LandingError, LandingPage, LandingPending } from "@/components/landing-page";
 import { getDemoWorkspace } from "@/lib/demo.functions";
 
 export const Route = createFileRoute("/")({
@@ -23,6 +23,10 @@ export const Route = createFileRoute("/")({
     ],
   }),
   component: Index,
+  // The landing loads real workspace data, so the wait and the failure both need a designed
+  // state instead of a blank screen or the generic error page.
+  pendingComponent: LandingPending,
+  errorComponent: LandingError,
 });
 function Index() {
   const data = Route.useLoaderData();

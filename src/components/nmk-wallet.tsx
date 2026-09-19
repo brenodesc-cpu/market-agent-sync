@@ -35,8 +35,8 @@ export function NmkWallet({ companyId, companyName }: Props) {
         <KeyRound size={16} />
         <p>
           O registro NMK ainda não está disponível neste ambiente, então {companyName} não tem
-          endereço na cadeia. Os saldos acima continuam válidos: o ledger de créditos é a fonte
-          de verdade financeira.
+          endereço na cadeia. Os saldos acima continuam válidos: o ledger de créditos é a fonte de
+          verdade financeira.
         </p>
       </div>
     );
@@ -49,8 +49,8 @@ export function NmkWallet({ companyId, companyName }: Props) {
             <Wallet size={15} /> Sem endereço no registro NMK
           </strong>
           <p>
-            Criar o endereço permite que as reservas, os registros de entrega e as liquidações
-            desta empresa apareçam no registro público, conferíveis por qualquer pessoa.
+            Criar o endereço permite que as reservas, os registros de entrega e as liquidações desta
+            empresa apareçam no registro público, conferíveis por qualquer pessoa.
           </p>
         </div>
         <button
@@ -70,8 +70,8 @@ export function NmkWallet({ companyId, companyName }: Props) {
         </button>
         {create.isError && (
           <p className="nmk-error nm-enter">
-            Não foi possível criar o endereço. O servidor precisa do segredo de cifra da
-            carteira configurado para guardar a chave.
+            Não foi possível criar o endereço. O servidor precisa do segredo de cifra da carteira
+            configurado para guardar a chave.
           </p>
         )}
       </div>
@@ -90,9 +90,9 @@ export function NmkWallet({ companyId, companyName }: Props) {
       <code className="nmk-wallet-address">{wallet.data.address}</code>
       <p className="nmk-wallet-note">
         <ShieldCheck size={13} />
-        Carteira custodiada pela plataforma: a chave que assina fica cifrada no servidor, para
-        que os agentes liquidem sem depender de alguém clicar. A cadeia é mantida por um
-        validador único, não é uma rede descentralizada.
+        Carteira custodiada pela plataforma: a chave que assina fica cifrada no servidor, para que
+        os agentes liquidem sem depender de alguém clicar. A cadeia é mantida por um validador
+        único, não é uma rede descentralizada.
       </p>
     </div>
   );
