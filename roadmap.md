@@ -2,7 +2,7 @@
 - [x] Ativar Lovable Cloud e autenticação
 - [x] Armazenar a chave NeuraLake com segurança
 - [x] Criar o modelo de dados e regras de acesso
-- [ ] Fechar reserva, verificação e liquidação idempotente
+- [x] Fechar reserva, verificação e liquidação idempotente
 - [x] Inserir e validar dados reais da demonstração
 - [ ] Implementar camada NeuraLake e testes de isolamento
 - [ ] Implementar interface operacional completa
@@ -17,7 +17,8 @@
 - [x] Implementar assistente autenticado que consulta evidências e chama a NeuraLake pelo servidor.
 - [x] Preparar endpoint Custom LLM da Agora com sessão curta limitada ao relatório.
 - [x] Testar a migração financeira em PostgreSQL local com liquidações simultâneas.
-- [ ] Aplicar a migração 0002 no banco do Lovable e validar a chamada real à NeuraLake.
+- [x] Aplicar a migração 0002 no banco do Lovable.
+- [ ] Validar a chamada autenticada real à NeuraLake (bloqueado: ainda não há usuário cadastrado no app).
 - [ ] Configurar o projeto Agora e implementar a sessão de áudio no navegador.
 - [ ] Executar uma contratação nova com arquivo real e verificador no servidor.
 
