@@ -287,3 +287,20 @@ test("nenhum caminho de colateral produz posição ativa negativa", () => {
   const positions = deriveStakes([stake(100), unstake(100), reportAnchor(reportHash)]);
   assert.equal(positions[0]!.activeUnits, 0);
 });
+
+test("a derivação não depende da ordem: o explorador lista do mais novo para o mais antigo", () => {
+  const chronological = [stake(240), reportAnchor(reportHash), slash(80)];
+  const newestFirst = [...chronological].reverse();
+
+  const forwards = deriveStakes(chronological)[0]!;
+  const backwards = deriveStakes(newestFirst)[0]!;
+  assert.equal(forwards.activeUnits, 160);
+  assert.deepEqual(backwards, forwards);
+
+  // Reputation rides on the same derivation, so it has to survive the same reversal.
+  const reputationBackwards = deriveReputation(newestFirst).find(
+    (r) => r.address === supplier.address,
+  );
+  assert.equal(reputationBackwards?.activeStakeUnits, 160);
+  assert.equal(reputationBackwards?.slashedUnits, 80);
+});

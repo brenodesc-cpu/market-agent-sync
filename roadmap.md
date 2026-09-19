@@ -78,3 +78,33 @@ ambiente remoto, e a reconciliação com o ledger fecha sem divergência.
 Enquanto a migration não estiver aplicada, a interface mostra o registro como pendência e a
 liquidação continua pelo caminho original. Nenhuma tela declara publicação em rede pública
 enquanto `chain_anchors.status` não for `confirmed`.
+
+## 5. Economia da NMK: colateral e reputação (proposta em revisão)
+
+Contrato em [Economia NMK](docs/nmk-economy.md). A moeda deixa de ser apenas registro e passa a
+ter função: colateral para publicar oferta, queima em falha comprovada, e reputação derivada da
+cadeia. Não é transferível entre empresas nem conversível em dinheiro fora do resgate do saldo
+livre.
+
+- [x] Tipos `STAKE`, `UNSTAKE`, `SLASH` e `REDEEM`, com as regras de validação por tipo.
+- [x] `SLASH` obriga o hash do relatório que o justificou, e queima sem relatório registrado aparece na conferência.
+- [x] Colateral exigido proporcional ao preço, com piso, e níveis de listagem por total travado.
+- [x] Queima limitada ao menor entre colateral e preço, integralmente para o comprador.
+- [x] Reputação e resumo econômico derivados do registro assinado, recalculáveis por terceiros.
+- [x] Cadeia local de desenvolvimento, validada pelo mesmo verificador e rotulada na interface.
+- [x] Explorador mostrando economia da rede e reputação dos fornecedores.
+- [ ] Tabelas e funções SQL do colateral: `chain_stakes`, travamento, destravamento com carência e queima atômica.
+- [ ] Bloquear publicação e contratação de oferta sem colateral suficiente, no servidor.
+- [ ] Emitir a queima automaticamente quando o limite de correções é atingido ou o prazo expira sem entrega.
+- [ ] Compra de NMK em reais, com registro da compra e resgate do saldo livre.
+- [ ] Painel de colateral e reputação dentro do estúdio, ao lado da carteira.
+- [ ] Confirmar o desenho com assessoria jurídica antes de qualquer operação real.
+
+**Concluído quando:** um fornecedor não consegue publicar sem colateral, uma falha comprovada
+queima o colateral em favor do comprador, e o comprador consegue recalcular a reputação do
+fornecedor a partir do registro público.
+
+A receita da plataforma são a taxa por contratação concluída e os níveis de listagem por
+colateral. Nenhuma parte da queima e nenhum rendimento sobre o valor em custódia entram como
+receita, por decisão de desenho: receita da plataforma e resultado da verificação precisam
+ficar sem ligação.

@@ -7,8 +7,13 @@ import {
   ChevronRight,
   CircleAlert,
   Coins,
+  Banknote,
   FileCheck2,
+  Flame,
+  FlaskConical,
   Link2,
+  Lock,
+  LockOpen,
   Loader2,
   ScrollText,
   ShieldCheck,
@@ -38,6 +43,10 @@ const TX_LABEL: Record<string, string> = {
   RESERVE: "Reserva",
   RELEASE: "Devolução",
   ANCHOR: "Registro de conteúdo",
+  STAKE: "Colateral travado",
+  UNSTAKE: "Colateral devolvido",
+  SLASH: "Colateral queimado",
+  REDEEM: "Resgate em dinheiro",
 };
 
 const TX_ICON: Record<string, typeof Coins> = {
@@ -47,6 +56,10 @@ const TX_ICON: Record<string, typeof Coins> = {
   RESERVE: ShieldCheck,
   RELEASE: Undo2,
   ANCHOR: FileCheck2,
+  STAKE: Lock,
+  UNSTAKE: LockOpen,
+  SLASH: Flame,
+  REDEEM: Banknote,
 };
 
 const REF_LABEL: Record<string, string> = {
@@ -55,6 +68,8 @@ const REF_LABEL: Record<string, string> = {
   report: "Relatório de verificação",
   treasury: "Tesouraria",
   genesis: "Gênese",
+  offer: "Oferta",
+  purchase: "Compra de NMK",
 };
 
 function short(value: string, head = 10, tail = 8) {
@@ -118,7 +133,7 @@ export function ChainExplorer({ data, selectedHeight, selectedTxid }: Props) {
   const openTx = (txid: string) => void navigate({ to: "/explorer", search: { tx: txid } });
   const clear = () => void navigate({ to: "/explorer", search: {} });
 
-  if (!data.setup.applied)
+  if (data.setup.mode === "pending")
     return (
       <main className="nmk">
         <ExplorerHeader head={null} chainId={null} />
@@ -143,6 +158,16 @@ export function ChainExplorer({ data, selectedHeight, selectedTxid }: Props) {
       <ExplorerHeader head={data.head} chainId={data.blocks[0]?.chain_id ?? null} />
 
       <section className="nmk-shell">
+        {data.setup.mode === "devnet" && (
+          <div className="nmk-devnet" role="status">
+            <FlaskConical size={18} />
+            <div>
+              <strong>Cadeia local de desenvolvimento</strong>
+              <p>{data.setup.message}</p>
+            </div>
+          </div>
+        )}
+
         <Reveal className="nmk-strip">
           <Stat label="Altura da cadeia" value={data.head ? `#${data.head.height}` : "—"} />
           <Stat label="Blocos selados" value={String(data.blocks.length)} />
@@ -195,6 +220,13 @@ export function ChainExplorer({ data, selectedHeight, selectedTxid }: Props) {
 
         {auditOpen && audit.data && <AuditResult result={audit.data} />}
 
+        {!selectedTxid && selectedHeight === undefined && (
+          <>
+            <EconomyPanel economy={data.economy} />
+            <ReputationPanel reputations={data.reputations} />
+          </>
+        )}
+
         {selectedTxid ? (
           <TransactionPanel query={tx} onBack={clear} />
         ) : selectedHeight !== undefined ? (
@@ -211,6 +243,105 @@ export function ChainExplorer({ data, selectedHeight, selectedTxid }: Props) {
         )}
       </section>
     </main>
+  );
+}
+
+// The roadmap requires transacted value, supplier payout and platform revenue to stay
+// separable. Deriving them from the record means the business figures are auditable too.
+function EconomyPanel({ economy }: { economy: ChainOverview["economy"] }) {
+  const rows = [
+    { label: "Valor contratado", value: economy.contractedUnits, hint: "Repasse mais taxa" },
+    { label: "Repasse aos fornecedores", value: economy.supplierPayoutUnits, hint: null },
+    {
+      label: "Receita da plataforma",
+      value: economy.platformFeeUnits,
+      hint: "Taxa por contratação concluída",
+    },
+    {
+      label: "Colateral travado",
+      value: economy.lockedCollateralUnits,
+      hint: "Garantindo ofertas publicadas",
+    },
+    {
+      label: "Colateral devolvido a compradores",
+      value: economy.burnedCollateralUnits,
+      hint: "Por falha comprovada",
+    },
+    { label: "NMK emitida", value: economy.issuedUnits, hint: "Contra compra registrada" },
+  ];
+  return (
+    <section className="nmk-section">
+      <h2 className="nmk-section-title">
+        <Coins size={16} /> Economia da rede
+      </h2>
+      <div className="nmk-economy">
+        {rows.map((row) => (
+          <div key={row.label}>
+            <span>{row.label}</span>
+            <strong className="nm-number">{amount(row.value)}</strong>
+            {row.hint && <small>{row.hint}</small>}
+          </div>
+        ))}
+      </div>
+      <p className="nmk-note">
+        A plataforma não fica com nenhuma parte do colateral queimado. Se ela lucrasse com queimas,
+        passaria a ter interesse em ver entregas reprovadas, e o verificador independente deixaria
+        de ser garantia suficiente.
+      </p>
+    </section>
+  );
+}
+
+// Reputation is recomputed from the signed history rather than read from a column, so a buyer
+// can check a supplier's record instead of taking this page's word for it.
+function ReputationPanel({ reputations }: { reputations: ChainOverview["reputations"] }) {
+  if (reputations.length === 0) return null;
+  return (
+    <section className="nmk-section">
+      <h2 className="nmk-section-title">
+        <ShieldCheck size={16} /> Fornecedores no registro
+      </h2>
+      <div
+        className="nm-scroll-region"
+        tabIndex={0}
+        role="region"
+        aria-label="Reputação dos fornecedores"
+      >
+        <table className="nmk-table">
+          <thead>
+            <tr>
+              <th>Endereço</th>
+              <th>Contratos liquidados</th>
+              <th>Recebido</th>
+              <th>Colateral travado</th>
+              <th>Colateral perdido</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reputations.map((reputation) => (
+              <tr key={reputation.address}>
+                <td className="nmk-mono">{short(reputation.address, 12, 8)}</td>
+                <td className="nm-number">{reputation.settledContracts}</td>
+                <td className="nm-number">{amount(reputation.earnedUnits)}</td>
+                <td className="nm-number">{amount(reputation.activeStakeUnits)}</td>
+                <td
+                  className={reputation.slashedUnits > 0 ? "nmk-stat-bad nm-number" : "nm-number"}
+                >
+                  {reputation.slashes > 0
+                    ? `${amount(reputation.slashedUnits)} em ${reputation.slashes}`
+                    : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="nmk-note">
+        Estes números são recalculáveis a partir do registro público: nenhum deles é um campo que
+        alguém possa editar. Quantidade de empresas cadastradas não é reputação e por isso não
+        aparece aqui.
+      </p>
+    </section>
   );
 }
 
@@ -286,7 +417,9 @@ function AuditResult({ result }: { result: Awaited<ReturnType<typeof auditChain>
       <p className="nmk-audit-verdict">
         {ok ? <CheckCircle2 size={18} /> : <CircleAlert size={18} />}
         {ok
-          ? `Registro íntegro até o bloco #${result.validation.height}. Os saldos derivados da cadeia batem com o ledger.`
+          ? result.ledgerCompared
+            ? `Registro íntegro até o bloco #${result.validation.height}. Os saldos derivados da cadeia batem com o ledger de créditos.`
+            : `Registro íntegro até o bloco #${result.validation.height}. Não havia ledger de créditos para comparar neste ambiente, então essa conferência não foi feita.`
           : "A conferência encontrou divergências. Elas estão listadas abaixo e não devem ser ignoradas."}
       </p>
       <small className="nmk-muted">Conferido em {when(result.checkedAt)}</small>
@@ -538,7 +671,16 @@ function TransactionPanel({
         />
       </dl>
 
-      {t.payload_hash && (
+      {t.payload_hash && t.type === "SLASH" && (
+        <p className="nmk-note">
+          Esse valor é o SHA-256 do relatório de verificação que justificou a queima. Esse mesmo
+          relatório foi registrado na cadeia quando foi produzido, então qualquer pessoa consegue
+          conferir a cadeia inteira do argumento: a queima aponta para um relatório, o relatório
+          está em um bloco, e o relatório registra a reprovação. Uma queima cujo relatório não
+          esteja registrado aparece como divergência na conferência.
+        </p>
+      )}
+      {t.payload_hash && t.type !== "SLASH" && (
         <p className="nmk-note">
           Esse valor é o SHA-256 do conteúdo entregue ou do relatório de verificação. Ele prova que
           aquele conteúdo exato existia quando a transação foi registrada. Ele não afirma nada sobre

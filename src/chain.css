@@ -656,3 +656,127 @@
 .nmk-wallet-empty {
   justify-items: start;
 }
+
+/* A local chain is labelled wherever it is shown. Real cryptography, invented scenario. */
+.nmk-devnet {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid oklch(0.83 0.12 84 / 0.6);
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: oklch(0.97 0.04 84);
+  padding: 15px 18px;
+}
+.nmk-devnet svg {
+  margin-top: 1px;
+  color: oklch(0.55 0.13 70);
+}
+.nmk-devnet strong {
+  font: 600 13px var(--font-display);
+}
+.nmk-devnet p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+
+/* A local chain is labelled wherever it is shown. Real cryptography, invented scenario. */
+.nmk-devnet {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid oklch(0.83 0.12 84 / 0.6);
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: oklch(0.97 0.04 84);
+  padding: 15px 18px;
+}
+.nmk-devnet svg {
+  margin-top: 1px;
+  color: oklch(0.55 0.13 70);
+}
+.nmk-devnet strong {
+  font: 600 13px var(--font-display);
+}
+.nmk-devnet p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+.nmk-tx-stake,
+.nmk-tx-unstake {
+  background: oklch(0.94 0.04 269);
+  color: var(--primary);
+}
+.nmk-tx-slash {
+  background: oklch(0.95 0.04 25);
+  color: oklch(0.5 0.18 25);
+}
+.nmk-tx-redeem {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+/* --- economia e reputação --- */
+
+.nmk-economy {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  overflow: hidden;
+}
+.nmk-economy > div {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  padding: 16px 18px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.nmk-economy > div > span {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.nmk-economy > div > strong {
+  font: 600 20px var(--font-display);
+}
+.nmk-economy > div > small {
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+
+.nmk-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  font-size: 12px;
+}
+.nmk-table th,
+.nmk-table td {
+  padding: 11px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.nmk-table th {
+  font: 600 10px var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+  background: var(--muted);
+}
+.nmk-table tr:last-child td {
+  border-bottom: 0;
+}
+.nmk-stat-bad {
+  color: oklch(0.5 0.18 25);
+}

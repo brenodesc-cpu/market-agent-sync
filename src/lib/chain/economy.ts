@@ -84,23 +84,22 @@ export function deriveStakes(transactions: readonly ChainTransaction[]): StakePo
     return created;
   };
 
+  // Two passes, because the result must not depend on the order the caller happens to hold the
+  // transactions in — the explorer, for one, lists them newest first. Positions are opened from
+  // the collateral movements first, and only then are burns charged against them.
   for (const tx of transactions) {
     if (tx.ref_kind !== "offer" || tx.ref_id === null) continue;
-    if (tx.type === "STAKE") {
-      if (tx.from === null) continue;
-      const position = open(tx.ref_id, tx.from);
-      position.stakedUnits += tx.amount;
-    } else if (tx.type === "UNSTAKE") {
-      if (tx.to === null) continue;
-      const position = open(tx.ref_id, tx.to);
-      position.releasedUnits += tx.amount;
-    } else if (tx.type === "SLASH") {
-      const position = positions.get(tx.ref_id);
-      // A burn on an offer that was never staked is not attributable, and silently inventing a
-      // position for it would hide exactly the inconsistency an audit needs to surface.
-      if (!position) continue;
-      position.slashedUnits += tx.amount;
-    }
+    if (tx.type === "STAKE" && tx.from !== null) open(tx.ref_id, tx.from).stakedUnits += tx.amount;
+    else if (tx.type === "UNSTAKE" && tx.to !== null)
+      open(tx.ref_id, tx.to).releasedUnits += tx.amount;
+  }
+  for (const tx of transactions) {
+    if (tx.type !== "SLASH" || tx.ref_kind !== "offer" || tx.ref_id === null) continue;
+    const position = positions.get(tx.ref_id);
+    // A burn on an offer that never held collateral is not attributable, and inventing a
+    // position for it would hide exactly the inconsistency an audit needs to surface.
+    if (!position) continue;
+    position.slashedUnits += tx.amount;
   }
 
   for (const position of positions.values())
