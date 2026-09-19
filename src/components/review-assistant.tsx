@@ -39,7 +39,7 @@ export function ReviewAssistant({ orderId }: { orderId: string }) {
     setReference("");
     try {
       if (!signedIn) {
-        setError("Entre com seu e-mail no estúdio para consultar esta revisão.");
+        setError("Entre no estúdio para consultar esta revisão.");
         return;
       }
       const result = await explainReview({ data: { orderId, question } });
@@ -67,7 +67,7 @@ export function ReviewAssistant({ orderId }: { orderId: string }) {
       </div>
       {!signedIn && (
         <Link to="/studio" className="studio-text-button">
-          Entrar com e-mail no estúdio
+          Entrar no estúdio
         </Link>
       )}
       <p className="mt-2 text-sm text-muted-foreground">
