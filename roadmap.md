@@ -1,0 +1,11 @@
+# NeuraMarket roadmap
+- [x] Ativar Lovable Cloud e autenticação
+- [x] Armazenar a chave NeuraLake com segurança
+- [x] Criar o modelo de dados e regras de acesso
+- [ ] Fechar reserva, verificação e liquidação idempotente
+- [ ] Inserir e validar dados reais da demonstração
+- [ ] Implementar camada NeuraLake e testes de isolamento
+- [ ] Implementar interface operacional completa
+- [ ] Documentar API e serviço de mídia
+- [ ] Validar desktop, mobile e fluxos críticos
+- [ ] Conectar gerador de vídeo (bloqueado: integração da equipe inexistente)
