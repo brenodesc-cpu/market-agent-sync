@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { companyDraftSchema, catalogueRowsSchema, orderRequestSchema } from "./a2a-contract";
 
 export const getStudioBootstrap = createServerFn({ method: "GET" }).handler(async () => {
-  const { catalogueOffers, runtimeDb } = await import("./studio-runtime.server");
+  const { catalogueOffers, publicDb } = await import("./studio-runtime.server");
   let offers: Awaited<ReturnType<typeof catalogueOffers>> = [];
   let setupMessage: string | null = null;
   let missionPersistenceConfigured = false;
@@ -13,14 +13,12 @@ export const getStudioBootstrap = createServerFn({ method: "GET" }).handler(asyn
   } catch {
     setupMessage = "O marketplace ainda precisa ser ativado no banco do projeto.";
   }
-  if (process.env["SUPABASE_URL"] && process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
+  if (process.env["SUPABASE_URL"] && process.env["SUPABASE_PUBLISHABLE_KEY"]) {
     try {
-      const probe = await (
-        await runtimeDb()
-      )
+      const probe = await publicDb()
         .from("autonomous_missions")
         .select("id", { count: "exact", head: true });
-      missionPersistenceConfigured = !probe.error;
+      missionPersistenceConfigured = !probe.error || probe.error.code === "42501";
       if (!missionPersistenceConfigured && !setupMessage)
         setupMessage = "As missões autônomas ainda precisam ser ativadas no banco do projeto.";
     } catch {
