@@ -11,7 +11,7 @@ export function loginReturnUrl(url: string) {
       "O login nesta prévia local ainda não está autorizado. Use a versão online. Seu rascunho continua salvo aqui.",
     );
   }
-  return new URL("/studio?view=builder", current.origin).href;
+  return new URL("/studio?view=mission", current.origin).href;
 }
 
 export function loginCallbackError(url: string) {

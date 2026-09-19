@@ -120,7 +120,7 @@ function friendlyError(error: unknown) {
     : "Não foi possível concluir. Seus dados permanecem disponíveis; tente novamente.";
 }
 export function CompanyStudio({
-  initialView = "builder",
+  initialView = "mission",
   initialCompany,
 }: {
   initialView?: View;
@@ -837,7 +837,7 @@ export function CompanyStudio({
                       <p className="studio-help">{order.order.selected_reason}</p>
                       {buyerOwned && (
                         <div className="studio-order-actions">
-                          {!["cancelled", "expired"].includes(order.order.status) &&
+                          {!["settled", "cancelled", "expired"].includes(order.order.status) &&
                             !(
                               order.order.status === "accepted" &&
                               order.contract.requires_human_review
@@ -849,9 +849,7 @@ export function CompanyStudio({
                               >
                                 {order.order.status === "revision_requested"
                                   ? "Executar correção"
-                                  : order.order.status === "settled"
-                                    ? "Conferir pagamento único"
-                                    : "Continuar execução"}
+                                  : "Continuar execução"}
                               </button>
                             )}
                           {!["settled", "cancelled", "expired"].includes(order.order.status) && (
@@ -861,6 +859,14 @@ export function CompanyStudio({
                               onClick={() => void cancel()}
                             >
                               Cancelar e devolver reserva
+                            </button>
+                          )}
+                          {["settled", "cancelled", "expired"].includes(order.order.status) && (
+                            <button
+                              className="studio-primary wide"
+                              onClick={() => navigate("mission", order.order.buyer_company_id)}
+                            >
+                              Executar nova missão <ArrowRight size={16} />
                             </button>
                           )}
                         </div>
@@ -915,10 +921,10 @@ export function CompanyStudio({
               </>
             ) : workspace.orders.length === 0 ? (
               <Empty
-                title="Seu primeiro pedido aparece aqui"
-                text="Escolha uma empresa compradora e delegue um serviço ao seu agente."
-                action="Contratar serviço"
-                onClick={() => navigate("market")}
+                title="As entregas das suas missões aparecem aqui"
+                text="Comece com uma meta. A plataforma monta a equipe e traz cada contratação para sua revisão."
+                action="Executar primeira missão"
+                onClick={() => navigate("mission")}
               />
             ) : (
               <div className="studio-order-list">

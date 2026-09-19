@@ -18,6 +18,12 @@ import {
 } from "../src/lib/agent-auction.ts";
 import type { AgentOffer } from "../src/lib/a2a-contract.ts";
 import { createOnDemandAgentDefinition } from "../src/lib/on-demand-agent.ts";
+import {
+  allocateMissionStepBudgets,
+  MAX_MISSION_STEPS,
+  missionStatusAfterDelivery,
+  requireUntouchedMissionDescendants,
+} from "../src/lib/mission-budget.ts";
 const spec = agentDefinitionSchema.parse({
   name: "Propostas",
   description: "Escreve propostas comerciais completas.",
@@ -323,5 +329,46 @@ test("on-demand commercial metadata does not expose the private mission", () => 
   assert.throws(
     () => createOnDemandAgentDefinition({ ...created, instructions: created.instructions }, 0),
     /orçamento restante/,
+  );
+});
+
+test("mission budget is allocated before paid steps without exceeding its ceiling", () => {
+  assert.deepEqual(allocateMissionStepBudgets([true, false, true], 5), [3, 0, 2]);
+  assert.deepEqual(allocateMissionStepBudgets([false, false], 1), [0, 0]);
+  assert.throws(() => allocateMissionStepBudgets([true, true], 1), /um crédito por etapa paga/);
+});
+
+test("a five-agent chain receives deterministic caps inside the mission budget", () => {
+  assert.equal(MAX_MISSION_STEPS, 5);
+  const caps = allocateMissionStepBudgets(Array(MAX_MISSION_STEPS).fill(true), 12);
+  assert.deepEqual(caps, [3, 3, 2, 2, 2]);
+  assert.equal(
+    caps.reduce((sum, value) => sum + value, 0),
+    12,
+  );
+});
+
+test("verified agent deliveries await settlement before the mission is complete", () => {
+  assert.equal(missionStatusAfterDelivery(3, 5, true), "running");
+  assert.equal(missionStatusAfterDelivery(5, 5, true), "awaiting_review");
+  assert.equal(missionStatusAfterDelivery(5, 5, false), "completed");
+});
+
+test("an ancestor correction stops before execution when any descendant has started", () => {
+  for (const descendant of [
+    { status: "failed", orderId: crypto.randomUUID(), result: { title: "Entrega antiga" } },
+    { status: "pending", orderId: crypto.randomUUID() },
+    { status: "pending", result: { title: "Entrega antiga" } },
+    { status: "running" },
+  ]) {
+    let correctionExecuted = false;
+    assert.throws(() => {
+      requireUntouchedMissionDescendants([descendant]);
+      correctionExecuted = true;
+    }, /outras etapas começaram/);
+    assert.equal(correctionExecuted, false);
+  }
+  assert.doesNotThrow(() =>
+    requireUntouchedMissionDescendants([{ status: "pending", orderId: null, result: null }]),
   );
 });

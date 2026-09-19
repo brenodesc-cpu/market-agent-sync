@@ -60,6 +60,7 @@ export type StudioDetails = {
   contract: {
     id: string;
     order_id: string;
+    offer_version_id: string;
     price_units: number;
     commission_bps: number;
     acceptance_criteria: { criterion: string; expected: string | boolean }[];

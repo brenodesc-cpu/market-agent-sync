@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.autonomous_missions (
   task text NOT NULL CHECK(length(btrim(task)) BETWEEN 10 AND 6000),
   initial_budget integer NOT NULL CHECK(initial_budget BETWEEN 1 AND 10000),
   remaining_budget integer NOT NULL CHECK(remaining_budget BETWEEN 0 AND 10000),
-  status text NOT NULL CHECK(status IN ('planning','running','completed','failed')),
+  status text NOT NULL CHECK(status IN ('planning','running','awaiting_review','completed','failed')),
   summary text,
   blocked_tools jsonb NOT NULL DEFAULT '[]'::jsonb CHECK(jsonb_typeof(blocked_tools)='array'),
   plan jsonb,
@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS public.autonomous_mission_steps (
   step_index integer NOT NULL CHECK(step_index BETWEEN 0 AND 20),
   request_id uuid NOT NULL,
   plan_step jsonb NOT NULL,
-  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','running','completed','failed')),
+  budget_cap integer NOT NULL DEFAULT 0 CHECK(budget_cap BETWEEN 0 AND 10000),
+  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','running','awaiting_review','completed','failed')),
   source text CHECK(source IN ('internal','network','created')),
   provider text,
   reason text,
@@ -40,6 +41,33 @@ CREATE TABLE IF NOT EXISTS public.autonomous_mission_steps (
   PRIMARY KEY(mission_id,step_index),
   UNIQUE(mission_id,request_id)
 );
+
+ALTER TABLE public.autonomous_mission_steps
+  ADD COLUMN IF NOT EXISTS budget_cap integer NOT NULL DEFAULT 0
+  CHECK(budget_cap BETWEEN 0 AND 10000);
+
+ALTER TABLE public.autonomous_missions DROP CONSTRAINT IF EXISTS autonomous_missions_status_check;
+ALTER TABLE public.autonomous_missions ADD CONSTRAINT autonomous_missions_status_check
+  CHECK(status IN ('planning','running','awaiting_review','completed','failed'));
+ALTER TABLE public.autonomous_mission_steps DROP CONSTRAINT IF EXISTS autonomous_mission_steps_status_check;
+ALTER TABLE public.autonomous_mission_steps ADD CONSTRAINT autonomous_mission_steps_status_check
+  CHECK(status IN ('pending','running','awaiting_review','completed','failed'));
+
+CREATE OR REPLACE FUNCTION public.enforce_autonomous_mission_budget()
+RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$
+DECLARE allowed integer; allocated bigint;
+BEGIN
+  SELECT initial_budget INTO allowed FROM public.autonomous_missions WHERE id=NEW.mission_id;
+  SELECT coalesce(sum(budget_cap),0) INTO allocated
+    FROM public.autonomous_mission_steps WHERE mission_id=NEW.mission_id;
+  IF allocated>allowed THEN RAISE EXCEPTION 'mission_budget_exceeded'; END IF;
+  RETURN NULL;
+END $$;
+DROP TRIGGER IF EXISTS autonomous_mission_budget_guard ON public.autonomous_mission_steps;
+CREATE CONSTRAINT TRIGGER autonomous_mission_budget_guard
+  AFTER INSERT OR UPDATE OF budget_cap ON public.autonomous_mission_steps
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+  EXECUTE FUNCTION public.enforce_autonomous_mission_budget();
 
 CREATE INDEX IF NOT EXISTS autonomous_missions_company_updated
   ON public.autonomous_missions(company_id,updated_at DESC);
@@ -60,6 +88,41 @@ CREATE POLICY autonomous_mission_steps_owner_read ON public.autonomous_mission_s
     SELECT 1 FROM public.autonomous_missions mission
     WHERE mission.id=mission_id AND mission.user_id=auth.uid()
   ));
+
+CREATE OR REPLACE FUNCTION public.studio_start_autonomous_mission(
+  _user uuid,
+  _company uuid,
+  _request uuid,
+  _input_hash text,
+  _task text,
+  _budget integer
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE mission public.autonomous_missions;
+BEGIN
+  IF _user IS NULL OR _request IS NULL OR length(_input_hash)<>64
+    OR length(btrim(coalesce(_task,''))) NOT BETWEEN 10 AND 6000
+    OR _budget NOT BETWEEN 1 AND 10000 THEN RAISE EXCEPTION 'invalid_mission'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM public.companies WHERE id=_company AND owner_user_id=_user)
+    THEN RAISE EXCEPTION 'mission_access_denied'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(_user::text||_request::text,0));
+  SELECT * INTO mission FROM public.autonomous_missions
+    WHERE user_id=_user AND request_id=_request FOR UPDATE;
+  IF mission.id IS NOT NULL THEN
+    IF mission.company_id<>_company OR mission.input_hash<>_input_hash
+      THEN RAISE EXCEPTION 'idempotency_conflict'; END IF;
+    RETURN jsonb_build_object('missionId',mission.id,'requestId',mission.request_id,
+      'status',mission.status,'created',false);
+  END IF;
+  INSERT INTO public.autonomous_missions(
+    user_id,company_id,request_id,input_hash,task,initial_budget,remaining_budget,status
+  ) VALUES(_user,_company,_request,_input_hash,_task,_budget,_budget,'planning')
+  RETURNING * INTO mission;
+  RETURN jsonb_build_object('missionId',mission.id,'requestId',mission.request_id,
+    'status',mission.status,'created',true);
+END $$;
+
+REVOKE ALL ON FUNCTION public.studio_start_autonomous_mission(uuid,uuid,uuid,text,text,integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.studio_start_autonomous_mission(uuid,uuid,uuid,text,text,integer) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.studio_claim_autonomous_mission(
   _user uuid,
@@ -106,3 +169,32 @@ END $$;
 
 REVOKE ALL ON FUNCTION public.studio_claim_autonomous_mission(uuid,uuid,uuid,text,text,integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.studio_claim_autonomous_mission(uuid,uuid,uuid,text,text,integer) TO service_role;
+
+-- Publish an on-demand specialist and reserve its first contract in one transaction.
+-- If the buyer has no balance, every company, offer, order and ledger write is rolled back.
+CREATE OR REPLACE FUNCTION public.studio_create_and_place_specialist_order(
+  _user uuid,
+  _company_request uuid,
+  _config jsonb,
+  _hash text,
+  _trial uuid,
+  _order_payload jsonb
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE supplier jsonb; placed jsonb; version_id uuid;
+BEGIN
+  IF _user IS NULL OR _company_request IS NULL OR _trial IS NULL
+    OR (_order_payload->>'requestId') IS NULL THEN RAISE EXCEPTION 'invalid_autonomous_order'; END IF;
+  supplier:=public.studio_create_specialist(_user,_company_request,_config,_hash,_trial);
+  SELECT id INTO version_id FROM public.offer_versions
+    WHERE offer_id=(supplier->>'offerId')::uuid AND available
+    ORDER BY version DESC LIMIT 1;
+  IF version_id IS NULL THEN RAISE EXCEPTION 'created_offer_unavailable'; END IF;
+  placed:=public.studio_place_agent_order(
+    _user,
+    _order_payload||jsonb_build_object('offerVersionId',version_id)
+  );
+  RETURN supplier||placed||jsonb_build_object('offerVersionId',version_id);
+END $$;
+
+REVOKE ALL ON FUNCTION public.studio_create_and_place_specialist_order(uuid,uuid,jsonb,text,uuid,jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.studio_create_and_place_specialist_order(uuid,uuid,jsonb,text,uuid,jsonb) TO service_role;

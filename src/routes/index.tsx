@@ -43,7 +43,7 @@ function Index() {
                   ? "market"
                   : view === "integrations"
                     ? "integrations"
-                    : "builder",
+                    : "mission",
             },
           });
       }}

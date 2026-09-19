@@ -9,7 +9,7 @@ test("local login stops before navigating to a missing broker", () => {
 test("hosted login returns to the editor without copying auth URL parameters", () => {
   assert.equal(
     loginReturnUrl("https://market-agent-sync.lovable.app/demo?error=old#private"),
-    "https://market-agent-sync.lovable.app/studio?view=builder",
+    "https://market-agent-sync.lovable.app/studio?view=mission",
   );
 });
 test("disabled Google and invalid callback produce actionable, non-provider-controlled messages", () => {

@@ -10,13 +10,14 @@ import {
   WalletCards,
   CircleAlert,
   RotateCcw,
+  Building2,
 } from "lucide-react";
 import { AGENT_CAPABILITY, type AgentResult } from "@/lib/agent-definition";
 import {
+  advanceAutonomousStudioChain,
   getAutonomousStudioChain,
-  resumeAutonomousStudioChain,
-  runAutonomousStudioChain,
   runStudioAgent,
+  startAutonomousStudioChain,
 } from "@/lib/agent-studio.functions";
 import {
   placeStudioOrder,
@@ -61,20 +62,20 @@ export function AgentMarket({
   const [result, setResult] = useState<AgentResult | null>(null);
   const [chain, setChain] = useState<AutonomousChain | null>(null);
   const request = useRef({ key: "", id: "", orderId: "" });
+  const advancing = useRef(false);
   const selected = workspace.companies.find((c) => c.id === company);
   const offers = workspace.offers.filter((o) => o.capability === AGENT_CAPABILITY);
   const chosen = offers.find((o) => o.id === offerId);
   const balance = workspace.accounts.find((a) => a.company_id === company)?.available_units ?? 0;
+  const missionOverBudget = Boolean(company && Number.isFinite(budget) && budget > balance);
   const leaseActive = Boolean(
     chain &&
     (chain.status === "planning" || chain.status === "running") &&
     chain.leaseUntil &&
     Date.parse(chain.leaseUntil) > Date.now(),
   );
-  const hasOrdersAwaitingReview = Boolean(
-    chain?.status === "completed" &&
-    chain.steps.some((step) => step.order && step.order.order.status !== "settled"),
-  );
+  const firstOrderAwaitingReview =
+    chain?.steps.find((step) => step.order && step.order.order.status !== "settled")?.order ?? null;
   useEffect(() => {
     if (!workspace.companies.some((c) => c.id === company))
       setCompany(workspace.companies[0]?.id ?? "");
@@ -129,15 +130,56 @@ export function AgentMarket({
     return () => window.clearInterval(timer);
   }, [busy, chain, company, mode, signedIn]);
 
-  async function resumeChain() {
-    if (!chain || busy) return;
-    setBusy("resume");
+  useEffect(() => {
+    if (
+      mode !== "mission" ||
+      !signedIn ||
+      !company ||
+      !chain ||
+      loadingChain ||
+      busy ||
+      leaseActive ||
+      (chain.status !== "planning" && chain.status !== "running")
+    )
+      return;
+    void advanceChain(company, chain.requestId, "autonomous");
+  }, [busy, chain, company, leaseActive, loadingChain, mode, signedIn]);
+
+  async function advanceChain(
+    missionCompany: string,
+    requestId: string,
+    label: "autonomous" | "resume" | "review",
+  ) {
+    if (advancing.current) return;
+    advancing.current = true;
+    setBusy(label);
     setError("");
     try {
-      const value = await resumeAutonomousStudioChain({
-        data: { companyId: company, requestId: chain.requestId },
+      let snapshot = await getAutonomousStudioChain({
+        data: { companyId: missionCompany, requestId },
       });
-      setChain(value);
+      if (!snapshot) throw new Error("A missão salva não foi encontrada.");
+      setChain(snapshot);
+      for (let unit = 0; unit < 10; unit++) {
+        if (snapshot.status === "completed") break;
+        if (snapshot.status === "awaiting_review" && (label !== "review" || unit > 0)) break;
+        const reservedUntil = snapshot.leaseUntil ? Date.parse(snapshot.leaseUntil) : 0;
+        if (
+          (snapshot.status === "planning" || snapshot.status === "running") &&
+          reservedUntil > Date.now()
+        )
+          break;
+        snapshot = await advanceAutonomousStudioChain({
+          data: { companyId: missionCompany, requestId },
+        });
+        setChain(snapshot);
+        if (
+          snapshot.status === "completed" ||
+          snapshot.status === "awaiting_review" ||
+          snapshot.status === "failed"
+        )
+          break;
+      }
       await onRefresh();
     } catch (reason) {
       setError(
@@ -148,13 +190,24 @@ export function AgentMarket({
       try {
         setChain(
           await getAutonomousStudioChain({
-            data: { companyId: company, requestId: chain.requestId },
+            data: { companyId: missionCompany, requestId },
           }),
         );
       } catch {}
     } finally {
+      advancing.current = false;
       setBusy("");
     }
+  }
+
+  async function resumeChain() {
+    if (!chain || busy || leaseActive) return;
+    await advanceChain(company, chain.requestId, "resume");
+  }
+
+  async function refreshAfterReview() {
+    if (!chain || busy) return;
+    await advanceChain(company, chain.requestId, "review");
   }
   async function run(kind: "personal" | "hire" | "autonomous") {
     if (!signedIn) {
@@ -174,7 +227,7 @@ export function AgentMarket({
       request.current = { key, id: crypto.randomUUID(), orderId: "" };
     try {
       if (kind === "autonomous") {
-        const value = await runAutonomousStudioChain({
+        const value = await startAutonomousStudioChain({
           data: { companyId: company, requestId: request.current.id, task, budget },
         });
         setChain(value);
@@ -271,7 +324,24 @@ export function AgentMarket({
               ))}
             </select>
           </label>
-          <label className={mode === "mission" ? "mission-goal" : undefined}>
+          {mode === "mission" && signedIn && !company && (
+            <div className="mission-first-company">
+              <span>
+                <Building2 size={22} />
+              </span>
+              <div>
+                <strong>Crie a empresa que vai cuidar das suas missões</strong>
+                <p>Você define o que ela faz. Depois, ela pode montar e contratar uma equipe.</p>
+              </div>
+              <button className="studio-primary" onClick={onCreate}>
+                Criar primeira empresa <ArrowRight size={15} />
+              </button>
+            </div>
+          )}
+          <label
+            className={mode === "mission" ? "mission-goal" : undefined}
+            hidden={mode === "mission" && signedIn && !company}
+          >
             {mode === "mission" ? "Qual é a meta?" : "Descreva o trabalho"}
             <textarea
               maxLength={mode === "mission" ? 6000 : 12000}
@@ -286,7 +356,7 @@ export function AgentMarket({
             />
           </label>
           {mode === "mission" ? (
-            <div className="mission-composer">
+            <div className="mission-composer" hidden={signedIn && !company}>
               <div className="mission-budget">
                 <WalletCards size={17} />
                 <label>
@@ -304,7 +374,11 @@ export function AgentMarket({
                     créditos
                   </span>
                 </label>
-                <small>{balance} disponíveis</small>
+                <small className={missionOverBudget ? "over-budget" : undefined} aria-live="polite">
+                  {missionOverBudget
+                    ? `Saldo insuficiente: ${balance} disponíveis`
+                    : `${balance} disponíveis`}
+                </small>
               </div>
               <button
                 className="studio-primary"
@@ -314,7 +388,8 @@ export function AgentMarket({
                     (task.trim().length < 10 ||
                       !Number.isInteger(budget) ||
                       budget < 1 ||
-                      budget > 10000))
+                      budget > 10000 ||
+                      missionOverBudget))
                 }
                 onClick={() => void run("autonomous")}
               >
@@ -400,7 +475,7 @@ export function AgentMarket({
               </p>
             </div>
           )}
-          {mode === "mission" && !chain && !busy && !loadingChain && (
+          {mode === "mission" && (!signedIn || !!company) && !chain && !busy && !loadingChain && (
             <div className="mission-examples" aria-label="Exemplos de metas">
               <span>Experimente:</span>
               <button
@@ -435,14 +510,29 @@ export function AgentMarket({
             <div className="mission-running" role="status">
               <LoaderCircle className="animate-spin" size={18} />
               <div>
-                <strong>Os agentes estão trabalhando</strong>
-                <span>Esta missão pode levar alguns minutos.</span>
-                <ol aria-label="Etapas da execução">
-                  <li>Entendendo seu pedido</li>
-                  <li>Comparando especialistas</li>
-                  <li>Produzindo as entregas</li>
-                  <li>Conferindo o resultado</li>
-                </ol>
+                <strong>
+                  {busy === "resume"
+                    ? "Retomando do ponto salvo"
+                    : busy === "review"
+                      ? "Conferindo sua revisão"
+                      : chain
+                        ? "Executando a próxima etapa"
+                        : "Preparando sua missão"}
+                </strong>
+                <span>
+                  {chain?.steps.length
+                    ? `${chain.steps.filter((step) => step.status === "completed").length} de ${chain.steps.length} etapas concluídas.`
+                    : "A equipe está organizando o trabalho."}
+                </span>
+                {chain && chain.steps.length > 0 && (
+                  <ol aria-label="Progresso da missão">
+                    {chain.steps.map((step, index) => (
+                      <li className={step.status} key={`${step.role}:${index}`}>
+                        {step.role}
+                      </li>
+                    ))}
+                  </ol>
+                )}
               </div>
             </div>
           )}
@@ -466,17 +556,19 @@ export function AgentMarket({
                     ? "PREPARANDO A MISSÃO"
                     : chain.status === "running"
                       ? "AGENTES TRABALHANDO"
-                      : chain.status === "failed"
-                        ? "MISSÃO INTERROMPIDA"
-                        : hasOrdersAwaitingReview
-                          ? "ENTREGAS PRONTAS PARA REVISÃO"
-                          : chain.blockedTools.length > 0
-                            ? "PARTE DA MISSÃO CONCLUÍDA"
-                            : "MISSÃO CONCLUÍDA"}
+                      : chain.status === "awaiting_review"
+                        ? "ENTREGAS PRONTAS PARA REVISÃO"
+                        : chain.status === "failed"
+                          ? "MISSÃO INTERROMPIDA"
+                          : "MISSÃO CONCLUÍDA"}
                 </span>
                 {chain.status === "completed" ? (
                   <span>
                     <ShieldCheck size={14} /> Formato das entregas conferido
+                  </span>
+                ) : chain.status === "awaiting_review" ? (
+                  <span className="review">
+                    <CircleAlert size={14} /> Seu aceite libera o pagamento
                   </span>
                 ) : chain.status === "failed" ? (
                   <span className="failed">
@@ -532,11 +624,13 @@ export function AgentMarket({
                           <small className={`mission-step-status ${step.status}`}>
                             {step.status === "completed"
                               ? "Concluído"
-                              : step.status === "running"
-                                ? "Trabalhando"
-                                : step.status === "failed"
-                                  ? "Interrompido"
-                                  : "Aguardando"}
+                              : step.status === "awaiting_review"
+                                ? "Aguardando seu aceite"
+                                : step.status === "running"
+                                  ? "Trabalhando"
+                                  : step.status === "failed"
+                                    ? "Interrompido"
+                                    : "Aguardando"}
                           </small>
                           {step.source && (
                             <small className={`chain-source ${step.source}`}>
@@ -619,7 +713,29 @@ export function AgentMarket({
                 ))}
               </div>
               <div className="mission-result-actions">
-                {chain.status !== "completed" && (
+                {chain.status === "awaiting_review" ? (
+                  <>
+                    <button
+                      className="studio-primary"
+                      disabled={!!busy || !firstOrderAwaitingReview}
+                      onClick={() => firstOrderAwaitingReview && onOrder(firstOrderAwaitingReview)}
+                    >
+                      Revisar primeira entrega <ArrowRight size={15} />
+                    </button>
+                    <button
+                      className="studio-secondary"
+                      disabled={!!busy}
+                      onClick={() => void refreshAfterReview()}
+                    >
+                      {busy === "review" ? (
+                        <LoaderCircle className="animate-spin" size={15} />
+                      ) : (
+                        <RotateCcw size={15} />
+                      )}
+                      {busy === "review" ? "Atualizando..." : "Atualizar após revisão"}
+                    </button>
+                  </>
+                ) : chain.status !== "completed" ? (
                   <button
                     className={`studio-primary ${leaseActive ? "mission-lease-active" : ""}`}
                     disabled={!!busy || leaseActive}
@@ -638,19 +754,21 @@ export function AgentMarket({
                         ? "Execução ainda reservada"
                         : "Retomar missão"}
                   </button>
+                ) : null}
+                {chain.status !== "awaiting_review" && (
+                  <button
+                    className="studio-secondary mission-again"
+                    disabled={!!busy}
+                    onClick={() => {
+                      setChain(null);
+                      setTask("");
+                      setError("");
+                      request.current = { key: "", id: "", orderId: "" };
+                    }}
+                  >
+                    Nova missão
+                  </button>
                 )}
-                <button
-                  className="studio-secondary mission-again"
-                  disabled={!!busy}
-                  onClick={() => {
-                    setChain(null);
-                    setTask("");
-                    setError("");
-                    request.current = { key: "", id: "", orderId: "" };
-                  }}
-                >
-                  Nova missão
-                </button>
               </div>
             </div>
           ) : result ? (

@@ -2532,6 +2532,39 @@
 .mission-mode .mission-goal textarea::placeholder {
   color: #aaa0b0;
 }
+.mission-first-company {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 24px;
+}
+.mission-first-company > span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 12px;
+  background: #eee7f5;
+  color: #70409a;
+}
+.mission-first-company > div {
+  flex: 1;
+}
+.mission-first-company strong {
+  display: block;
+  color: #423748;
+  font-size: 13px;
+}
+.mission-first-company p {
+  margin: 4px 0 0;
+  color: #8a7d90;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.mission-first-company .studio-primary {
+  flex-shrink: 0;
+}
 .mission-composer {
   display: flex;
   align-items: center;
@@ -2585,6 +2618,11 @@
   border-left: 1px solid #e6dfe9;
   color: #9a8ea0;
   font-size: 10px;
+}
+.mission-budget > small.over-budget {
+  border-left-color: #e6bcc4;
+  color: #ac3f51;
+  font-weight: 600;
 }
 .mission-examples {
   display: flex;
@@ -2644,10 +2682,22 @@
   color: #735986;
   font-size: 9px;
 }
-.mission-running li:first-child {
+.mission-running li.completed {
+  background: #e2f1e8;
+  color: #4f765d;
+}
+.mission-running li.running {
   background: #7740a5;
   color: #fff;
   animation: mission-pulse 1.4s ease-in-out infinite;
+}
+.mission-running li.awaiting_review {
+  background: #fff1d8;
+  color: #8a6116;
+}
+.mission-running li.failed {
+  background: #fff0f2;
+  color: #a64a5a;
 }
 .mission-restoring {
   display: flex;
@@ -2762,6 +2812,9 @@
 .mission-result-status > span.running {
   color: #704496;
 }
+.mission-result-status > span.review {
+  color: #8a6116;
+}
 .mission-budget-summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2863,6 +2916,9 @@
 .mission-mode .chain-steps article.mission-step-running > header > span {
   animation: mission-pulse 1.4s ease-in-out infinite;
 }
+.mission-mode .chain-steps article.mission-step-awaiting_review > header > span {
+  background: #b77a13;
+}
 .mission-mode .chain-steps article.mission-step-failed > header > span {
   background: #b65061;
 }
@@ -2892,6 +2948,10 @@
 .mission-step-status.running {
   background: #f2eafb;
   color: #74489a !important;
+}
+.mission-step-status.awaiting_review {
+  background: #fff1d8;
+  color: #8a6116 !important;
 }
 .mission-step-status.failed {
   background: #fff0f2;
@@ -3074,6 +3134,17 @@
   .mission-composer {
     align-items: stretch;
     flex-direction: column;
+  }
+  .mission-first-company {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 20px 18px;
+  }
+  .mission-first-company > div {
+    min-width: calc(100% - 60px);
+  }
+  .mission-first-company .studio-primary {
+    width: 100%;
   }
   .mission-budget {
     width: 100%;

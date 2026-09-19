@@ -488,6 +488,45 @@ function specialist() {
   );
   return { user, trial, hash, config, ...result };
 }
+function preparedSpecialist(user, name, price = 15) {
+  const trial = randomUUID(),
+    hash = createHash("sha256").update(`${user}:${name}:${trial}`).digest("hex"),
+    config = {
+      name,
+      description: "Especialista sob demanda preparado para uma missão autônoma.",
+      serviceTitle: `Serviço ${name}`,
+      category: "Conteúdo",
+      capability: "agent.task.v1",
+      instructions: "Produza a entrega solicitada com os dados do briefing e indique as premissas.",
+      knowledge: "",
+      sections: ["Análise do briefing", "Entrega final"],
+      exampleTask: "Analise o briefing recebido e produza uma entrega estruturada.",
+      model: "reasoning",
+      price,
+      visibility: "commercial",
+    };
+  sql(
+    `INSERT INTO agent_trials(id,user_id,definition_hash,task,artifact_content,report,sha256,duration_ms)
+      VALUES('${trial}','${user}','${hash}','Teste sob demanda','{}','{"decision":"approved"}','${hash}',100)`,
+  );
+  return { trial, hash, config };
+}
+
+function autonomousSpecialistPayload(buyer, requestId, requestHash) {
+  return {
+    buyerCompanyId: buyer.companyId,
+    requestId,
+    requestHash,
+    title: "Etapa autônoma de conteúdo",
+    task: "Produza uma entrega de conteúdo completa para a missão informada.",
+    budget: 20,
+    testFailure: false,
+    autoCorrect: true,
+    humanReview: true,
+    selectionReason: "Especialista criado sob demanda.",
+  };
+}
+
 function specialistOrder(s = specialist()) {
   const buyer = company(),
     version = sql(`SELECT id FROM offer_versions WHERE offer_id='${s.offerId}'`);
@@ -507,6 +546,74 @@ function specialistOrder(s = specialist()) {
     s,
   };
 }
+
+test("on-demand publication and its first contract roll back together when funds are insufficient", async () => {
+  const buyer = company();
+  sql(`UPDATE accounts SET available_units=10 WHERE company_id='${buyer.companyId}'`);
+  const before = {
+    companies: sql(`SELECT count(*) FROM companies WHERE owner_user_id='${buyer.user}'`),
+    offers: sql(
+      `SELECT count(*) FROM offers WHERE company_id IN (SELECT id FROM companies WHERE owner_user_id='${buyer.user}')`,
+    ),
+    orders: sql(`SELECT count(*) FROM orders WHERE buyer_company_id='${buyer.companyId}'`),
+    ledger: sql(
+      `SELECT count(*) FROM ledger_entries WHERE company_id IN (SELECT id FROM companies WHERE owner_user_id='${buyer.user}')`,
+    ),
+  };
+  const candidate = preparedSpecialist(buyer.user, "Agente sem saldo");
+  const payload = autonomousSpecialistPayload(buyer, randomUUID(), "1".repeat(64));
+  assert.throws(
+    () =>
+      call(
+        `studio_create_and_place_specialist_order('${buyer.user}','${randomUUID()}',${j(candidate.config)},'${candidate.hash}','${candidate.trial}',${j(payload)})`,
+      ),
+    /insufficient_balance/,
+  );
+  assert.deepEqual(
+    {
+      companies: sql(`SELECT count(*) FROM companies WHERE owner_user_id='${buyer.user}'`),
+      offers: sql(
+        `SELECT count(*) FROM offers WHERE company_id IN (SELECT id FROM companies WHERE owner_user_id='${buyer.user}')`,
+      ),
+      orders: sql(`SELECT count(*) FROM orders WHERE buyer_company_id='${buyer.companyId}'`),
+      ledger: sql(
+        `SELECT count(*) FROM ledger_entries WHERE company_id IN (SELECT id FROM companies WHERE owner_user_id='${buyer.user}')`,
+      ),
+    },
+    before,
+  );
+
+  sql(
+    `UPDATE accounts SET available_units=20,reserved_units=0 WHERE company_id='${buyer.companyId}'`,
+  );
+  const candidates = [
+    preparedSpecialist(buyer.user, "Agente concorrente A"),
+    preparedSpecialist(buyer.user, "Agente concorrente B"),
+  ];
+  const calls = candidates.map((entry, index) => {
+    const payload = autonomousSpecialistPayload(buyer, randomUUID(), String(index + 2).repeat(64));
+    const statement = `SELECT studio_create_and_place_specialist_order('${buyer.user}','${randomUUID()}',${j(entry.config)},'${entry.hash}','${entry.trial}',${j(payload)});`;
+    return new Promise((resolve, reject) => {
+      const child = spawn("psql", args, { stdio: ["pipe", "pipe", "pipe"] });
+      let error = "";
+      child.stderr.on("data", (value) => (error += value));
+      child.on("error", reject);
+      child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(error))));
+      child.stdin.end(statement);
+    });
+  });
+  const raced = await Promise.allSettled(calls);
+  assert.equal(raced.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(
+    sql(
+      `SELECT count(*) FROM companies WHERE owner_user_id='${buyer.user}' AND kind='ai-specialist'`,
+    ),
+    "1",
+  );
+  assert.equal(sql(`SELECT count(*) FROM orders WHERE buyer_company_id='${buyer.companyId}'`), "1");
+  assert.equal(balance(buyer), "5,15,0");
+});
+
 test("specialist publishing requires the caller's successful test of the current execution definition", () => {
   const s = specialist();
   assert.throws(
@@ -712,5 +819,88 @@ test("autonomous missions persist progress, reject conflicting retries and can r
       `SET test.user_id='${randomUUID()}'; SET ROLE authenticated; SELECT count(*) FROM autonomous_missions WHERE id='${first.missionId}'`,
     ),
     "0",
+  );
+});
+
+test("incremental mission start is fast, idempotent and leaves execution unclaimed", () => {
+  const c = company();
+  const requestId = randomUUID();
+  const inputHash = createHash("sha256").update("incremental-input").digest("hex");
+  const task = "Planeje uma operação incremental com dois especialistas.";
+  const start = () =>
+    call(
+      `studio_start_autonomous_mission('${c.user}','${c.companyId}','${requestId}','${inputHash}',${q(task)},5)`,
+    );
+  const first = start();
+  assert.equal(first.created, true);
+  assert.equal(first.status, "planning");
+  assert.equal(
+    sql(
+      `SELECT lease_token IS NULL AND lease_until IS NULL FROM autonomous_missions WHERE id='${first.missionId}'`,
+    ),
+    "t",
+  );
+  const retry = start();
+  assert.equal(retry.created, false);
+  assert.equal(retry.missionId, first.missionId);
+  assert.equal(sql(`SELECT count(*) FROM autonomous_missions WHERE id='${first.missionId}'`), "1");
+  sql(`INSERT INTO autonomous_mission_steps(mission_id,step_index,request_id,plan_step,budget_cap) VALUES
+    ('${first.missionId}',0,'${randomUUID()}','{}',3),
+    ('${first.missionId}',1,'${randomUUID()}','{}',2)`);
+  assert.equal(
+    sql(
+      `SELECT sum(budget_cap) FROM autonomous_mission_steps WHERE mission_id='${first.missionId}'`,
+    ),
+    "5",
+  );
+  assert.throws(
+    () =>
+      sql(`INSERT INTO autonomous_mission_steps(mission_id,step_index,request_id,plan_step,budget_cap)
+        VALUES('${first.missionId}',2,'${randomUUID()}','{}',1)`),
+    /mission_budget_exceeded/,
+  );
+  assert.throws(
+    () =>
+      call(
+        `studio_start_autonomous_mission('${c.user}','${c.companyId}','${requestId}','${"c".repeat(64)}',${q(task)},5)`,
+      ),
+    /idempotency_conflict/,
+  );
+  assert.throws(
+    () =>
+      sql(
+        `SET ROLE authenticated; SELECT studio_start_autonomous_mission('${c.user}','${c.companyId}','${randomUUID()}','${inputHash}',${q(task)},5)`,
+      ),
+    /permission denied/,
+  );
+});
+
+test("an autonomous mission persists review pending and can resume after settlement", () => {
+  const c = company();
+  const requestId = randomUUID();
+  const inputHash = createHash("sha256").update("review-pending-input").digest("hex");
+  const task = "Produza e verifique uma cadeia de conteúdo antes de liquidar.";
+  const mission = call(
+    `studio_start_autonomous_mission('${c.user}','${c.companyId}','${requestId}','${inputHash}',${q(task)},30)`,
+  );
+  sql(`UPDATE autonomous_missions SET status='awaiting_review',plan='{}' WHERE id='${mission.missionId}';
+    INSERT INTO autonomous_mission_steps(mission_id,step_index,request_id,plan_step,status,result)
+    VALUES('${mission.missionId}',0,'${randomUUID()}','{}','awaiting_review','{}')`);
+  assert.equal(
+    sql(`SELECT status FROM autonomous_missions WHERE id='${mission.missionId}'`),
+    "awaiting_review",
+  );
+  assert.equal(
+    sql(`SELECT status FROM autonomous_mission_steps WHERE mission_id='${mission.missionId}'`),
+    "awaiting_review",
+  );
+  const resumed = call(
+    `studio_claim_autonomous_mission('${c.user}','${c.companyId}','${requestId}','${inputHash}',${q(task)},30)`,
+  );
+  assert.equal(resumed.claimed, true);
+  assert.equal(resumed.status, "running");
+  assert.throws(
+    () => sql(`UPDATE autonomous_missions SET status='paid' WHERE id='${mission.missionId}'`),
+    /autonomous_missions_status_check/,
   );
 });

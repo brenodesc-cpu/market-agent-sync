@@ -30,6 +30,12 @@ import {
   type SupplierReputation,
 } from "./agent-auction";
 import { createOnDemandAgentDefinition } from "./on-demand-agent";
+import {
+  allocateMissionStepBudgets,
+  MAX_MISSION_STEPS,
+  missionStatusAfterDelivery,
+  requireUntouchedMissionDescendants,
+} from "./mission-budget";
 
 const missionPlanSchema = z.object({
   summary: z.string().trim().min(10).max(500),
@@ -49,7 +55,7 @@ const missionPlanSchema = z.object({
       }),
     )
     .min(1)
-    .max(2),
+    .max(MAX_MISSION_STEPS),
 });
 type MissionPlan = z.infer<typeof missionPlanSchema>;
 type MissionCompetition = {
@@ -74,6 +80,15 @@ type MissionCompletedStep = {
   order: StudioDetails | null;
   competition: MissionCompetition[];
 };
+
+function resultFromCurrentDelivery(order: StudioDetails, provider: string) {
+  const delivery = order.deliveries.find(
+    (item) => item.version === order.order.current_delivery_version,
+  );
+  if (!delivery?.artifact_content)
+    throw new Error(`O agente ${provider} não entregou um resultado utilizável.`);
+  return agentResultSchema.parse(JSON.parse(delivery.artifact_content));
+}
 
 function derivedRequestId(requestId: string, step: number, purpose: string) {
   const hex = createHash("sha256").update(`${requestId}:${step}:${purpose}`).digest("hex");
@@ -123,7 +138,7 @@ async function autonomousMissionSnapshot(
     (persistedSteps.data ?? []).map(async (row) => {
       const planned = missionPlanSchema.shape.steps.element.parse(row.plan_step);
       return {
-        status: row.status as "pending" | "running" | "completed" | "failed",
+        status: row.status as "pending" | "running" | "awaiting_review" | "completed" | "failed",
         role: planned.role,
         source: (row.source ?? null) as "internal" | "network" | "created" | null,
         provider: (row.provider as string | null) ?? "Aguardando atribuição",
@@ -134,13 +149,15 @@ async function autonomousMissionSnapshot(
           ? row.competition
           : []) as MissionCompetition[],
         errorMessage: (row.error_message as string | null) ?? null,
+        budgetCap: row.budget_cap as number,
       };
     }),
   );
   return {
     missionId: mission.data.id as string,
     requestId: mission.data.request_id as string,
-    status: mission.data.status as "planning" | "running" | "completed" | "failed",
+    status: mission.data.status as
+      "planning" | "running" | "awaiting_review" | "completed" | "failed",
     summary: (mission.data.summary as string | null) ?? "Planejando a missão.",
     blockedTools: (Array.isArray(mission.data.blocked_tools)
       ? mission.data.blocked_tools
@@ -163,23 +180,7 @@ export async function getAutonomousChainStatus(
 }
 
 export async function resumeAutonomousChain(userId: string, companyId: string, requestId: string) {
-  await ownedCompany(userId, companyId);
-  const db = await runtimeDb();
-  const mission = await db
-    .from("autonomous_missions")
-    .select("task,initial_budget")
-    .eq("user_id", userId)
-    .eq("company_id", companyId)
-    .eq("request_id", requestId)
-    .maybeSingle();
-  if (mission.error || !mission.data) throw new Error("Missão não encontrada.");
-  return runAutonomousChain(
-    userId,
-    companyId,
-    requestId,
-    mission.data.task,
-    mission.data.initial_budget,
-  );
+  return advanceAutonomousChain(userId, companyId, requestId);
 }
 
 async function marketplaceReputations(
@@ -616,12 +617,13 @@ export async function runAutonomousMission(
   };
 }
 
-export async function runAutonomousChain(
+async function progressAutonomousChain(
   userId: string,
   companyId: string,
   requestId: string,
   task: string,
   budget: number,
+  workLimit: "one" | "all",
 ) {
   await ownedCompany(userId, companyId);
   const db = await runtimeDb();
@@ -643,8 +645,8 @@ export async function runAutonomousChain(
   };
   if (!claim.claimed) {
     const existing = await autonomousMissionSnapshot(db, userId, companyId, requestId);
-    if (existing?.status === "completed") return existing;
-    throw new Error("Esta missão já está em execução. O progresso continua salvo.");
+    if (!existing) throw new Error("Missão não encontrada.");
+    return existing;
   }
   const missionId = claim.missionId;
   const leaseToken = claim.leaseToken!;
@@ -661,12 +663,12 @@ export async function runAutonomousChain(
     let offers = (await catalogueOffers(db)).filter(
       (offer) => offer.capability === AGENT_CAPABILITY && offer.companyId !== companyId,
     );
+    const plannedThisCall = !storedMission.data.plan;
     let plan: MissionPlan | null = storedMission.data.plan
       ? missionPlanSchema.parse(storedMission.data.plan)
       : null;
     if (!plan) {
-      const planningSystem =
-        "Você planeja uma missão para uma rede de agentes. Divida a solicitação em 1 ou 2 etapas sequenciais, cada uma com uma entrega útil para a próxima. Para cada etapa decida entre internal, network ou create. Use network somente quando houver ofertas adequadas e dentro do orçamento; o sistema promoverá uma disputa entre elas. Use internal somente se a capacidade interna for diretamente compatível. Use create quando faltar capacidade. As únicas capacidades nativas são ler dados fornecidos, analisar, escrever, planejar e gerar arquivos de texto, código ou HTML. Liste em blockedTools qualquer ação externa necessária, como navegar, editar vídeo, enviar mensagens ou publicar em redes sociais. Planeje o trabalho preparatório possível e nunca afirme que uma ferramenta ausente será executada. Retorne somente JSON com summary, blockedTools e steps. Cada step deve conter role, objective, category, instructions, sections, model, action, offerVersionId e reason.";
+      const planningSystem = `Você planeja uma missão para uma rede de agentes. Divida a solicitação em 1 a ${MAX_MISSION_STEPS} etapas sequenciais, cada uma com uma entrega útil para a próxima. Use apenas as etapas necessárias. Para cada etapa decida entre internal, network ou create. Use network somente quando houver ofertas adequadas e dentro do orçamento; o sistema promoverá uma disputa entre elas. Use internal somente se a capacidade interna for diretamente compatível. Use create quando faltar capacidade. As únicas capacidades nativas são ler dados fornecidos, analisar, escrever, planejar e gerar arquivos de texto, código ou HTML. Liste em blockedTools qualquer ação externa necessária, como navegar, editar vídeo, enviar mensagens ou publicar em redes sociais. Planeje o trabalho preparatório possível e nunca afirme que uma ferramenta ausente será executada. Retorne somente JSON com summary, blockedTools e steps. Cada step deve conter role, objective, category, instructions, sections, model, action, offerVersionId e reason.`;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const planned = await neuralakeJson(
@@ -706,6 +708,10 @@ export async function runAutonomousChain(
       if (!plan)
         throw new Error("O gestor não conseguiu montar uma cadeia válida após duas tentativas.");
     }
+    const stepBudgets = allocateMissionStepBudgets(
+      plan.steps.map((step) => !(step.action === "internal" && own)),
+      budget,
+    );
     await updateClaimedMission(db, missionId, leaseToken, {
       plan,
       summary: plan.summary,
@@ -719,10 +725,19 @@ export async function runAutonomousChain(
         step_index: index,
         request_id: derivedRequestId(requestId, index, "mission-step"),
         plan_step: step,
+        budget_cap: stepBudgets[index],
       })),
-      { onConflict: "mission_id,step_index", ignoreDuplicates: true },
+      { onConflict: "mission_id,step_index" },
     );
     if (seeded.error) throw new Error("Não foi possível salvar as etapas da missão.");
+    if (workLimit === "one" && plannedThisCall) {
+      await updateClaimedMission(db, missionId, leaseToken, {
+        status: "running",
+        lease_token: null,
+        lease_until: null,
+      });
+      return (await autonomousMissionSnapshot(db, userId, companyId, requestId))!;
+    }
     const persisted = await db
       .from("autonomous_mission_steps")
       .select("*")
@@ -731,14 +746,82 @@ export async function runAutonomousChain(
     if (persisted.error) throw new Error("Não foi possível ler as etapas salvas.");
     const rows = new Map((persisted.data ?? []).map((row) => [row.step_index as number, row]));
     let remainingBudget = budget;
+    let awaitingReview = false;
     const completed: MissionCompletedStep[] = [];
 
     for (const [index, step] of plan.steps.entries()) {
       const persistedStep = rows.get(index);
-      if (persistedStep?.status === "completed" && persistedStep.result) {
-        const restoredOrder = persistedStep.order_id
+      const stepBudget = Number(persistedStep?.budget_cap ?? stepBudgets[index]);
+      if (
+        ["completed", "awaiting_review"].includes(persistedStep?.status) &&
+        persistedStep?.result
+      ) {
+        let restoredOrder = persistedStep.order_id
           ? await orderDetails(userId, persistedStep.order_id, companyId)
           : null;
+        let restoredResult = agentResultSchema.parse(persistedStep.result);
+        if (restoredOrder) {
+          if (restoredOrder.order.status === "revision_requested") {
+            const downstream = [...rows.entries()].flatMap(([stepIndex, row]) =>
+              stepIndex > index
+                ? [{ status: row.status, orderId: row.order_id, result: row.result }]
+                : [],
+            );
+            requireUntouchedMissionDescendants(downstream);
+            const retrying = await db
+              .from("autonomous_mission_steps")
+              .update({
+                status: "running",
+                error_message: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("mission_id", missionId)
+              .eq("step_index", index);
+            if (retrying.error) throw new Error("Não foi possível retomar a correção da etapa.");
+            const { runOrder } = await import("./studio-runtime.server");
+            restoredOrder = await runOrder(userId, restoredOrder.order.id);
+            if (!["accepted", "settled"].includes(restoredOrder.order.status))
+              throw new Error("A correção não passou pela verificação objetiva.");
+            restoredResult = resultFromCurrentDelivery(restoredOrder, persistedStep.provider);
+            const correctedStatus =
+              restoredOrder.order.status === "settled" ? "completed" : "awaiting_review";
+            const corrected = await db
+              .from("autonomous_mission_steps")
+              .update({
+                status: correctedStatus,
+                result: restoredResult,
+                error_message: null,
+                completed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("mission_id", missionId)
+              .eq("step_index", index);
+            if (corrected.error) throw new Error("Não foi possível salvar a correção da etapa.");
+          }
+          if (restoredOrder.order.status === "accepted") {
+            awaitingReview = true;
+            if (persistedStep.status !== "awaiting_review") {
+              const waiting = await db
+                .from("autonomous_mission_steps")
+                .update({ status: "awaiting_review", updated_at: new Date().toISOString() })
+                .eq("mission_id", missionId)
+                .eq("step_index", index);
+              if (waiting.error)
+                throw new Error("Não foi possível registrar o aceite pendente da etapa.");
+            }
+          } else if (restoredOrder.order.status === "settled") {
+            const settled = await db
+              .from("autonomous_mission_steps")
+              .update({ status: "completed", updated_at: new Date().toISOString() })
+              .eq("mission_id", missionId)
+              .eq("step_index", index);
+            if (settled.error) throw new Error("Não foi possível confirmar o pagamento da etapa.");
+          } else
+            throw new Error(
+              "A contratação da etapa foi encerrada antes da liquidação. Inicie uma nova missão.",
+            );
+        } else if (persistedStep.status === "awaiting_review")
+          throw new Error("A etapa aguarda aceite, mas sua contratação não foi encontrada.");
         remainingBudget -= restoredOrder?.contract.price_units ?? 0;
         completed.push({
           status: "completed",
@@ -746,7 +829,7 @@ export async function runAutonomousChain(
           source: persistedStep.source,
           provider: persistedStep.provider,
           reason: persistedStep.reason,
-          result: agentResultSchema.parse(persistedStep.result),
+          result: restoredResult,
           order: restoredOrder,
           competition: Array.isArray(persistedStep.competition) ? persistedStep.competition : [],
         } as MissionCompletedStep);
@@ -769,7 +852,9 @@ export async function runAutonomousChain(
         Array.isArray(persistedStep?.competition) ? persistedStep.competition : []
       ) as MissionCompetition[];
       let candidate = persistedStep?.offer_version_id
-        ? offers.find((offer) => offer.id === persistedStep.offer_version_id)
+        ? offers.find(
+            (offer) => offer.id === persistedStep.offer_version_id && offer.price <= stepBudget,
+          )
         : undefined;
       let winnerReason = persistedStep?.reason as string | undefined;
       let winnerScore: number | null = null;
@@ -780,7 +865,7 @@ export async function runAutonomousChain(
           offers,
           step.objective,
           step.category,
-          remainingBudget,
+          stepBudget,
           step.offerVersionId,
         );
         candidate = auction.winner
@@ -847,7 +932,7 @@ export async function runAutonomousChain(
           buyerCompanyId: companyId,
           title: `${step.role}: ${step.objective}`.slice(0, 120),
           task: scopedTask,
-          budget: remainingBudget,
+          budget: stepBudget,
           offerVersionId: candidate.id,
           testFailure: false,
           autoCorrect: true,
@@ -866,14 +951,7 @@ export async function runAutonomousChain(
           lease_until: missionLeaseExpiry(),
         });
         order = await runOrder(userId, placed.orderId);
-        const delivery = order.deliveries.find(
-          (item) => item.version === order!.order.current_delivery_version,
-        );
-        if (!delivery?.artifact_content)
-          throw new Error(
-            `O agente ${candidate.companyName} não entregou um resultado utilizável.`,
-          );
-        result = agentResultSchema.parse(JSON.parse(delivery.artifact_content));
+        result = resultFromCurrentDelivery(order, candidate.companyName);
         contractedPrice = candidate.price;
       } else {
         const newDefinition = createOnDemandAgentDefinition(
@@ -882,66 +960,120 @@ export async function runAutonomousChain(
             instructions: step.instructions,
             model: step.model,
           },
-          remainingBudget,
+          stepBudget,
         );
-        const trial = await trialAgent(userId, newDefinition, scopedTask);
-        const supplier = await createSpecialist(
-          userId,
-          derivedRequestId(requestId, index, "created-supplier"),
-          newDefinition,
-          trial.trialId,
-        );
-        await updateClaimedMission(db, missionId, leaseToken, {
-          status: "running",
-          lease_until: missionLeaseExpiry(),
-        });
-        const version = await db
-          .from("offer_versions")
-          .select("id,price_units")
-          .eq("offer_id", supplier.offerId)
-          .eq("available", true)
-          .order("version", { ascending: false })
-          .limit(1)
-          .single();
-        if (version.error || !version.data)
-          throw new Error("O agente foi criado, mas sua oferta não ficou disponível.");
-        const offerVersionId = version.data.id as string;
-        const prepared = await db
-          .from("autonomous_mission_steps")
-          .update({ offer_version_id: offerVersionId, updated_at: new Date().toISOString() })
-          .eq("mission_id", missionId)
-          .eq("step_index", index);
-        if (prepared.error) throw new Error("Não foi possível registrar o fornecedor criado.");
-        const placed = await createAgentOrder(userId, {
+        const companyRequestId = derivedRequestId(requestId, index, "created-supplier");
+        const orderRequestId = derivedRequestId(requestId, index, "created-order");
+        const orderRequest: OrderRequest = {
           buyerCompanyId: companyId,
           title: `${step.role}: ${step.objective}`.slice(0, 120),
           task: scopedTask,
-          budget: remainingBudget,
-          offerVersionId,
+          budget: stepBudget,
           testFailure: false,
           autoCorrect: true,
           humanReview: true,
-          requestId: derivedRequestId(requestId, index, "created-order"),
-        });
-        const { runOrder } = await import("./studio-runtime.server");
-        const orderRecorded = await db
+          requestId: orderRequestId,
+        };
+        const priorOrder = await db
+          .from("a2a_requests")
+          .select("purpose,result")
+          .eq("user_id", userId)
+          .eq("request_id", orderRequestId)
+          .maybeSingle();
+        if (priorOrder.error) throw new Error("Não foi possível recuperar a contratação.");
+        let placed: { orderId: string; status: string };
+        let offerVersionId: string;
+        let price: number;
+        if (priorOrder.data) {
+          if (priorOrder.data.purpose !== "order") throw new Error("idempotency_conflict");
+          placed = priorOrder.data.result as { orderId: string; status: string };
+          const existingOrder = await orderDetails(userId, placed.orderId, companyId);
+          offerVersionId = existingOrder.contract.offer_version_id;
+          price = existingOrder.contract.price_units;
+        } else {
+          const priorSupplier = await db
+            .from("a2a_requests")
+            .select("purpose,result")
+            .eq("user_id", userId)
+            .eq("request_id", companyRequestId)
+            .maybeSingle();
+          if (priorSupplier.error)
+            throw new Error("Não foi possível recuperar o fornecedor sob demanda.");
+          if (priorSupplier.data?.purpose && priorSupplier.data.purpose !== "company")
+            throw new Error("idempotency_conflict");
+          const account = await db
+            .from("accounts")
+            .select("available_units")
+            .eq("company_id", companyId)
+            .single();
+          if (account.error || !account.data)
+            throw new Error("A empresa compradora não possui uma conta de créditos.");
+          if ((account.data.available_units as number) < newDefinition.price)
+            throw new Error("O saldo disponível não cobre esta etapa da missão.");
+
+          if (priorSupplier.data) {
+            const supplier = priorSupplier.data.result as { companyId: string; offerId: string };
+            const version = await db
+              .from("offer_versions")
+              .select("id,price_units")
+              .eq("offer_id", supplier.offerId)
+              .eq("available", true)
+              .order("version", { ascending: false })
+              .limit(1)
+              .single();
+            if (version.error || !version.data)
+              throw new Error("O agente foi criado, mas sua oferta não ficou disponível.");
+            offerVersionId = version.data.id as string;
+            price = version.data.price_units as number;
+            placed = await createAgentOrder(userId, { ...orderRequest, offerVersionId });
+          } else {
+            const trial = await trialAgent(userId, newDefinition, scopedTask);
+            const requestHash = createHash("sha256")
+              .update(JSON.stringify(orderRequest))
+              .digest("hex");
+            const created = (await rpc("studio_create_and_place_specialist_order", {
+              _user: userId,
+              _company_request: companyRequestId,
+              _config: newDefinition,
+              _hash: definitionHash(newDefinition),
+              _trial: trial.trialId,
+              _order_payload: {
+                ...orderRequest,
+                humanReview: true,
+                capability: AGENT_CAPABILITY,
+                requestHash,
+                selectionReason: "Especialista criado sob demanda para esta etapa da missão.",
+              },
+            })) as {
+              companyId: string;
+              offerId: string;
+              offerVersionId: string;
+              orderId: string;
+              status: string;
+            };
+            placed = { orderId: created.orderId, status: created.status };
+            offerVersionId = created.offerVersionId;
+            price = newDefinition.price;
+          }
+        }
+        const prepared = await db
           .from("autonomous_mission_steps")
-          .update({ order_id: placed.orderId, updated_at: new Date().toISOString() })
+          .update({
+            offer_version_id: offerVersionId,
+            order_id: placed.orderId,
+            updated_at: new Date().toISOString(),
+          })
           .eq("mission_id", missionId)
           .eq("step_index", index);
-        if (orderRecorded.error) throw new Error("Não foi possível vincular o contrato à etapa.");
+        if (prepared.error) throw new Error("Não foi possível registrar o fornecedor criado.");
+        const { runOrder } = await import("./studio-runtime.server");
         await updateClaimedMission(db, missionId, leaseToken, {
           status: "running",
           lease_until: missionLeaseExpiry(),
         });
         order = await runOrder(userId, placed.orderId);
-        const delivery = order.deliveries.find(
-          (item) => item.version === order!.order.current_delivery_version,
-        );
-        if (!delivery?.artifact_content)
-          throw new Error(`O agente ${newDefinition.name} não entregou um resultado utilizável.`);
-        result = agentResultSchema.parse(JSON.parse(delivery.artifact_content));
-        contractedPrice = version.data.price_units as number;
+        result = resultFromCurrentDelivery(order, newDefinition.name);
+        contractedPrice = price;
         finalSource = "created";
         finalProvider = newDefinition.name;
         finalReason = `${step.reason} O agente foi publicado como fornecedor e contratado pela cadeia.`;
@@ -950,11 +1082,15 @@ export async function runAutonomousChain(
         );
       }
 
+      if (order && !["accepted", "settled"].includes(order.order.status))
+        throw new Error("A entrega não passou pela verificação objetiva.");
+      const stepAwaitsReview = order?.order.status === "accepted";
+      awaitingReview ||= stepAwaitsReview;
       remainingBudget -= contractedPrice;
       const finished = await db
         .from("autonomous_mission_steps")
         .update({
-          status: "completed",
+          status: stepAwaitsReview ? "awaiting_review" : "completed",
           source: finalSource,
           provider: finalProvider,
           reason: finalReason,
@@ -982,10 +1118,19 @@ export async function runAutonomousChain(
         order,
         competition,
       });
+      if (workLimit === "one") {
+        await updateClaimedMission(db, missionId, leaseToken, {
+          status: missionStatusAfterDelivery(completed.length, plan.steps.length, awaitingReview),
+          error_message: null,
+          lease_token: null,
+          lease_until: null,
+        });
+        return (await autonomousMissionSnapshot(db, userId, companyId, requestId))!;
+      }
     }
 
     await updateClaimedMission(db, missionId, leaseToken, {
-      status: "completed",
+      status: missionStatusAfterDelivery(completed.length, plan.steps.length, awaitingReview),
       error_message: null,
       lease_token: null,
       lease_until: null,
@@ -1016,6 +1161,62 @@ export async function runAutonomousChain(
     throw error;
   }
 }
+
+export async function startAutonomousChain(
+  userId: string,
+  companyId: string,
+  requestId: string,
+  task: string,
+  budget: number,
+) {
+  await ownedCompany(userId, companyId);
+  const inputHash = createHash("sha256")
+    .update(JSON.stringify({ companyId, task, budget }))
+    .digest("hex");
+  await rpc("studio_start_autonomous_mission", {
+    _user: userId,
+    _company: companyId,
+    _request: requestId,
+    _input_hash: inputHash,
+    _task: task,
+    _budget: budget,
+  });
+  return (await autonomousMissionSnapshot(await runtimeDb(), userId, companyId, requestId))!;
+}
+
+export async function advanceAutonomousChain(userId: string, companyId: string, requestId: string) {
+  await ownedCompany(userId, companyId);
+  const db = await runtimeDb();
+  const mission = await db
+    .from("autonomous_missions")
+    .select("task,initial_budget")
+    .eq("user_id", userId)
+    .eq("company_id", companyId)
+    .eq("request_id", requestId)
+    .maybeSingle();
+  if (mission.error || !mission.data) throw new Error("Missão não encontrada.");
+  return progressAutonomousChain(
+    userId,
+    companyId,
+    requestId,
+    mission.data.task,
+    mission.data.initial_budget,
+    "one",
+  );
+}
+
+export async function runAutonomousChain(
+  userId: string,
+  companyId: string,
+  requestId: string,
+  task: string,
+  budget: number,
+) {
+  const started = await startAutonomousChain(userId, companyId, requestId, task, budget);
+  if (started.status === "completed") return started;
+  return progressAutonomousChain(userId, companyId, requestId, task, budget, "all");
+}
+
 export async function createAgentOrder(userId: string, request: OrderRequest) {
   await ownedCompany(userId, request.buyerCompanyId);
   const db = await runtimeDb();
