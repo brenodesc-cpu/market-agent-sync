@@ -42,6 +42,7 @@ export function AgentMarket({
   onCreate,
   onOrder,
   onRefresh,
+  missionReady,
 }: {
   workspace: StudioWorkspace;
   signedIn: boolean;
@@ -51,6 +52,7 @@ export function AgentMarket({
   onCreate: () => void;
   onOrder: (detail: StudioDetails) => void;
   onRefresh: () => Promise<void>;
+  missionReady: boolean;
 }) {
   const [company, setCompany] = useState(initialCompany ?? workspace.companies[0]?.id ?? "");
   const [task, setTask] = useState(""),
@@ -554,6 +556,7 @@ export function AgentMarket({
                   !!busy ||
                   (!!company &&
                     (task.trim().length < 10 ||
+                      (Boolean(brief?.ready) && !missionReady) ||
                       !Number.isInteger(budget) ||
                       budget < 1 ||
                       budget > 10000 ||
@@ -573,11 +576,13 @@ export function AgentMarket({
                 )}
                 {signedIn
                   ? company
-                    ? brief?.ready
-                      ? "Iniciar missão"
-                      : brief
-                        ? "Enviar respostas"
-                        : "Conversar com o Agente Zero"
+                    ? brief?.ready && !missionReady
+                      ? "Ativar missões no banco"
+                      : brief?.ready
+                        ? "Iniciar missão"
+                        : brief
+                          ? "Enviar respostas"
+                          : "Conversar com o Agente Zero"
                     : "Criar meu agente"
                   : "Entrar para alinhar a missão"}
                 {!busy && <ArrowRight size={16} />}
@@ -910,9 +915,7 @@ export function AgentMarket({
                           : void refreshAfterReview()
                       }
                     >
-                      {firstOrderAwaitingReview
-                        ? "Revisar entrega pendente"
-                        : "Continuar missão"}{" "}
+                      {firstOrderAwaitingReview ? "Revisar entrega pendente" : "Continuar missão"}{" "}
                       <ArrowRight size={15} />
                     </button>
                     <button

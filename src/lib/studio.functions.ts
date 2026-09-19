@@ -4,13 +4,28 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { companyDraftSchema, catalogueRowsSchema, orderRequestSchema } from "./a2a-contract";
 
 export const getStudioBootstrap = createServerFn({ method: "GET" }).handler(async () => {
-  const { catalogueOffers } = await import("./studio-runtime.server");
+  const { catalogueOffers, runtimeDb } = await import("./studio-runtime.server");
   let offers: Awaited<ReturnType<typeof catalogueOffers>> = [];
   let setupMessage: string | null = null;
+  let missionPersistenceConfigured = false;
   try {
     offers = await catalogueOffers();
   } catch {
     setupMessage = "O marketplace ainda precisa ser ativado no banco do projeto.";
+  }
+  if (process.env["SUPABASE_URL"] && process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
+    try {
+      const probe = await (
+        await runtimeDb()
+      )
+        .from("autonomous_missions")
+        .select("id", { count: "exact", head: true });
+      missionPersistenceConfigured = !probe.error;
+      if (!missionPersistenceConfigured && !setupMessage)
+        setupMessage = "As missões autônomas ainda precisam ser ativadas no banco do projeto.";
+    } catch {
+      missionPersistenceConfigured = false;
+    }
   }
   return {
     offers,
@@ -19,6 +34,7 @@ export const getStudioBootstrap = createServerFn({ method: "GET" }).handler(asyn
       process.env["SUPABASE_URL"] && process.env["SUPABASE_SERVICE_ROLE_KEY"],
     ),
     neuralakeConfigured: Boolean(process.env["NEURALAKE_API_KEY"]),
+    missionPersistenceConfigured,
     agoraConfigured: Boolean(
       process.env["AGORA_APP_ID"] &&
       process.env["AGORA_APP_CERTIFICATE"] &&

@@ -142,6 +142,7 @@ export function CompanyStudio({
     setupMessage: null,
     backendConfigured: false,
     neuralakeConfigured: false,
+    missionPersistenceConfigured: false,
     agoraConfigured: false,
   });
   const [workspace, setWorkspace] = useState<StudioWorkspace>(EMPTY_WORKSPACE);
@@ -483,25 +484,32 @@ export function CompanyStudio({
           </div>
         )}
 
-        {connectionReady && (!bootstrap.backendConfigured || !bootstrap.neuralakeConfigured) && (
-          <div className="studio-connection-notice" role="status">
-            <strong>
-              {!bootstrap.backendConfigured
-                ? "Este ambiente precisa do servidor conectado"
-                : "A criação com IA está indisponível neste ambiente"}
-            </strong>
-            <p>
-              {!bootstrap.backendConfigured
-                ? "A criação dos agentes e a publicação precisam do servidor conectado. Seu rascunho permanece neste navegador."
-                : "A criação e os testes dos agentes precisam da conexão com a NeuraLake. Use a versão online para continuar."}
-            </p>
-            {origin && new URL(origin).hostname !== "market-agent-sync.lovable.app" && (
-              <a className="studio-secondary" href="https://market-agent-sync.lovable.app/studio">
-                Abrir versão online <ArrowRight size={15} />
-              </a>
-            )}
-          </div>
-        )}
+        {connectionReady &&
+          (!bootstrap.backendConfigured ||
+            !bootstrap.neuralakeConfigured ||
+            !bootstrap.missionPersistenceConfigured) && (
+            <div className="studio-connection-notice" role="status">
+              <strong>
+                {!bootstrap.backendConfigured
+                  ? "Este ambiente precisa do servidor conectado"
+                  : !bootstrap.neuralakeConfigured
+                    ? "A criação com IA está indisponível neste ambiente"
+                    : "As missões autônomas ainda precisam ser ativadas"}
+              </strong>
+              <p>
+                {!bootstrap.backendConfigured
+                  ? "A criação dos agentes e a publicação precisam do servidor conectado. Seu rascunho permanece neste navegador."
+                  : !bootstrap.neuralakeConfigured
+                    ? "A criação e os testes dos agentes precisam da conexão com a NeuraLake. Use a versão online para continuar."
+                    : "Aplique a migração 0012 para salvar, retomar e concluir cadeias de agentes neste ambiente."}
+              </p>
+              {origin && new URL(origin).hostname !== "market-agent-sync.lovable.app" && (
+                <a className="studio-secondary" href="https://market-agent-sync.lovable.app/studio">
+                  Abrir versão online <ArrowRight size={15} />
+                </a>
+              )}
+            </div>
+          )}
 
         {view === "builder" && (
           <AgentBuilder
@@ -628,6 +636,7 @@ export function CompanyStudio({
               setOrder(detail);
               navigate("orders", detail.order.buyer_company_id, detail.order.id);
             }}
+            missionReady={!connectionReady || bootstrap.missionPersistenceConfigured}
           />
         )}
 
@@ -1193,6 +1202,18 @@ export function CompanyStudio({
             />
             <div className="studio-integration-card">
               <span className="studio-agent-icon">
+                <Bot />
+              </span>
+              <div>
+                <h3>Missões persistentes</h3>
+                <p>Salva cada etapa e permite retomar a cadeia depois de uma interrupção.</p>
+              </div>
+              <span className="studio-tag">
+                {bootstrap.missionPersistenceConfigured ? "Disponível" : "Migração pendente"}
+              </span>
+            </div>
+            <div className="studio-integration-card">
+              <span className="studio-agent-icon">
                 <Building2 />
               </span>
               <div>
@@ -1245,8 +1266,8 @@ export function CompanyStudio({
             <details className="studio-setup-guide">
               <summary>Configuração para a equipe de desenvolvimento</summary>
               <p>
-                Aplicar as migrações até <code>0010_neuralake_specialists.sql</code> pelo Lovable.
-                Elas criam os agentes, os contratos e as operações A2A.
+                Aplicar as migrações até <code>0012_persist_autonomous_missions.sql</code> pelo
+                Lovable. Elas criam os agentes, os contratos e as operações A2A.
               </p>
               <p>
                 Configurar os segredos no Lovable: <code>NEURALAKE_API_KEY</code>,{" "}

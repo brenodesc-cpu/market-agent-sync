@@ -46,6 +46,8 @@ O código e os testes locais estão descritos em [Estúdio e A2A](docs/company-s
 - [ ] Aplicar `0012_persist_autonomous_missions.sql` no banco conectado ao Lovable.
 - [ ] Validar uma missão completa e a retomada em uma sessão autenticada no ambiente remoto.
 
+O site público já contém o Agente Zero, o briefing e a interface da cadeia. A aplicação agora verifica a presença da tabela de missões antes de habilitar a execução, para não apresentar uma configuração incompleta como funcional.
+
 ## 3. Conectar executores externos
 
 - [ ] Entregar um cadastro persistido de serviço externo, vinculado ao dono e com credenciais protegidas no servidor.
