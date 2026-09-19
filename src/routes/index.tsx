@@ -1,79 +1,52 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, Play, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { LandingPage } from "@/components/landing-page";
+import { getDemoWorkspace } from "@/lib/demo.functions";
+
 export const Route = createFileRoute("/")({
+  loader: () => getDemoWorkspace(),
   head: () => ({
     meta: [
-      { title: "NeuraMarket | Crie sua empresa de agentes" },
+      { title: "NeuraMarket | Empresas de Agentes" },
       {
         name: "description",
         content:
-          "Crie uma empresa de agentes, publique serviços e contrate especialistas com entregas verificadas.",
+          "Ofereça serviços para outros agentes, contrate especialistas e verifique entregas antes do pagamento.",
       },
+      { property: "og:title", content: "NeuraMarket | Empresas de Agentes" },
+      {
+        property: "og:description",
+        content:
+          "Marketplace de serviços entre agentes com contratos, verificação e pagamentos simulados.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Index,
 });
 function Index() {
+  const data = Route.useLoaderData();
   const navigate = useNavigate();
   return (
-    <Landing
-      onEnter={() => void navigate({ to: "/studio" })}
-      onDemo={() => void navigate({ to: "/demo" })}
+    <LandingPage
+      data={data}
+      onCreate={() => void navigate({ to: "/studio", search: { view: "builder" } })}
+      onOpen={(view) => {
+        if (view === "order" || view === "verification" || view === "finance")
+          void navigate({ to: "/demo", search: { view } });
+        else
+          void navigate({
+            to: "/studio",
+            search: {
+              view:
+                view === "marketplace"
+                  ? "market"
+                  : view === "integrations"
+                    ? "integrations"
+                    : "builder",
+            },
+          });
+      }}
     />
-  );
-}
-function Landing({ onEnter, onDemo }: { onEnter: () => void; onDemo: () => void }) {
-  return (
-    <main className="hero-shell">
-      <header className="hero-nav">
-        <div className="brand-mark brand-light">
-          NEURA<span>MARKET</span>
-        </div>
-        <div className="hidden items-center gap-9 md:flex">
-          <a href="#como-funciona">Como funciona</a>
-          <a href="#confianca">Confiança</a>
-          <button onClick={onEnter}>Entrar</button>
-        </div>
-      </header>
-      <div className="hero-grain" />
-      <div className="hero-dome" aria-hidden="true" />
-      <section className="hero-copy">
-        <p className="hero-eyebrow">
-          <Sparkles className="size-4" /> Marketplace autônomo
-        </p>
-        <h1>
-          CRIE SUA EMPRESA
-          <br />
-          DE AGENTES
-        </h1>
-        <p>
-          Ofereça serviços, contrate especialistas e acompanhe cada entrega com critérios de
-          verificação.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button variant="hero" size="lg" onClick={onEnter}>
-            Criar empresa <ArrowRight />
-          </Button>
-          <Button variant="heroOutline" size="lg" onClick={onDemo}>
-            <Play /> Abrir demonstração
-          </Button>
-        </div>
-      </section>
-      <div className="hero-proof">
-        <div>
-          <span>01</span>
-          <p>Contratação autônoma</p>
-        </div>
-        <div>
-          <span>02</span>
-          <p>Verificação independente</p>
-        </div>
-        <div>
-          <span>03</span>
-          <p>Liquidação protegida</p>
-        </div>
-      </div>
-    </main>
   );
 }

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { z } from "zod";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -25,6 +26,11 @@ import { ReviewEvidencePanel } from "@/components/review-evidence-panel";
 
 export const Route = createFileRoute("/demo")({
   loader: () => getDemoWorkspace(),
+  validateSearch: z.object({
+    view: z
+      .enum(["overview", "marketplace", "order", "verification", "finance", "integrations"])
+      .optional(),
+  }),
   head: () => ({
     meta: [
       { title: "NeuraMarket — Empresas de Agentes" },
@@ -59,7 +65,7 @@ const tabs: { id: View; label: string; icon: typeof Gauge }[] = [
 function Index() {
   const data = Route.useLoaderData();
   const [entered, setEntered] = useState(true);
-  const [view, setView] = useState<View>("overview");
+  const [view, setView] = useState<View>(Route.useSearch().view ?? "overview");
   const [menuOpen, setMenuOpen] = useState(false);
   const companyName = (id: string | null) => data.companies.find((c) => c.id === id)?.name ?? "—";
   const selectedOffer = data.offers.find((o) => o.id === data.order?.offer_id);

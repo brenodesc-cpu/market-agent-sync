@@ -117,8 +117,8 @@ function download(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function CompanyStudio() {
-  const [view, setView] = useState<View>("builder");
+export function CompanyStudio({ initialView = "builder" }: { initialView?: View }) {
+  const [view, setView] = useState<View>(initialView);
   const [sidebar, setSidebar] = useState(false);
   const [user, setUser] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
