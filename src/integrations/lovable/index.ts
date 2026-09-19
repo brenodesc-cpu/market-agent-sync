@@ -3,6 +3,7 @@
 import { createLovableAuth } from "@lovable.dev/cloud-auth-js";
 import type { OAuthProvider } from "@lovable.dev/cloud-auth-js";
 import { supabase } from "../supabase/client";
+import { establishOAuthSession, loginReturnUrl } from "../../lib/auth-flow";
 const lovableAuth = createLovableAuth();
 
 type SignInOptions = {
@@ -13,8 +14,10 @@ type SignInOptions = {
 export const lovable = {
   auth: {
     signInWithOAuth: async (provider: OAuthProvider, opts?: SignInOptions) => {
+      const returnUrl = loginReturnUrl(window.location.href);
       const result = await lovableAuth.signInWithOAuth(provider, {
         ...opts,
+        redirect_uri: opts?.redirect_uri ?? returnUrl,
         extraParams: {
           ...opts?.extraParams,
         },
@@ -29,7 +32,7 @@ export const lovable = {
       }
 
       try {
-        await supabase.auth.setSession(result.tokens);
+        await establishOAuthSession(result, (tokens) => supabase.auth.setSession(tokens));
       } catch (e) {
         return { error: e instanceof Error ? e : new Error(String(e)) };
       }
