@@ -5,6 +5,7 @@ import {
   verifyAgentResult,
   AGENT_CAPABILITY,
   executionIdentity,
+  parseGeneratedDefinition,
 } from "./agent-definition";
 import type { AgentDefinition } from "./agent-definition";
 import { neuralakeJson } from "./neuralake-json.server";
@@ -15,16 +16,13 @@ export const definitionHash = (spec: AgentDefinition) =>
   createHash("sha256").update(executionIdentity(spec)).digest("hex");
 export async function buildAgent(prompt: string, current?: AgentDefinition) {
   const generated = await neuralakeJson(
-    `Você cria e edita agentes especialistas executáveis por IA na NeuraMarket. Retorne apenas JSON com name, description, serviceTitle, category (Marketing,Vendas,Operações,Conteúdo,Desenvolvimento,Análise,Outro), instructions (instruções completas e objetivas, até 1500 caracteres), knowledge (conteúdo fornecido pelo dono, nunca inventar), sections (1 a 8 títulos para estruturar a entrega), exampleTask, model (use text para escrita e análise simples, code para programação, reasoning apenas para lógica complexa), price (1 a 1000), capability="agent.task.v1". Atenda à especialidade solicitada. Ao editar, preserve o que não foi pedido para mudar. As capacidades disponíveis são ler texto fornecido, analisar, escrever, planejar e gerar código/HTML como arquivos. Não há acesso à internet, Instagram, WhatsApp, pagamento real nem publicação de sites pelo agente. Para pedidos que dependem disso, configure a parte de produção do material e declare a dependência na description. Nunca afirme ter conectado uma ferramenta. Não exponha knowledge na descrição pública.`,
+    `Você cria e edita agentes especialistas executáveis por IA na NeuraMarket. Retorne apenas JSON com name, description, serviceTitle, category (Marketing,Vendas,Operações,Conteúdo,Desenvolvimento,Análise,Outro), instructions (instruções completas e objetivas, até 1500 caracteres), knowledge (string com conteúdo fornecido pelo dono, nunca inventar; use a string vazia se não houver), sections (1 a 8 títulos para estruturar a entrega), exampleTask, model (use text para escrita e análise simples, code para programação, reasoning apenas para lógica complexa), price (1 a 1000), capability="agent.task.v1". Atenda à especialidade solicitada. Ao editar, preserve o que não foi pedido para mudar. As capacidades disponíveis são ler texto fornecido, analisar, escrever, planejar e gerar código/HTML como arquivos. Não há acesso à internet, Instagram, WhatsApp, pagamento real nem publicação de sites pelo agente. Para pedidos que dependem disso, configure a parte de produção do material e declare a dependência na description. Nunca afirme ter conectado uma ferramenta. Não exponha knowledge na descrição pública.`,
     { prompt, current },
     "text",
     fetch,
     1800,
   );
-  return agentDefinitionSchema.parse({
-    ...(generated.value as object),
-    visibility: current?.visibility ?? "private",
-  });
+  return parseGeneratedDefinition(generated.value, current?.visibility ?? "private");
 }
 export async function executeDefinition(spec: AgentDefinition, task: string, feedback = "") {
   const output = await neuralakeJson(

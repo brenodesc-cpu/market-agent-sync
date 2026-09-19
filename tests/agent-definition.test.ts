@@ -5,6 +5,7 @@ import {
   executionIdentity,
   verifyAgentResult,
   agentResultSchema,
+  parseGeneratedDefinition,
 } from "../src/lib/agent-definition.ts";
 import { orderRequestSchema } from "../src/lib/a2a-contract.ts";
 import { extractJson, neuralakeJson } from "../src/lib/neuralake-json.server.ts";
@@ -120,4 +121,16 @@ test("provider errors never turn into fabricated successful work", async () => {
     if (previous === undefined) delete process.env.NEURALAKE_API_KEY;
     else process.env.NEURALAKE_API_KEY = previous;
   }
+});
+
+test("provider knowledge lists become text without accepting arbitrary objects or changing visibility", () => {
+  const result = parseGeneratedDefinition({
+    ...spec,
+    knowledge: ["Referência 1", "Referência 2"],
+    visibility: "commercial",
+  });
+  assert.equal(result.knowledge, "Referência 1\nReferência 2");
+  assert.equal(result.visibility, "private");
+  assert.equal(parseGeneratedDefinition({ ...spec, knowledge: null }).knowledge, "");
+  assert.throws(() => parseGeneratedDefinition({ ...spec, knowledge: [{ secret: "object" }] }));
 });

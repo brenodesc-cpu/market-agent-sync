@@ -28,6 +28,26 @@ export const agentDefinitionSchema = z.object({
   capability: z.literal(AGENT_CAPABILITY).default(AGENT_CAPABILITY),
 });
 export type AgentDefinition = z.infer<typeof agentDefinitionSchema>;
+export function parseGeneratedDefinition(
+  value: unknown,
+  visibility: "private" | "commercial" = "private",
+) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return agentDefinitionSchema.parse(value);
+  const candidate = value as Record<string, unknown>;
+  const knowledge = candidate["knowledge"];
+  return agentDefinitionSchema.parse({
+    ...candidate,
+    visibility,
+    knowledge:
+      knowledge == null
+        ? ""
+        : Array.isArray(knowledge) && knowledge.every((v) => typeof v === "string")
+          ? knowledge.join("\n")
+          : knowledge,
+  });
+}
+
 export const executionIdentity = (spec: AgentDefinition) =>
   JSON.stringify({
     instructions: spec.instructions,
