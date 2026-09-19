@@ -43,6 +43,13 @@
       "when": 1789838675220,
       "tag": "0005_apply_pending_company_studio",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789838675221,
+      "tag": "0006_restrict_unpublished_catalogue",
+      "breakpoints": true
     }
   ]
 }

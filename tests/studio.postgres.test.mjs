@@ -70,6 +70,8 @@ before(() => {
     "0002_harden_verification_settlement",
     "0003_harden_verification_settlement",
     "0004_company_studio_and_a2a",
+    "0005_apply_pending_company_studio",
+    "0006_restrict_unpublished_catalogue",
   ]) {
     sql(readFileSync(new URL(`../drizzle/migrations/${file}.sql`, import.meta.url), "utf8"));
   }
@@ -271,4 +273,23 @@ test("a concurrent cancellation and settlement cannot refund and pay the same re
     ),
     "1",
   );
+});
+
+test("unpublished offers and internal capabilities are private to their company", () => {
+  const c = company(),
+    outsider = randomUUID();
+  sql(`UPDATE offers SET published=false WHERE company_id='${c.companyId}';
+    GRANT SELECT ON companies,company_members,offers,capabilities,offer_versions TO authenticated;`);
+  const read = (actor, table, where) =>
+    sql(
+      `SET test.user_id='${actor}'; SET ROLE authenticated; SELECT count(*) FROM ${table} WHERE ${where};`,
+    );
+  const vid = sql(`SELECT id FROM offer_versions WHERE offer_id='${c.offerId}'`);
+  assert.equal(read(outsider, "offer_versions", `id='${vid}'`), "0");
+  assert.equal(read(outsider, "capabilities", `company_id='${c.companyId}'`), "0");
+  assert.equal(read(c.user, "offer_versions", `id='${vid}'`), "1");
+  assert.equal(read(c.user, "capabilities", `company_id='${c.companyId}'`), "1");
+  sql(`UPDATE offers SET published=true WHERE company_id='${c.companyId}'`);
+  assert.equal(read(outsider, "offer_versions", `id='${vid}'`), "1");
+  assert.equal(read(outsider, "capabilities", `company_id='${c.companyId}'`), "1");
 });
