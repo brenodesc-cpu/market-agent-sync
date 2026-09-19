@@ -2,6 +2,12 @@
 
 ## Fluxo atual
 
+Em `/studio?view=mission`, descreva uma meta e autorize um orçamento. O gerente NeuraLake monta uma cadeia de uma a cinco etapas. Em cada etapa, a plataforma pode usar o agente da própria empresa, comparar propostas de especialistas do marketplace ou criar um especialista sob demanda. As chamadas são incrementais: planejamento e execução avançam uma unidade por vez, e o estado salvo permite continuar depois de recarregar a página.
+
+O orçamento é dividido antes das contratações. Cada etapa paga recebe um teto persistido; a soma nunca pode ultrapassar o orçamento da missão. A criação de um fornecedor e sua primeira contratação acontecem na mesma transação, portanto falta de saldo ou chamadas concorrentes não deixam empresas, ofertas, pedidos ou lançamentos órfãos.
+
+Entregas aprovadas pelo verificador alimentam a etapa seguinte. Contratos externos permanecem com o pagamento reservado. Ao terminar o trabalho, a missão entra em `awaiting_review`; ela só muda para `completed` depois que todos os pedidos externos forem aceitos e liquidados. Uma correção da última etapa reutiliza o contrato. Se uma etapa anterior já tiver descendentes executados, o sistema bloqueia a correção e pede uma nova missão para não misturar versões.
+
 Em `/studio?view=builder`, descreva um especialista. A NeuraLake produz instruções, material de referência, estrutura de entrega, tarefa de exemplo e preço. A conversa permite ajustar a definição, e a configuração permite editar instruções e referências. Testar agente executa o trabalho com a NeuraLake e apresenta o conteúdo recebido, inclusive arquivos e uma prévia HTML isolada de scripts e acesso à rede.
 
 É preciso um teste aprovado da configuração atual antes de salvar. Nome, preço e visibilidade podem mudar sem refazer a execução. Instruções, referências, seções ou capacidade de inferência diferentes exigem novo teste. O backend confere o dono, a identificação da configuração e o relatório do teste. A definição persistida é imutável; para outra configuração de um agente já salvo, crie outro especialista. Os rascunhos ficam na sessão do navegador, separados por usuário.
@@ -22,13 +28,15 @@ A capacidade anterior `catalog.normalize.v1` continua atendendo contratos existe
 
 | Desafio | Implementação |
 | --- | --- |
-| Negócio autônomo | Um pedido inicia a escolha de fornecedor e a execução automática com a NeuraLake. O responsável aceita o resultado. |
-| Marketplace | Especialistas publicados recebem pedidos de outros agentes. |
-| Economia | Orçamento máximo, reserva, cancelamento, comissão de 10% e pagamento único em créditos simulados. |
-| Produto para agentes | API com credencial por empresa recebe tarefas e devolve arquivos e evidências estruturadas. |
-| Confiança | Critérios imutáveis, verificação de formato, versão e SHA-256, seguida de aceite humano do conteúdo. |
+| Negócio autônomo | Uma meta monta e executa uma cadeia persistente de até cinco agentes. |
+| Marketplace | O gerente compara propostas, reputação verificada e preço, ou cria um especialista quando falta oferta. |
+| Economia | Orçamento dividido por etapa, reserva, cancelamento, comissão e pagamento único em créditos simulados. |
+| Produto para agentes | API com credencial por empresa recebe tarefas e devolve entregas e evidências estruturadas. |
+| Confiança | Critérios imutáveis, verificação de formato, versão e SHA-256; o aceite humano libera o pagamento. |
 
 ## Publicação e validação
+
+O commit `affd977` contém o executor incremental e recuperável das missões. A suíte local passou com 66 testes de aplicação, 26 testes PostgreSQL, TypeScript e build. Os testes cobrem limite de cinco etapas, orçamento por etapa, concorrência, criação e contratação atômicas, lease, retomada, revisão pendente, liquidação única e bloqueio de correções com descendentes antigos. A prévia do Lovable está nesse commit. A migração `0012_persist_autonomous_missions.sql` e a publicação dessa versão continuam pendentes no ambiente remoto.
 
 A migração `0010_neuralake_specialists.sql` cria definições privadas, evidências de teste e contratos para a nova capacidade. Preserva os contratos antigos e limita as funções administrativas ao servidor. Código validado com 57 testes de aplicação e 22 testes PostgreSQL, além de TypeScript e build. A migração foi aplicada no banco remoto pelo Lovable, que a registrou como `0011` com o mesmo SQL. A criação real de um especialista com `text` levou 6,362 segundos, e a execução da proposta levou 7,178 segundos. O esquema e as seções Diagnóstico, Solução e Investimento passaram na verificação. O teste não criou contas nem ofertas públicas. A versão `dbece32` foi publicada. Pela interface autenticada, o especialista Propostas Studio foi gerado, ajustado por conversa, testado em 13 segundos (694 tokens) e publicado por 15 créditos simulados. A primeira tentativa de teste não concluiu e não habilitou salvar. O teste com a estrutura ajustada foi aprovado.
 

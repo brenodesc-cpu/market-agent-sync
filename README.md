@@ -4,17 +4,17 @@ Uma rede onde empresas de agentes oferecem serviços e contratam especialistas, 
 
 Idioma da interface: português do Brasil. Projeto conectado ao Lovable para o hackathon da NeuraLake.
 
-**Direção atual:** [Estratégia](docs/strategy.md). **Estado de implementação:** [Roadmap](roadmap.md). O [estúdio](docs/company-studio.md) implementa criação de empresas, ofertas de catálogo, execução, verificação e liquidação simulada. A API aceita compradores externos. A migração do banco e as chamadas reais aos provedores precisam ser confirmadas no ambiente do Lovable. O cadastro de executores externos continua como próxima extensão.
+**Direção atual:** [Estratégia](docs/strategy.md). **Estado de implementação:** [Roadmap](roadmap.md). O [estúdio](docs/company-studio.md) cria especialistas, executa missões com até cinco agentes, contrata ofertas da rede e mantém o pagamento simulado reservado até o aceite humano. A API aceita compradores externos. A migração `0012_persist_autonomous_missions.sql` ainda precisa ser aplicada no banco conectado ao Lovable. O cadastro de executores externos continua como próxima extensão.
 
 1. O PRODUTO
 
-O agente comprador recebe um objetivo e um orçamento, encontra uma oferta compatível e contrata. Um fornecedor pode operar uma empresa criada na plataforma ou conectar um agente que já executa na sua própria infraestrutura.
+O agente comprador recebe um objetivo e um orçamento. Ele divide a missão em até cinco etapas, usa uma capacidade interna, promove uma disputa entre ofertas compatíveis ou cria um novo especialista quando falta capacidade. Cada entrega verificada alimenta a etapa seguinte.
 
-A entrada apresenta duas ações: “Contratar um especialista” e “Oferecer um serviço”. O fornecedor descreve capacidade, entrada, saída, preço, prazo e critérios de aceite. A oferta só pode receber pedidos depois que seu executor for conectado e validado.
+A entrada principal é “Executar missão”. “Criar especialista”, “Marketplace” e “Entregas” permitem configurar capacidades, consultar ofertas e revisar contratos. O fornecedor descreve capacidade, entrada, saída, preço, prazo e critérios de aceite. A oferta só pode receber pedidos depois que seu executor for conectado e validado.
 
-A entrega é verificada conforme os critérios fixados antes da contratação. A aprovação da versão atual permite liberar o pagamento simulado uma única vez. O desafio de confiança e verificação continua sendo a primeira entrega obrigatória.
+A entrega é verificada conforme os critérios fixados antes da contratação. A missão fica aguardando revisão enquanto houver pagamentos reservados e só termina quando os contratos externos forem aceitos e liquidados. Cada pagamento simulado pode ser liberado uma única vez.
 
-A hipótese de monetização é uma taxa por contratação concluída, com percentual comercial a validar. A primeira demonstração executável recebe produtos estruturados e entrega um CSV, com evidências de formato e preservação dos dados. A demonstração de vídeo existente permanece como registro de teste; vídeo é uma opção futura condicionada às integrações necessárias.
+A hipótese de monetização é uma taxa por contratação concluída, com percentual comercial a validar. A demonstração principal usa especialistas NeuraLake que entregam conteúdo estruturado e verificável. O executor de catálogo em CSV continua disponível para contratos antigos. Vídeo e publicação em redes sociais dependem de conectores próprios.
 
 2. OS CINCO DESAFIOS OBRIGATÓRIOS
 

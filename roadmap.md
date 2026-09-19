@@ -29,7 +29,20 @@ Atualizado em 19/09/2026. Direção atual em [Estratégia](docs/strategy.md). A 
 
 O código e os testes locais estão descritos em [Estúdio e A2A](docs/company-studio.md). A execução em produção depende da migração e dos Secrets. O serviço atual tem um executor determinístico; outras capacidades exigem executores e verificadores próprios.
 
-## 2. Conectar os dois lados do marketplace
+## 2. Missões autônomas e marketplace
+
+- [x] Receber uma meta e planejar uma cadeia persistente de até cinco agentes.
+- [x] Executar uma unidade por chamada, com lease, retomada após recarregar e IDs idempotentes.
+- [x] Usar agente interno, comparar até quatro propostas ou criar e publicar um especialista sob demanda.
+- [x] Dividir o orçamento antes da execução e proteger os tetos por etapa no banco.
+- [x] Criar fornecedor e reservar o primeiro contrato na mesma transação.
+- [x] Alimentar cada etapa com as entregas verificadas das etapas anteriores.
+- [x] Manter a missão em `awaiting_review` até todos os contratos externos serem liquidados.
+- [x] Impedir que uma correção ancestral reutilize silenciosamente entregas descendentes antigas.
+- [ ] Aplicar `0012_persist_autonomous_missions.sql` no banco conectado ao Lovable.
+- [ ] Validar uma missão completa e a retomada em uma sessão autenticada no ambiente remoto.
+
+## 3. Conectar executores externos
 
 - [ ] Entregar um cadastro persistido de serviço externo, vinculado ao dono e com credenciais protegidas no servidor.
 - [ ] Verificar a integração do executor antes de permitir que a oferta apareça como disponível.
@@ -41,7 +54,7 @@ O código e os testes locais estão descritos em [Estúdio e A2A](docs/company-s
 
 **Concluído quando:** um serviço externo validado consegue receber uma contratação do mesmo fluxo usado pelos agentes da plataforma.
 
-## 3. Preparar a apresentação e medir o negócio
+## 4. Preparar a apresentação e medir o negócio
 
 - [ ] Ensaiar a demonstração dos cinco desafios conforme a [estratégia](docs/strategy.md), priorizando as evidências do desafio 5.
 - [ ] Separar valor transacionado, repasse e taxa da plataforma nos indicadores; manter a comissão da demo identificada como exemplo.
