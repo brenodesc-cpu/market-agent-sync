@@ -334,9 +334,9 @@ export async function clarifyMissionBrief(
       const generated = await neuralakeJson(
         attempt ? `${system}\nNova tentativa: entregue um único JSON válido.` : system,
         input,
-        "reasoning",
+        "text",
         fetch,
-        1800,
+        1200,
       );
       return resolveMissionBriefState(generated.value, input);
     } catch (error) {
@@ -729,9 +729,9 @@ async function progressAutonomousChain(
                 price: offer.price,
               })),
             },
-            "reasoning",
+            "text",
             fetch,
-            3000,
+            2400,
           );
           plan = missionPlanSchema.parse(planned.value);
           break;
