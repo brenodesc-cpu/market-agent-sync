@@ -3,6 +3,7 @@ import { MessageCircle, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { explainReview } from "@/lib/review.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { ReviewVoiceCall } from "./review-voice-call";
 import { lovable } from "@/integrations/lovable";
 
 export function ReviewAssistant({ orderId }: { orderId: string }) {
@@ -96,9 +97,7 @@ export function ReviewAssistant({ orderId }: { orderId: string }) {
           <p className="mt-3 break-all text-xs text-muted-foreground">{reference}</p>
         </div>
       )}
-      <p className="mt-4 text-xs text-muted-foreground">
-        Revisão por voz: integração com a Agora em preparação.
-      </p>
+      <ReviewVoiceCall key={orderId} orderId={orderId} signedIn={signedIn} />
     </section>
   );
 }

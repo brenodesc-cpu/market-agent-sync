@@ -1,0 +1,245 @@
+import { after, before, test } from "node:test";
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { randomUUID, createHash } from "node:crypto";
+import {
+  SAMPLE_ROWS,
+  STARTER_DRAFT,
+  createCatalogueCsv,
+  verifyCatalogue,
+} from "../src/lib/a2a-contract.ts";
+
+const temp = mkdtempSync("/private/tmp/neuramarket-studio-test-");
+const cluster = `${temp}/data`,
+  port = 56000 + Math.floor(Math.random() * 8000);
+const args = [
+  "-X",
+  "-qAt",
+  "-v",
+  "ON_ERROR_STOP=1",
+  "-h",
+  temp,
+  "-p",
+  String(port),
+  "-U",
+  "postgres",
+  "-d",
+  "postgres",
+];
+const q = (v) => `'${String(v).replaceAll("'", "''")}'`;
+const j = (v) => `${q(JSON.stringify(v))}::jsonb`;
+const sql = (statement) =>
+  execFileSync("psql", args, {
+    input: statement,
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"],
+  }).trim();
+const call = (statement) => JSON.parse(sql(`SELECT ${statement};`));
+let started = false;
+before(() => {
+  execFileSync(
+    "initdb",
+    ["-D", cluster, "-A", "trust", "-U", "postgres", "--no-locale", "--encoding=UTF8"],
+    { stdio: "pipe" },
+  );
+  execFileSync(
+    "pg_ctl",
+    [
+      "-D",
+      cluster,
+      "-l",
+      `${temp}/postgres.log`,
+      "-o",
+      `-F -p ${port} -k ${temp} -c listen_addresses=''`,
+      "-w",
+      "start",
+    ],
+    { stdio: "pipe" },
+  );
+  started = true;
+  sql(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
+    CREATE SCHEMA auth; CREATE SCHEMA storage;
+    CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$SELECT nullif(current_setting('test.user_id',true),'')::uuid$$;
+    CREATE TABLE storage.objects(bucket_id text,name text); ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+    CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql IMMUTABLE AS $$SELECT string_to_array($1,'/')$$;
+    GRANT USAGE ON SCHEMA public,auth,storage TO anon,authenticated,service_role;`);
+  for (const file of [
+    "0000_create_neuramarket_core",
+    "0001_add_financial_workflow_and_storage_policies",
+    "0002_harden_verification_settlement",
+    "0003_harden_verification_settlement",
+    "0004_company_studio_and_a2a",
+  ]) {
+    sql(readFileSync(new URL(`../drizzle/migrations/${file}.sql`, import.meta.url), "utf8"));
+  }
+});
+after(() => {
+  if (started)
+    execFileSync("pg_ctl", ["-D", cluster, "-m", "immediate", "-w", "stop"], { stdio: "pipe" });
+  rmSync(temp, { recursive: true, force: true });
+});
+function company(user = randomUUID(), request = randomUUID(), config = STARTER_DRAFT) {
+  return { user, request, ...call(`studio_create_company('${user}','${request}',${j(config)})`) };
+}
+function order(c = company(), overrides = {}) {
+  const version = sql(
+    "SELECT v.id FROM offer_versions v JOIN offers f ON f.id=v.offer_id WHERE f.company_id='00000000-0000-0000-0000-000000001001';",
+  );
+  const payload = {
+    buyerCompanyId: c.companyId,
+    offerVersionId: version,
+    title: "Preparar catálogo",
+    budget: 30,
+    rows: SAMPLE_ROWS,
+    requestId: randomUUID(),
+    testFailure: true,
+    autoCorrect: false,
+    ...overrides,
+  };
+  return { ...c, payload, ...call(`studio_place_order('${c.user}',${j(payload)})`) };
+}
+const claim = (o) => call(`studio_claim_execution('${o.user}','${o.orderId}')`);
+const balance = (o) =>
+  sql(
+    `SELECT available_units||','||reserved_units||','||paid_units FROM accounts WHERE company_id='${o.companyId}'`,
+  );
+function record(o, lease, bad = false) {
+  const file = createCatalogueCsv(SAMPLE_ROWS, bad);
+  return {
+    file,
+    ...call(
+      `studio_record_delivery('${o.orderId}','${lease.token}',${q(file)},${j(verifyCatalogue(SAMPLE_ROWS, file))})`,
+    ),
+  };
+}
+
+test("company publication is atomic and idempotent, and registers a real offer", () => {
+  const c = company();
+  const repeated = company(c.user, c.request);
+  assert.equal(repeated.companyId, c.companyId);
+  assert.equal(balance(c), "100,0,0");
+  assert.equal(
+    sql(`SELECT count(*) FROM offers WHERE company_id='${c.companyId}' AND published`),
+    "1",
+  );
+  assert.throws(
+    () => company(c.user, c.request, { ...STARTER_DRAFT, price: 99 }),
+    /idempotency_conflict/,
+  );
+});
+test("failed delivery blocks payment; corrected real file settles exactly once", () => {
+  const o = order();
+  assert.equal(balance(o), "88,12,0");
+  assert.equal(call(`studio_place_order('${o.user}',${j(o.payload)})`).orderId, o.orderId);
+  const lease = claim(o);
+  assert.equal(claim(o).status, "in_progress");
+  const failed = record(o, lease, true);
+  assert.equal(failed.decision, "rejected");
+  assert.throws(() => call(`settle_verified_order('${o.orderId}','attempt-1')`));
+  assert.equal(balance(o), "88,12,0");
+  const good = record(o, claim(o));
+  assert.equal(good.sha256, createHash("sha256").update(good.file).digest("hex"));
+  assert.equal(
+    sql(`SELECT artifact_content FROM deliveries WHERE id='${good.deliveryId}'`),
+    good.file.trim(),
+  );
+  call(`settle_verified_order('${o.orderId}','attempt-2')`);
+  call(`settle_verified_order('${o.orderId}','another-caller-key')`);
+  assert.equal(balance(o), "88,0,12");
+  assert.equal(
+    sql(
+      `SELECT count(*) FROM ledger_entries WHERE order_id='${o.orderId}' AND entry_type='payment'`,
+    ),
+    "1",
+  );
+  assert.equal(claim(o).status, "settled");
+});
+test("cancellation refunds once and invalidates a worker already running", () => {
+  const o = order();
+  const lease = claim(o);
+  call(`studio_cancel_order('${o.user}','${o.orderId}')`);
+  call(`studio_cancel_order('${o.user}','${o.orderId}')`);
+  assert.equal(balance(o), "100,0,0");
+  assert.throws(() => record(o, lease), /stale_execution/);
+});
+test("another user cannot buy, run, cancel or annotate this order", () => {
+  const o = order();
+  const outsider = randomUUID();
+  assert.throws(
+    () => call(`studio_place_order('${outsider}',${j({ ...o.payload, requestId: randomUUID() })})`),
+    /buyer_access_denied/,
+  );
+  for (const name of ["studio_claim_execution", "studio_cancel_order"])
+    assert.throws(() => call(`${name}('${outsider}','${o.orderId}')`), /order_access_denied/);
+  assert.throws(
+    () => call(`studio_add_clarification('${outsider}','${o.orderId}',0,'Observação')`),
+    /order_access_denied/,
+  );
+});
+test("new supplier can be contracted without a fixed company ID", () => {
+  const supplier = company();
+  const version = sql(
+    `SELECT v.id FROM offer_versions v JOIN offers f ON f.id=v.offer_id WHERE f.company_id='${supplier.companyId}'`,
+  );
+  const o = order(company(), { offerVersionId: version });
+  assert.equal(balance(o), "85,15,0");
+  record(o, claim(o));
+  call(`settle_verified_order('${o.orderId}','new-supplier')`);
+  assert.equal(
+    sql(`SELECT received_units FROM accounts WHERE company_id='${supplier.companyId}'`),
+    "14",
+  );
+});
+test("expired lease cannot record over its replacement and stale clarification is rejected", () => {
+  const o = order();
+  const old = claim(o);
+  sql(`UPDATE jobs SET lease_until=now()-interval '1 second' WHERE order_id='${o.orderId}'`);
+  const current = claim(o);
+  assert.notEqual(current.token, old.token);
+  assert.throws(() => record(o, old), /stale_execution/);
+  record(o, current, true);
+  assert.throws(
+    () => call(`studio_add_clarification('${o.user}','${o.orderId}',0,'Observação')`),
+    /stale_or_closed_review/,
+  );
+  call(`studio_add_clarification('${o.user}','${o.orderId}',1,'Preserve o preço original.')`);
+  assert.equal(balance(o), "88,12,0");
+});
+test("unaffordable or self-contracting requests create no reservation", () => {
+  const c = company();
+  assert.throws(() => order(c, { budget: 1 }));
+  assert.equal(balance(c), "100,0,0");
+  const version = sql(
+    `SELECT v.id FROM offer_versions v JOIN offers f ON f.id=v.offer_id WHERE f.company_id='${c.companyId}'`,
+  );
+  assert.throws(() => order(c, { offerVersionId: version }), /offer_unavailable/);
+  assert.equal(balance(c), "100,0,0");
+});
+test("anonymous clients cannot invoke financial studio operations or read agent secrets", () => {
+  const c = company();
+  assert.throws(
+    () =>
+      sql(
+        `SET ROLE anon; SELECT studio_create_company('${c.user}','${randomUUID()}',${j(STARTER_DRAFT)})`,
+      ),
+    /permission denied/,
+  );
+  assert.throws(() => sql("SET ROLE anon; SELECT * FROM agent_credentials"), /permission denied/);
+  sql("GRANT SELECT ON companies,offers,capabilities,offer_versions TO anon");
+  assert.equal(sql(`SET ROLE anon; SELECT count(*) FROM companies WHERE id='${c.companyId}'`), "1");
+});
+
+test("retry keeps the original order even when an AI would select another supplier", () => {
+  const c = company();
+  const hash = "a".repeat(64);
+  const o = order(c, { requestHash: hash });
+  const other = sql(
+    "SELECT v.id FROM offer_versions v JOIN offers f ON f.id=v.offer_id WHERE f.company_id='00000000-0000-0000-0000-000000001002'",
+  );
+  const again = call(
+    `studio_place_order('${c.user}',${j({ ...o.payload, offerVersionId: other, selectionReason: "Other selection" })})`,
+  );
+  assert.equal(again.orderId, o.orderId);
+  assert.equal(balance(o), "88,12,0");
+});

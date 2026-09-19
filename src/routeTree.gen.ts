@@ -10,12 +10,30 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DemoRouteImport } from './routes/demo'
+import { Route as StudioRouteImport } from './routes/studio'
+import { Route as ApiA2aSplatRouteImport } from './routes/api/a2a/$'
 import { Route as ApiPublicOpenapiRouteImport } from './routes/api/public/openapi'
 import { Route as ApiReviewsOrderIdChatCompletionsRouteImport } from './routes/api/reviews/$orderId/chat/completions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoRoute = DemoRouteImport.update({
+  id: '/demo',
+  path: '/demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudioRoute = StudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiA2aSplatRoute = ApiA2aSplatRouteImport.update({
+  id: '/api/a2a/$',
+  path: '/api/a2a/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicOpenapiRoute = ApiPublicOpenapiRouteImport.update({
@@ -32,35 +50,61 @@ const ApiReviewsOrderIdChatCompletionsRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/demo': typeof DemoRoute
+  '/studio': typeof StudioRoute
+  '/api/a2a/$': typeof ApiA2aSplatRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
   '/api/reviews/$orderId/chat/completions': typeof ApiReviewsOrderIdChatCompletionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/demo': typeof DemoRoute
+  '/studio': typeof StudioRoute
+  '/api/a2a/$': typeof ApiA2aSplatRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
   '/api/reviews/$orderId/chat/completions': typeof ApiReviewsOrderIdChatCompletionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/demo': typeof DemoRoute
+  '/studio': typeof StudioRoute
+  '/api/a2a/$': typeof ApiA2aSplatRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
   '/api/reviews/$orderId/chat/completions': typeof ApiReviewsOrderIdChatCompletionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/api/public/openapi' | '/api/reviews/$orderId/chat/completions'
+    | '/'
+    | '/demo'
+    | '/studio'
+    | '/api/a2a/$'
+    | '/api/public/openapi'
+    | '/api/reviews/$orderId/chat/completions'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/openapi' | '/api/reviews/$orderId/chat/completions'
+  to:
+    | '/'
+    | '/demo'
+    | '/studio'
+    | '/api/a2a/$'
+    | '/api/public/openapi'
+    | '/api/reviews/$orderId/chat/completions'
   id:
     | '__root__'
     | '/'
+    | '/demo'
+    | '/studio'
+    | '/api/a2a/$'
     | '/api/public/openapi'
     | '/api/reviews/$orderId/chat/completions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DemoRoute: typeof DemoRoute
+  StudioRoute: typeof StudioRoute
+  ApiA2aSplatRoute: typeof ApiA2aSplatRoute
   ApiPublicOpenapiRoute: typeof ApiPublicOpenapiRoute
   ApiReviewsOrderIdChatCompletionsRoute: typeof ApiReviewsOrderIdChatCompletionsRoute
 }
@@ -72,6 +116,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/studio': {
+      id: '/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof StudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/a2a/$': {
+      id: '/api/a2a/$'
+      path: '/api/a2a/$'
+      fullPath: '/api/a2a/$'
+      preLoaderRoute: typeof ApiA2aSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/openapi': {
@@ -93,6 +158,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DemoRoute: DemoRoute,
+  StudioRoute: StudioRoute,
+  ApiA2aSplatRoute: ApiA2aSplatRoute,
   ApiPublicOpenapiRoute: ApiPublicOpenapiRoute,
   ApiReviewsOrderIdChatCompletionsRoute: ApiReviewsOrderIdChatCompletionsRoute,
 }

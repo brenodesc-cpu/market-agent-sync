@@ -1,0 +1,60 @@
+# Estúdio e contratação entre empresas
+
+A rota `/studio` permite criar uma empresa por conversa com a NeuraLake, revisar a configuração e publicar uma oferta executável. O botão Criar empresa da página inicial abre esse estúdio. A demonstração anterior continua em `/demo`.
+
+## Demonstração completa
+
+1. Entrar, descrever a empresa e revisar o nome, a descrição e o preço. Publicar cria a empresa, os agentes, a oferta e 100 créditos simulados na mesma transação.
+2. No marketplace, escolher a empresa compradora, informar o catálogo e o orçamento. Deixar o fornecedor automático para o gerente escolher. A escolha usa NeuraLake quando disponível; a alternativa por menor preço fica identificada no histórico.
+3. Marcar o erro de preço da primeira entrega e deixar a correção automática desmarcada. Delegar. O servidor reserva o preço, entrega um CSV real e compara os produtos e preços com a origem contratada.
+4. Abrir o pedido: a evidência identifica SKU, tamanho, preço esperado e preço recebido. Baixar o arquivo e conferir seu SHA-256. A reserva permanece bloqueada.
+5. Solicitar correção. A versão nova passa pela mesma verificação e libera o pagamento uma única vez. A carteira mostra o valor recebido e a comissão simulada de 10%, arredondada para baixo em créditos inteiros.
+6. Repetir a execução de um pedido liquidado ou cancelar um pedido aberto. As operações repetidas não duplicam pagamento ou devolução.
+
+A prévia do editor permite testar o verificador sem autenticação e sem movimentar saldo. A publicação, as contratações e as credenciais exigem login. Rascunhos permanecem neste navegador.
+
+## Os cinco desafios
+
+| Desafio | Implementação |
+| --- | --- |
+| Negócio autônomo | Gerente escolhe um fornecedor e coordena uma execução iniciada pelo cliente, com uma correção automática opcional. |
+| Marketplace | Empresas publicadas entram no mesmo cadastro dos fornecedores iniciais, sem adicionar IDs no código comprador. |
+| Economia | Reserva transacional, orçamento máximo, correção, devolução, comissão e saldo reutilizável pelo fornecedor. |
+| Produto para agentes | API autenticada por empresa permite descobrir ofertas, contratar, executar e consumir CSV e evidências. |
+| Confiança | Verificação independente lê o arquivo real, compara com a origem imutável do contrato e controla a liquidação. |
+
+O serviço implementado é `catalog.normalize.v1`: organizar um catálogo de até 500 produtos em CSV, preservando SKU, tamanho e preço em centavos. O executor é determinístico. Criar outra empresa publica outra oferta dessa capacidade; não gera código para executar qualquer negócio descrito pelo usuário. Novas capacidades exigem executor e verificador próprios. A API é um protocolo HTTP próprio, sem declaração de conformidade com Google A2A.
+
+## Aplicar no Lovable
+
+Aplicar `drizzle/migrations/0004_company_studio_and_a2a.sql` depois das migrações existentes. O SQL adiciona arquivos persistidos, operações transacionais, credenciais de agentes e dois fornecedores executáveis. Não apagar os pedidos antigos nem recriar contratos para obter aprovações.
+
+O servidor precisa de `SUPABASE_SERVICE_ROLE_KEY`, além da configuração pública de Supabase que o projeto já usa. A chave administrativa nunca deve ser enviada ao navegador. Confirmar `NEURALAKE_API_KEY` nos Secrets. Para o áudio, seguir [Verificação e Agora](verification-agora.md).
+
+A aplicação desse SQL no banco remoto e a utilização dos provedores devem ser verificadas no ambiente do Lovable. Os testes locais não comprovam essa ativação.
+
+## API de agentes
+
+A documentação executável está em `GET /api/public/openapi`. No estúdio, Conectar agentes cria uma credencial vinculada a uma empresa. O valor aparece uma vez; o banco guarda apenas SHA-256. Revogar bloqueia requisições novas. Não usar credenciais reais em capturas ou na demonstração pública.
+
+- `GET /api/a2a/offers`: ofertas e critérios públicos.
+- `POST /api/a2a/orders`: cria contrato e reserva, usando a empresa da credencial. Informar UUID `requestId`, título, orçamento e linhas. O UUID deve permanecer igual em tentativas da mesma solicitação.
+- `POST /api/a2a/orders/{id}/run`: executa, verifica e liquida quando aprovado. Permite retomar uma execução interrompida.
+- `GET /api/a2a/orders/{id}`: contrato, entregas, evidências e eventos dentro do escopo da empresa.
+- `GET /api/a2a/orders/{id}/deliveries/{deliveryId}`: CSV e cabeçalho `X-Content-SHA256`.
+- `POST /api/a2a/orders/{id}/cancel`: comprador encerra a contratação e recupera a reserva antes da liquidação.
+
+Cada chamada autenticada recebe `Authorization: Bearer <credencial>`. O cliente deve consultar o pedido após uma falha de rede. Uma execução abandonada pode ser retomada depois de dois minutos. A concessão de execução usa um token temporário; um trabalhador antigo não pode gravar depois de outro assumir ou de o pedido ser cancelado.
+
+## Validação
+
+```sh
+bun install --frozen-lockfile
+npm test
+npm run test:finance
+npm run test:a2a
+npx tsc --noEmit
+npm run build
+```
+
+Os testes financeiros usam um PostgreSQL temporário e isolado. Cobrem a cadeia com um fornecedor recém-criado, reprovação, correção, pagamento repetido, cancelamento, saldo, autorização e execução concorrente. Os testes da Agora usam respostas controladas e verificam configuração, credenciais, início e encerramento; não substituem uma chamada com áudio real.

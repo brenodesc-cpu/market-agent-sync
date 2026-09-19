@@ -8,14 +8,23 @@ O endpoint `POST /api/reviews/:orderId/chat/completions` prepara a conexão com 
 
 ## Ativar no Lovable
 
-1. Aplicar `drizzle/migrations/0002_harden_verification_settlement.sql` no banco conectado, pelo fluxo de migrações do projeto. A migração está registrada no journal. Os testes executaram essa migração apenas em um PostgreSQL temporário local.
-2. Confirmar `NEURALAKE_API_KEY` nos Secrets. A chave continua somente no servidor. Abrir a aba Verificação, entrar e consultar o agente. Esse teste real ainda precisa ser realizado no ambiente do Lovable; a chave remota não foi copiada para o computador.
-3. Para habilitar a rota de voz, adicionar `AGORA_REVIEW_SECRET`, gerado aleatoriamente com pelo menos 32 caracteres. Esse segredo assina sessões internas; ele não é a chave da NeuraLake nem o App Certificate da Agora.
-4. Com um projeto Agora Conversational AI habilitado, implementar o início/encerramento da sessão RTC no backend e a captura do microfone no navegador. Usar `prepareReviewVoice` para obter o caminho do Custom LLM e sua credencial curta. Configurar a URL pública HTTPS como `llm.url` e a credencial curta como `llm.api_key`. Renovar iniciando outra sessão após a expiração.
+A criação e a contratação estão descritas em [Estúdio e A2A](company-studio.md). Aplicar a migração `0004_company_studio_and_a2a.sql` depois das anteriores.
 
-A entrada e a saída de áudio, o provisionamento do canal e os tokens RTC ainda estão pendentes. O formato HTTP e o isolamento da revisão foram testados localmente. Não houve uma chamada real à Agora nem à NeuraLake nesta execução.
+Nos Secrets, configurar:
 
-O adaptador atual espera a resposta completa da NeuraLake e então a entrega em eventos SSE. O streaming de tokens e sua latência precisam ser medidos na integração de voz. Falha do provedor retorna erro e não altera verificação ou saldo.
+- `NEURALAKE_API_KEY`: inferência no servidor.
+- `AGORA_APP_ID` e `AGORA_APP_CERTIFICATE`: projeto com Conversational AI habilitado.
+- `AGORA_REVIEW_SECRET`: ao menos 32 caracteres aleatórios, usado para assinar sessões internas.
+- `AGORA_TTS_VOICE_ID`: ID de uma voz MiniMax disponível no projeto, preferencialmente em português.
+- `PUBLIC_APP_URL`: origem HTTPS da aplicação publicada, por exemplo `https://market-agent-sync.lovable.app`.
+
+A implementação usa reconhecimento Deepgram e voz MiniMax no modo gerenciado da Agora. Confirmar que esses serviços estão disponíveis no projeto. Nenhuma chave precisa ser copiada para o computador ou colada na conversa.
+
+O botão Conversar por voz pede a permissão do microfone, inicia a sessão no servidor e conecta o navegador ao canal RTC. O servidor usa a autenticação por token RTC + RTM recomendada pela Agora; App Certificate e chave NeuraLake permanecem no servidor. O Custom LLM recebe uma credencial curta que permite consultar apenas aquele usuário, pedido e relatório.
+
+Encerrar fecha o microfone, deixa o canal e solicita a parada do agente. A sessão local termina em quatro minutos e meio. Se a página for fechada sem concluir a parada remota, o agente tem um timeout de 30 segundos depois da saída do participante. O callback deixa de funcionar quando o relatório muda ou a credencial expira. A conversa não tem ferramentas de pagamento nem pode aprovar a entrega.
+
+O adaptador espera a resposta completa da NeuraLake e então a entrega em eventos SSE. A latência e a disponibilidade dos modelos precisam ser medidas com áudio real. Uma falha do provedor não altera a verificação ou o saldo. Até a execução desse teste com as credenciais do projeto, a integração permanece sem confirmação ao vivo.
 
 ## Formato para novas verificações
 
@@ -41,7 +50,7 @@ As operações de reserva e liquidação exigem contas existentes, valores váli
 
 Reservas anteriores sem a chave `order:<id>:reservation` ficam bloqueadas pela nova regra. Antes de aplicar em um ambiente com pedidos ativos, conferir esses pedidos; nenhuma reserva antiga foi alterada nesta entrega. Pedidos já liquidados continuam registrados.
 
-A migração retira a inserção direta de relatórios por usuários do navegador. O serviço verificador deve gravá-los com a credencial do servidor após executar os testes objetivos. Ainda falta implementar o executor de serviços e o verificador que lê o arquivo real.
+A migração retira a inserção direta de relatórios por usuários do navegador. O serviço verificador deve gravá-los com a credencial do servidor após executar os testes objetivos. O executor de catálogo agora produz um CSV persistido; o verificador lê esse conteúdo e o compara com a origem contratada.
 
 ## Validação executada
 
@@ -49,6 +58,7 @@ A migração retira a inserção direta de relatórios por usuários do navegado
 bun install --frozen-lockfile
 npm test
 npm run test:finance
+npm run test:a2a
 npx tsc --noEmit
 npm run build
 ```
@@ -57,4 +67,4 @@ Os testes financeiros exigem `initdb`, `pg_ctl` e `psql` no PATH. Criam um clust
 
 Os testes da NeuraLake usam respostas controladas para verificar o endpoint, as mensagens e o tratamento de erros. Eles não provam a disponibilidade do provedor ou do áudio.
 
-Fontes: [Custom LLM da Agora](https://github.com/AgoraIO-Conversational-AI/server-custom-llm), [sessões da Agora](https://docs.agora.io/en/ai/build/start-stop-agent) e documentação `docs-neuralake.txt` fornecida pela equipe.
+Fontes: [autenticação da Agora](https://docs.agora.io/en/api-reference/api-ref/conversational-ai/authentication), [Custom LLM da Agora](https://github.com/AgoraIO-Conversational-AI/server-custom-llm), [sessões da Agora](https://docs.agora.io/en/ai/build/start-stop-agent) e documentação `docs-neuralake.txt` fornecida pela equipe.
