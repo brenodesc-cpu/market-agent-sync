@@ -17,8 +17,8 @@ export type TransactionPayload = {
 
 // This public envelope never contains custodial key material.
 export type ChainTransaction = TransactionPayload & {
-  id?: string;
-  created_at?: string;
+  id?: string | undefined;
+  created_at?: string | undefined;
   txid: string;
   signature: string;
   public_key: string;
@@ -26,7 +26,7 @@ export type ChainTransaction = TransactionPayload & {
   from_address: string | null;
   to_address: string | null;
   amount_units: number;
-  idempotency_key?: string;
+  idempotency_key?: string | undefined;
   block_height: number | null;
   block_index: number | null;
   status: "pending" | "sealed";
@@ -40,7 +40,7 @@ export type BlockHeader = {
   tx_count: number;
   validator: string;
 };
-export type ChainBlock = BlockHeader & { block_hash: string; created_at?: string };
+export type ChainBlock = BlockHeader & { block_hash: string; created_at?: string | undefined };
 export type ChainWalletPublic = {
   id: string;
   company_id: string | null;
