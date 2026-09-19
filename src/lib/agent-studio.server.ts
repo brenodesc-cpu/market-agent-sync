@@ -15,6 +15,14 @@ import { runtimeDb, ownedCompany, rpc, catalogueOffers } from "./studio-runtime.
 import type { OrderRequest } from "./a2a-contract";
 import type { StudioDetails } from "./studio.types";
 import { resolveMissionRoute } from "./mission-router";
+import {
+  historicalReputation,
+  scoreAuctionBids,
+  selectAuctionWinner,
+  shortlistAuctionCandidates,
+  type AgentBid,
+  type SupplierReputation,
+} from "./agent-auction";
 
 const missionPlanSchema = z.object({
   summary: z.string().trim().min(10).max(500),
@@ -34,12 +42,141 @@ const missionPlanSchema = z.object({
       }),
     )
     .min(1)
-    .max(3),
+    .max(2),
 });
 
 function derivedRequestId(requestId: string, step: number, purpose: string) {
   const hex = createHash("sha256").update(`${requestId}:${step}:${purpose}`).digest("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+async function marketplaceReputations(
+  db: Awaited<ReturnType<typeof runtimeDb>>,
+  companyIds: string[],
+) {
+  const reputations = new Map<string, SupplierReputation>();
+  if (!companyIds.length) return reputations;
+  const orders = await db
+    .from("orders")
+    .select("id,supplier_company_id")
+    .in("supplier_company_id", [...new Set(companyIds)])
+    .limit(500);
+  if (orders.error) throw new Error("Não foi possível consultar a reputação dos fornecedores.");
+  const orderIds = (orders.data ?? []).map((order) => order.id as string);
+  if (!orderIds.length) return reputations;
+  const reports = await db
+    .from("verification_reports")
+    .select("order_id,decision")
+    .in("order_id", orderIds)
+    .limit(1000);
+  if (reports.error) throw new Error("Não foi possível consultar as verificações anteriores.");
+  for (const companyId of companyIds) {
+    const supplierOrders = new Set(
+      (orders.data ?? [])
+        .filter((order) => order.supplier_company_id === companyId)
+        .map((order) => order.id),
+    );
+    const decisions = (reports.data ?? []).filter((report) => supplierOrders.has(report.order_id));
+    reputations.set(
+      companyId,
+      historicalReputation(
+        decisions.filter((report) => report.decision === "approved").length,
+        decisions.filter((report) => report.decision === "rejected").length,
+      ),
+    );
+  }
+  return reputations;
+}
+
+async function runMarketplaceAuction(
+  db: Awaited<ReturnType<typeof runtimeDb>>,
+  buyerCompanyId: string,
+  offers: Awaited<ReturnType<typeof catalogueOffers>>,
+  objective: string,
+  category: string,
+  budget: number,
+  preferredOfferId?: string | null,
+) {
+  const candidates = shortlistAuctionCandidates(
+    offers,
+    objective,
+    category,
+    budget,
+    preferredOfferId,
+  );
+  if (!candidates.length) return { winner: null, competition: [] };
+  const reputations = await marketplaceReputations(
+    db,
+    candidates.map((candidate) => candidate.companyId),
+  );
+  const bidSchema = z.object({
+    offerVersionId: z.string().uuid(),
+    viability: z.number().min(0).max(100),
+    approach: z.string().trim().min(10).max(800),
+    reason: z.string().trim().min(3).max(500),
+  });
+  const attempts = await Promise.allSettled(
+    candidates.map(async (candidate) => {
+      const proposal = await neuralakeJson(
+        "Você representa um agente concorrendo por uma tarefa. Avalie se sua capacidade pública atende ao objetivo e proponha como faria o trabalho. Não invente ferramentas nem capacidades. Retorne somente JSON com offerVersionId, viability de 0 a 100, approach e reason. Repita exatamente o ID recebido.",
+        {
+          objective,
+          budget,
+          offer: {
+            offerVersionId: candidate.id,
+            company: candidate.companyName,
+            title: candidate.title,
+            description: candidate.description,
+            category: candidate.category,
+            exampleTask: candidate.exampleTask,
+            price: candidate.price,
+          },
+        },
+        "text",
+        fetch,
+        900,
+      );
+      const bid = bidSchema.parse(proposal.value);
+      if (bid.offerVersionId !== candidate.id) throw new Error("invalid_bidder_identity");
+      return { bid, candidate, proposal };
+    }),
+  );
+  const successful = attempts.flatMap((attempt) =>
+    attempt.status === "fulfilled" ? [attempt.value] : [],
+  );
+  if (successful.length) {
+    const recorded = await db.from("inference_runs").insert(
+      successful.map(({ candidate, proposal }) => ({
+        company_id: buyerCompanyId,
+        task_type: "agent_bid",
+        model_requested: "text",
+        status: "completed",
+        duration_ms: proposal.durationMs,
+        usage_data: { ...(proposal.usage ?? {}), bidder_company_id: candidate.companyId },
+      })),
+    );
+    if (recorded.error) throw new Error("Não foi possível registrar as propostas dos agentes.");
+  }
+  const bids = successful.map(({ bid }) => bid satisfies AgentBid);
+  const winner = selectAuctionWinner(bids, candidates, reputations, budget);
+  const scores = scoreAuctionBids(bids, candidates, reputations, budget);
+  const competition = bids.map((bid) => {
+    const offer = candidates.find((candidate) => candidate.id === bid.offerVersionId)!;
+    const reputation = reputations.get(offer.companyId) ?? historicalReputation(0, 0);
+    return {
+      offerVersionId: offer.id,
+      provider: offer.companyName,
+      price: offer.price,
+      viability: bid.viability,
+      reputation: reputation.score,
+      approved: reputation.approved,
+      rejected: reputation.rejected,
+      score: scores.find((score) => score.offerVersionId === offer.id)?.totalScore ?? null,
+      approach: bid.approach,
+      selected: winner?.offerVersionId === offer.id,
+    };
+  });
+  return { winner, competition };
 }
 
 export const definitionHash = (spec: AgentDefinition) =>
@@ -369,7 +506,7 @@ export async function runAutonomousChain(
     (offer) => offer.capability === AGENT_CAPABILITY && offer.companyId !== companyId,
   );
   const planningSystem =
-    "Você planeja uma missão para uma rede de agentes. Divida a solicitação em 1 a 3 etapas sequenciais, cada uma com uma entrega útil para a próxima. Para cada etapa decida entre internal, network ou create. Use network somente com um offerVersionId exato e dentro do orçamento. Use internal somente se a capacidade interna for diretamente compatível. Use create quando faltar capacidade. As únicas capacidades nativas são ler dados fornecidos, analisar, escrever, planejar e gerar arquivos de texto, código ou HTML. Liste em blockedTools qualquer ação externa necessária, como navegar, editar vídeo, enviar mensagens ou publicar em redes sociais. Planeje o trabalho preparatório possível e nunca afirme que uma ferramenta ausente será executada. Retorne somente JSON com summary, blockedTools e steps. Cada step deve conter role, objective, category, instructions, sections, model, action, offerVersionId e reason.";
+    "Você planeja uma missão para uma rede de agentes. Divida a solicitação em 1 ou 2 etapas sequenciais, cada uma com uma entrega útil para a próxima. Para cada etapa decida entre internal, network ou create. Use network somente quando houver ofertas adequadas e dentro do orçamento; o sistema promoverá uma disputa entre elas. Use internal somente se a capacidade interna for diretamente compatível. Use create quando faltar capacidade. As únicas capacidades nativas são ler dados fornecidos, analisar, escrever, planejar e gerar arquivos de texto, código ou HTML. Liste em blockedTools qualquer ação externa necessária, como navegar, editar vídeo, enviar mensagens ou publicar em redes sociais. Planeje o trabalho preparatório possível e nunca afirme que uma ferramenta ausente será executada. Retorne somente JSON com summary, blockedTools e steps. Cada step deve conter role, objective, category, instructions, sections, model, action, offerVersionId e reason.";
   let plan: z.infer<typeof missionPlanSchema> | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -418,11 +555,35 @@ export async function runAutonomousChain(
     reason: string;
     result: AgentResult;
     order: StudioDetails | null;
+    competition: Array<{
+      offerVersionId: string;
+      provider: string;
+      price: number;
+      viability: number;
+      reputation: number;
+      approved: number;
+      rejected: number;
+      score: number | null;
+      approach: string;
+      selected: boolean;
+    }>;
   }> = [];
   for (const [index, step] of plan.steps.entries()) {
-    const candidate = offers.find(
-      (offer) => offer.id === step.offerVersionId && offer.price <= remainingBudget,
-    );
+    const auction =
+      step.action === "network"
+        ? await runMarketplaceAuction(
+            db,
+            companyId,
+            offers,
+            step.objective,
+            step.category,
+            remainingBudget,
+            step.offerVersionId,
+          )
+        : { winner: null, competition: [] };
+    const candidate = auction.winner
+      ? offers.find((offer) => offer.id === auction.winner!.offerVersionId)
+      : undefined;
     const route = resolveMissionRoute(
       {
         mode: step.action,
@@ -453,11 +614,13 @@ export async function runAutonomousChain(
         reason: step.reason,
         result: execution.result,
         order: null,
+        competition: auction.competition,
       });
       continue;
     }
 
-    if (route.mode === "network" && candidate) {
+    if (route.mode === "network" && candidate && auction.winner) {
+      const winner = auction.winner;
       const created = await createAgentOrder(userId, {
         buyerCompanyId: companyId,
         title: `${step.role}: ${step.objective}`.slice(0, 120),
@@ -482,9 +645,10 @@ export async function runAutonomousChain(
         role: step.role,
         source: "network",
         provider: candidate.companyName,
-        reason: step.reason,
+        reason: `${winner.reason} Pontuação ${Math.round(winner.totalScore * 100)}/100 entre ${auction.competition.length} proposta(s).`,
         result,
         order,
+        competition: auction.competition,
       });
       continue;
     }
@@ -512,6 +676,7 @@ export async function runAutonomousChain(
       reason: step.reason,
       result: trial.result,
       order: null,
+      competition: auction.competition,
     });
   }
 

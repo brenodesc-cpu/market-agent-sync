@@ -20,6 +20,11 @@ export const Route = createFileRoute("/studio")({
   head: () => ({ meta: [{ title: "Estúdio de agentes | NeuraMarket" }] }),
   component: () => {
     const { view, company } = Route.useSearch();
-    return <CompanyStudio initialView={view ?? "builder"} initialCompany={company} />;
+    return (
+      <CompanyStudio
+        initialView={view ?? "builder"}
+        {...(company ? { initialCompany: company } : {})}
+      />
+    );
   },
 });

@@ -11,6 +11,12 @@ import {
 import { orderRequestSchema } from "../src/lib/a2a-contract.ts";
 import { extractJson, neuralakeJson } from "../src/lib/neuralake-json.server.ts";
 import { resolveMissionRoute } from "../src/lib/mission-router.ts";
+import {
+  historicalReputation,
+  selectAuctionWinner,
+  shortlistAuctionCandidates,
+} from "../src/lib/agent-auction.ts";
+import type { AgentOffer } from "../src/lib/a2a-contract.ts";
 const spec = agentDefinitionSchema.parse({
   name: "Propostas",
   description: "Escreve propostas comerciais completas.",
@@ -192,4 +198,103 @@ test("mission manager uses, hires or creates without accepting invented supplier
   assert.deepEqual(resolveMissionRoute({ mode: "create", offerVersionId: null }, true, [offer]), {
     mode: "created",
   });
+});
+
+function auctionOffer(
+  id: string,
+  companyId: string,
+  price: number,
+  title: string,
+  category = "Conteúdo",
+): AgentOffer {
+  return {
+    id,
+    offerId: crypto.randomUUID(),
+    companyId,
+    companyName: title,
+    title,
+    description: `${title} cria conteúdo especializado`,
+    price,
+    deadlineHours: 24,
+    capability: "agent.task.v1",
+    category,
+    exampleTask: `Executar ${title}`,
+    criteria: [
+      { criterion: "Formato CSV", expected: "sku,size,priceCents" },
+      { criterion: "Produtos preservados", expected: true },
+      { criterion: "Preços preservados", expected: true },
+      { criterion: "Identificadores únicos", expected: true },
+    ],
+  };
+}
+
+test("marketplace shortlists at most four relevant affordable agents", () => {
+  const preferred = crypto.randomUUID();
+  const offers = [
+    auctionOffer(crypto.randomUUID(), crypto.randomUUID(), 10, "Planilhas", "Operações"),
+    auctionOffer(crypto.randomUUID(), crypto.randomUUID(), 20, "Roteiros"),
+    auctionOffer(preferred, crypto.randomUUID(), 25, "Legendas"),
+    auctionOffer(crypto.randomUUID(), crypto.randomUUID(), 30, "Calendário editorial"),
+    auctionOffer(crypto.randomUUID(), crypto.randomUUID(), 35, "Pesquisa de pautas"),
+    auctionOffer(crypto.randomUUID(), crypto.randomUUID(), 200, "Diretor caro"),
+  ];
+  const shortlisted = shortlistAuctionCandidates(
+    offers,
+    "Criar roteiro e legenda para conteúdo",
+    "Conteúdo",
+    100,
+    preferred,
+  );
+  assert.equal(shortlisted.length, 4);
+  assert.equal(shortlisted[0]?.id, preferred);
+  assert.equal(
+    shortlisted.some((offer) => offer.price > 100),
+    false,
+  );
+});
+
+test("auction combines viability, verified reputation and price without accepting invalid bids", () => {
+  const reliable = auctionOffer(crypto.randomUUID(), crypto.randomUUID(), 50, "Agente confiável");
+  const risky = auctionOffer(crypto.randomUUID(), crypto.randomUUID(), 90, "Agente arriscado");
+  const cheap = auctionOffer(crypto.randomUUID(), crypto.randomUUID(), 10, "Agente econômico");
+  const offers = [reliable, risky, cheap];
+  const reputations = new Map([
+    [reliable.companyId, historicalReputation(18, 2)],
+    [risky.companyId, historicalReputation(0, 8)],
+    [cheap.companyId, historicalReputation(0, 0)],
+  ]);
+  const winner = selectAuctionWinner(
+    [
+      {
+        offerVersionId: risky.id,
+        viability: 98,
+        approach: "Executar a tarefa em uma etapa especializada.",
+        reason: "Alta aderência declarada.",
+      },
+      {
+        offerVersionId: reliable.id,
+        viability: 88,
+        approach: "Executar e revisar a entrega antes de enviar.",
+        reason: "Boa aderência e histórico.",
+      },
+      {
+        offerVersionId: cheap.id,
+        viability: 54,
+        approach: "Tentar executar com capacidade apenas parcial.",
+        reason: "Capacidade insuficiente.",
+      },
+      {
+        offerVersionId: crypto.randomUUID(),
+        viability: 100,
+        approach: "Proposta com fornecedor inexistente na rodada.",
+        reason: "ID inventado.",
+      },
+    ],
+    offers,
+    reputations,
+    100,
+  );
+  assert.equal(winner?.offerVersionId, reliable.id);
+  assert.equal(winner?.reputation.approved, 18);
+  assert.ok((winner?.totalScore ?? 0) > 0.75);
 });

@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, ArrowRight, Sparkles, Search, LoaderCircle, ShieldCheck } from "lucide-react";
+import {
+  Bot,
+  ArrowRight,
+  Sparkles,
+  Search,
+  LoaderCircle,
+  ShieldCheck,
+  Network,
+  WalletCards,
+} from "lucide-react";
 import { AGENT_CAPABILITY, type AgentResult } from "@/lib/agent-definition";
 import { runAutonomousStudioChain, runStudioAgent } from "@/lib/agent-studio.functions";
 import {
@@ -114,22 +123,26 @@ export function AgentMarket({
     }
   }
   return (
-    <div className="studio-page agent-market">
+    <div className={`studio-page agent-market ${mode === "mission" ? "mission-mode" : ""}`}>
       <div className="agent-market-title">
         <span className="studio-eyebrow">
           {mode === "market" ? "ESPECIALISTAS PARA O SEU AGENTE" : "DO PEDIDO À ENTREGA"}
         </span>
-        <h1>{mode === "market" ? "Encontre o agente certo." : "O que você quer resolver?"}</h1>
+        <h1>
+          {mode === "market"
+            ? "Encontre o agente certo."
+            : "Descreva uma meta. A equipe se monta sozinha."}
+        </h1>
         <p>
           {mode === "market"
             ? "Conheça os serviços da rede ou deixe seu agente escolher quem contratar."
-            : "Dê uma meta e um orçamento. O gestor monta a cadeia, reaproveita, contrata ou cria os agentes necessários."}
+            : "O gestor entende o trabalho, escolhe os especialistas e entrega o resultado dentro do orçamento."}
         </p>
       </div>
       <div className="agent-market-columns">
         <section className="agent-request">
-          <label>
-            Seu agente
+          <label className={mode === "mission" ? "mission-owner" : undefined}>
+            {mode === "mission" ? "Empresa responsável" : "Seu agente"}
             <select
               value={company}
               onChange={(e) => {
@@ -149,30 +162,41 @@ export function AgentMarket({
               ))}
             </select>
           </label>
-          <label>
+          <label className={mode === "mission" ? "mission-goal" : undefined}>
             {mode === "mission" ? "Qual é a meta?" : "Descreva o trabalho"}
             <textarea
               maxLength={12000}
-              placeholder="Preciso de uma proposta comercial para uma loja de roupas. O serviço é gestão de redes sociais, custa R$ 2.000 por mês e começa em outubro..."
+              placeholder={
+                mode === "mission"
+                  ? "Ex.: Crie uma campanha completa para lançar meu curso de finanças no Instagram. Quero três vídeos, legendas e um calendário de publicação."
+                  : "Preciso de uma proposta comercial para uma loja de roupas. O serviço é gestão de redes sociais, custa R$ 2.000 por mês e começa em outubro..."
+              }
               value={task}
               onChange={(e) => setTask(e.target.value)}
               disabled={!!busy}
             />
           </label>
           {mode === "mission" ? (
-            <div className="agent-hire-box autonomous-run">
-              <label>
-                Orçamento máximo
-                <input
-                  type="number"
-                  min={1}
-                  max={10000}
-                  value={budget}
-                  onChange={(e) => setBudget(Number(e.target.value))}
-                  disabled={!!busy}
-                />
-              </label>
-              <small>Saldo disponível: {balance} créditos simulados.</small>
+            <div className="mission-composer">
+              <div className="mission-budget">
+                <WalletCards size={17} />
+                <label>
+                  Orçamento máximo
+                  <span>
+                    <input
+                      aria-label="Orçamento máximo em créditos"
+                      type="number"
+                      min={1}
+                      max={10000}
+                      value={budget}
+                      onChange={(e) => setBudget(Number(e.target.value))}
+                      disabled={!!busy}
+                    />
+                    créditos
+                  </span>
+                </label>
+                <small>{balance} disponíveis</small>
+              </div>
               <button
                 className="studio-primary"
                 disabled={!!busy || task.trim().length < 10 || !company || budget < 1}
@@ -185,14 +209,11 @@ export function AgentMarket({
                 )}
                 {signedIn
                   ? company
-                    ? "Executar missão"
+                    ? "Montar equipe e executar"
                     : "Criar meu agente"
                   : "Entrar para executar"}
+                {!busy && <ArrowRight size={16} />}
               </button>
-              <p>
-                <ShieldCheck size={15} /> Cada agente recebe a entrega anterior. Contratações são
-                verificadas antes do pagamento.
-              </p>
             </div>
           ) : (
             <div className="agent-hire-box">
@@ -263,36 +284,81 @@ export function AgentMarket({
               </p>
             </div>
           )}
+          {mode === "mission" && !chain && !busy && (
+            <div className="mission-examples" aria-label="Exemplos de metas">
+              <span>Experimente:</span>
+              <button
+                type="button"
+                onClick={() =>
+                  setTask(
+                    "Crie uma campanha de lançamento para um curso de finanças, com roteiro, legendas e calendário de conteúdo.",
+                  )
+                }
+              >
+                Campanha de lançamento
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setTask(
+                    "Analise o mercado de cafeterias por assinatura e entregue uma proposta comercial completa.",
+                  )
+                }
+              >
+                Pesquisa e proposta
+              </button>
+            </div>
+          )}
           {busy && (
-            <p role="status">
-              {busy === "personal"
-                ? "Seu agente está trabalhando pela NeuraLake..."
-                : "O gestor está comparando, contratando e verificando..."}
-            </p>
+            <div className="mission-running" role="status">
+              <LoaderCircle className="animate-spin" size={18} />
+              <div>
+                <strong>Os agentes estão trabalhando</strong>
+                <span>Planejando a cadeia, escolhendo especialistas e verificando entregas.</span>
+              </div>
+            </div>
           )}
           {error && (
             <p role="alert" className="agent-error">
               {error}
             </p>
           )}
-          <button className="studio-text-button" disabled={!!busy} onClick={onCreate}>
-            Criar outro agente
-          </button>
+          {mode === "market" && (
+            <button className="studio-text-button" disabled={!!busy} onClick={onCreate}>
+              Criar outro agente
+            </button>
+          )}
         </section>
         <section>
           {chain ? (
             <div className="autonomous-result">
-              <span className="studio-eyebrow">CADEIA CONCLUÍDA</span>
+              <div className="mission-result-status">
+                <span className="studio-eyebrow">
+                  {chain.blockedTools.length > 0 ? "EXECUÇÃO PARCIAL" : "CADEIA EXECUTADA"}
+                </span>
+                <span>
+                  <ShieldCheck size={14} /> Estrutura das entregas verificada
+                </span>
+              </div>
               <h2>{chain.summary}</h2>
-              <p>
-                {chain.initialBudget - chain.remainingBudget} créditos reservados na rede.{" "}
-                {chain.remainingBudget} disponíveis nesta missão.
-              </p>
+              <div className="mission-budget-summary">
+                <span>
+                  <strong>{chain.initialBudget - chain.remainingBudget}</strong>
+                  créditos reservados
+                </span>
+                <span>
+                  <strong>{chain.remainingBudget}</strong>
+                  créditos restantes
+                </span>
+                <span>
+                  <strong>{chain.steps.length}</strong>
+                  agentes na cadeia
+                </span>
+              </div>
               {chain.blockedTools.length > 0 && (
-                <div className="agent-error">
-                  <strong>Integrações necessárias</strong>
-                  <br />
-                  {chain.blockedTools.join(" · ")}
+                <div className="mission-blocked-tools">
+                  <strong>Falta conectar para concluir toda a meta</strong>
+                  <span>{chain.blockedTools.join(" · ")}</span>
                 </div>
               )}
               <div className="chain-steps">
@@ -302,7 +368,7 @@ export function AgentMarket({
                       <span>{index + 1}</span>
                       <div>
                         <strong>{step.role}</strong>
-                        <small>
+                        <small className={`chain-source ${step.source}`}>
                           {step.source === "network"
                             ? `Contratado: ${step.provider}`
                             : step.source === "created"
@@ -311,8 +377,45 @@ export function AgentMarket({
                         </small>
                       </div>
                     </header>
-                    <p>{step.reason}</p>
-                    <AgentOutput value={step.result} />
+                    {step.competition.length > 0 && (
+                      <div className="chain-competition">
+                        <span>{step.competition.length} propostas recebidas em paralelo</span>
+                        <div>
+                          {step.competition.map((proposal) => (
+                            <article
+                              className={proposal.selected ? "selected" : undefined}
+                              key={proposal.offerVersionId}
+                            >
+                              <header>
+                                <strong>{proposal.provider}</strong>
+                                <small>{proposal.selected ? "Vencedor" : "Proposta"}</small>
+                              </header>
+                              <p>{proposal.approach}</p>
+                              <footer>
+                                <span>{proposal.price} créditos</span>
+                                <span>{proposal.viability}% viável</span>
+                                <span>
+                                  {proposal.approved + proposal.rejected === 0
+                                    ? "sem histórico"
+                                    : `${Math.round(proposal.reputation * 100)}% confiança · ${proposal.approved} aprovadas · ${proposal.rejected} rejeitadas`}
+                                </span>
+                                {proposal.score !== null && (
+                                  <strong>{Math.round(proposal.score * 100)}/100</strong>
+                                )}
+                              </footer>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="chain-decision">
+                      <span>Por que este agente</span>
+                      <p>{step.reason}</p>
+                    </div>
+                    <div className="chain-delivery">
+                      <span>Entrega</span>
+                      <AgentOutput value={step.result} />
+                    </div>
                     {step.order && (
                       <button className="studio-secondary" onClick={() => onOrder(step.order!)}>
                         Revisar contratação <ArrowRight size={15} />
@@ -322,9 +425,10 @@ export function AgentMarket({
                 ))}
               </div>
               <button
-                className="studio-text-button"
+                className="studio-secondary mission-again"
                 onClick={() => {
                   setChain(null);
+                  setTask("");
                   request.current = { key: "", id: "", orderId: "" };
                 }}
               >
@@ -368,6 +472,41 @@ export function AgentMarket({
                 </div>
               )}
             </>
+          ) : mode === "mission" ? (
+            <div className="mission-explainer">
+              <Network size={28} />
+              <h2>Uma meta entra. Uma equipe começa a trabalhar.</h2>
+              <p>Você acompanha as decisões e recebe cada entrega da cadeia.</p>
+              <ol>
+                <li>
+                  <span>1</span>
+                  <div>
+                    <strong>O gestor entende a meta</strong>
+                    <small>Divide o trabalho e define quem precisa participar.</small>
+                  </div>
+                </li>
+                <li>
+                  <span>2</span>
+                  <div>
+                    <strong>A equipe é montada</strong>
+                    <small>Usa agentes internos, contrata na rede ou cria um especialista.</small>
+                  </div>
+                </li>
+                <li>
+                  <span>3</span>
+                  <div>
+                    <strong>As entregas viram uma cadeia</strong>
+                    <small>
+                      Cada agente recebe o trabalho anterior e a plataforma verifica a estrutura.
+                    </small>
+                  </div>
+                </li>
+              </ol>
+              <div>
+                <ShieldCheck size={16} />
+                Pagamentos ficam reservados até a verificação.
+              </div>
+            </div>
           ) : (
             <>
               <div className="agent-search">
