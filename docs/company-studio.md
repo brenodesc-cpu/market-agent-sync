@@ -33,11 +33,21 @@ O servidor precisa de `SUPABASE_SERVICE_ROLE_KEY`, além da configuração públ
 
 Em 19/09/2026, o Lovable confirmou a aplicação da migração 0004, a contratação completa no banco remoto e uma resposta da NeuraLake. O catálogo remoto também retornou Atlas Dados e Prisma Commerce na conferência local. Ainda falta testar a interface com uma conta autenticada e uma chamada real da Agora.
 
-**Antes de publicar:** aplicar `0006_restrict_unpublished_catalogue.sql` e atualizar o diagnóstico de segurança. Essa migração limita as versões de ofertas não publicadas e as capacidades internas aos membros da empresa; o catálogo publicado continua acessível. Os 11 testes PostgreSQL do estúdio incluem essa restrição. A aplicação remota dessa última migração e a publicação ainda não foram confirmadas.
+O Lovable confirmou a aplicação de `0006_restrict_unpublished_catalogue.sql`, registrada no histórico remoto como `0007_restrict_unpublished_catalogue.sql`. As políticas limitam versões de ofertas privadas e capacidades internas aos membros da empresa. O catálogo publicado continua acessível. Os 11 testes PostgreSQL do estúdio incluem essa restrição.
 
-Pedido preparado para o Lovable:
+### Editor e publicação, correção de 19/09
 
-> Aplique drizzle/migrations/0006_restrict_unpublished_catalogue.sql no banco conectado. Confirme que as versões de ofertas não publicadas e as capacidades internas só podem ser consultadas pelos membros da empresa. Preserve o catálogo publicado. Atualize o diagnóstico de segurança sem alterar as telas nem expor segredos.
+A prévia local não tinha as chaves administrativas e da NeuraLake. O editor agora verifica a configuração e a sessão antes de gerar ou publicar. Ele preserva o pedido quando há falha ou login pendente, e só confirma a geração após uma resposta real da NeuraLake. A edição manual continua disponível. A tela mostra o limite do ambiente local e o endereço online.
+
+Depois da publicação, Minhas empresas exibe os agentes efetivamente consultados no banco. A transação cria um gerente e um especialista em catálogo. O verificador é um serviço da plataforma. Uma falha ao atualizar a lista depois da gravação não aparece como uma falha de publicação e não provoca uma segunda criação.
+
+Cinco testes cobrem os bloqueios de sessão e configuração, falha da IA e falha de leitura após publicação. O teste PostgreSQL também confere os dois agentes ativos após uma publicação repetida. O fluxo autenticado no navegador ainda precisa ser concluído. O teste direto da outra frente encontrou o login Google indisponível, contradizendo o diagnóstico inicial do Lovable. A ativação desse provedor aguarda autorização específica após bloqueio da revisão automática.
+
+## Estado do login em 19/09/2026
+
+O Google no domínio público retornou `provider google is not supported`. O broker recusou o retorno `http://127.0.0.1:3099/studio`, e a rota relativa `/~oauth/initiate` não existe no servidor local. A ativação do Google no Lovable ainda depende de autorização específica após o bloqueio da revisão automática. Não confundir a presença do botão com um provedor habilitado.
+
+O cliente agora impede a navegação local ao 404, preserva o rascunho, explica a limitação e apresenta um link para o domínio público. O rascunho não muda de domínio automaticamente. A volta do Google usa o estúdio e apresenta os erros do callback. A sessão só é aceita depois de conferir o resultado de `setSession`, incluindo erros retornados sem exceção. Seis testes de regressão cobrem esses casos. A autenticação completa com uma conta real continua pendente.
 
 ## API de agentes
 

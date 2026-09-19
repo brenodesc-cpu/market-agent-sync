@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { isLocalPreview, loginCallbackError, loginReturnUrl, PUBLISHED_STUDIO } from "@/lib/auth-flow";
 import {
   CAPABILITY,
   STARTER_DRAFT,
@@ -177,6 +178,15 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
   useEffect(() => {
     alive.current = true;
     setOrigin(window.location.origin);
+    const callbackError = loginCallbackError(window.location.href);
+    if (callbackError) {
+      setError(callbackError);
+      setLogin(true);
+      const clean = new URL(window.location.href);
+      clean.hash = "";
+      for (const key of ["error", "error_code", "error_description", "state"]) clean.searchParams.delete(key);
+      window.history.replaceState(window.history.state, "", clean.pathname + clean.search);
+    }
     try {
       const saved = localStorage.getItem("neuramarket:company-draft");
       if (saved) {
@@ -201,7 +211,8 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
         if (alive.current) setError("Não conseguimos verificar a conexão do estúdio. Recarregue a página antes de continuar.");
       })
       .finally(() => { if (alive.current) setConnectionReady(true); });
-    void supabase.auth.getSession().then(({ data }) => {
+    void supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (sessionError) throw sessionError;
       if (alive.current) {
         setUser(data.session?.user.id ?? null);
         setAuthReady(true);
@@ -1580,29 +1591,39 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             <span className="studio-brand-icon">n</span>
             <h2 id="studio-login-title">Sua empresa começa aqui</h2>
             <p>Entre para publicar, contratar e guardar seu histórico. Seu rascunho está salvo.</p>
+            {origin && isLocalPreview(origin) && (
+              <p role="status">
+                O login desta prévia local ainda não está autorizado. {" "}
+                <a href={PUBLISHED_STUDIO} target="_blank" rel="noopener noreferrer">Abrir a versão online</a>.
+                {" "}Seu rascunho fica salvo neste endereço e não é transferido para a versão online.
+              </p>
+            )}
             <button
               className="studio-secondary wide"
               disabled={Boolean(busy)}
               onClick={() =>
                 void action("login", async () => {
-                  const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/studio" });
+                  localStorage.setItem("neuramarket:company-draft", JSON.stringify(draft));
+                  const result = await lovable.auth.signInWithOAuth("google");
                   if (result.error) throw result.error;
                 })
               }
             >
-              Continuar com Google
+              {busy === "login" ? "Aguardando o login…" : "Continuar com Google"}
             </button>
             <div className="studio-login-divider">ou use seu e-mail</div>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
                 void action("login", async () => {
+                  const redirectTo = loginReturnUrl(window.location.href);
+                  localStorage.setItem("neuramarket:company-draft", JSON.stringify(draft));
                   const result = await supabase.auth.signInWithOtp({
-                    email,
-                    options: { emailRedirectTo: window.location.origin + "/studio" },
+                    email: email.trim(),
+                    options: { emailRedirectTo: redirectTo },
                   });
                   if (result.error) throw result.error;
-                  setLoginMessage("Enviamos um link de acesso para seu e-mail.");
+                  setLoginMessage("Solicitamos seu link de acesso. Confira a caixa de entrada e o spam e abra o link neste navegador.");
                 });
               }}
             >
@@ -1617,7 +1638,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                 />
               </label>
               <button className="studio-primary wide" disabled={Boolean(busy)}>
-                Receber link de acesso
+                {busy === "login" ? "Aguarde…" : "Receber link de acesso"}
               </button>
             </form>
             {loginMessage && <p role="status">{loginMessage}</p>}
