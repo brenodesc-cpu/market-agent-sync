@@ -15,10 +15,12 @@ import {
 import { AGENT_CAPABILITY, type AgentResult } from "@/lib/agent-definition";
 import {
   advanceAutonomousStudioChain,
+  briefAutonomousStudioMission,
   getAutonomousStudioChain,
   runStudioAgent,
   startAutonomousStudioChain,
 } from "@/lib/agent-studio.functions";
+import type { MissionBriefAnswer, MissionBriefState } from "@/lib/mission-brief";
 import {
   placeStudioOrder,
   executeStudioOrder,
@@ -61,6 +63,9 @@ export function AgentMarket({
   const [loadingChain, setLoadingChain] = useState(false);
   const [result, setResult] = useState<AgentResult | null>(null);
   const [chain, setChain] = useState<AutonomousChain | null>(null);
+  const [brief, setBrief] = useState<MissionBriefState | null>(null);
+  const [briefHistory, setBriefHistory] = useState<MissionBriefAnswer[]>([]);
+  const [briefAnswers, setBriefAnswers] = useState<string[]>([]);
   const request = useRef({ key: "", id: "", orderId: "" });
   const advancing = useRef(false);
   const selected = workspace.companies.find((c) => c.id === company);
@@ -68,6 +73,9 @@ export function AgentMarket({
   const chosen = offers.find((o) => o.id === offerId);
   const balance = workspace.accounts.find((a) => a.company_id === company)?.available_units ?? 0;
   const missionOverBudget = Boolean(company && Number.isFinite(budget) && budget > balance);
+  const unansweredBrief = Boolean(
+    brief && !brief.ready && brief.questions.some((_, index) => !briefAnswers[index]?.trim()),
+  );
   const leaseActive = Boolean(
     chain &&
     (chain.status === "planning" || chain.status === "running") &&
@@ -209,7 +217,54 @@ export function AgentMarket({
     if (!chain || busy) return;
     await advanceChain(company, chain.requestId, "review");
   }
-  async function run(kind: "personal" | "hire" | "autonomous") {
+
+  function updateTask(value: string) {
+    setTask(value);
+    setBrief(null);
+    setBriefHistory([]);
+    setBriefAnswers([]);
+  }
+
+  async function alignMission() {
+    if (!signedIn) {
+      onLogin();
+      return;
+    }
+    if (!company) {
+      onCreate();
+      return;
+    }
+    if (busy || unansweredBrief) return;
+    const newAnswers =
+      brief && !brief.ready
+        ? brief.questions.map((question, index) => ({
+            question,
+            answer: briefAnswers[index]!.trim(),
+          }))
+        : [];
+    const answers = [...briefHistory, ...newAnswers];
+    const round = brief && !brief.ready ? brief.round + 1 : 0;
+    setBusy("brief");
+    setError("");
+    try {
+      const value = await briefAutonomousStudioMission({
+        data: { companyId: company, objective: task, answers, round },
+      });
+      setBriefHistory(answers);
+      setBrief(value);
+      setBriefAnswers(value.questions.map(() => ""));
+    } catch (reason) {
+      setError(
+        reason instanceof Error && reason.message.length < 300
+          ? reason.message
+          : "O Agente Zero não conseguiu analisar o briefing. Tente novamente.",
+      );
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function run(kind: "personal" | "hire" | "autonomous", autonomousTask?: string) {
     if (!signedIn) {
       onLogin();
       return;
@@ -222,13 +277,14 @@ export function AgentMarket({
     setBusy(kind);
     setError("");
     if (kind === "autonomous") setChain(null);
-    const key = JSON.stringify({ kind, company, task, budget, offerId });
+    const requestedTask = kind === "autonomous" ? (autonomousTask ?? task) : task;
+    const key = JSON.stringify({ kind, company, task: requestedTask, budget, offerId });
     if (request.current.key !== key)
       request.current = { key, id: crypto.randomUUID(), orderId: "" };
     try {
       if (kind === "autonomous") {
         const value = await startAutonomousStudioChain({
-          data: { companyId: company, requestId: request.current.id, task, budget },
+          data: { companyId: company, requestId: request.current.id, task: requestedTask, budget },
         });
         setChain(value);
       } else if (kind === "personal") {
@@ -309,6 +365,9 @@ export function AgentMarket({
                 setCompany(e.target.value);
                 setResult(null);
                 setChain(null);
+                setBrief(null);
+                setBriefHistory([]);
+                setBriefAnswers([]);
                 setOfferId("");
                 request.current = { key: "", id: "", orderId: "" };
               }}
@@ -347,14 +406,54 @@ export function AgentMarket({
               maxLength={mode === "mission" ? 6000 : 12000}
               placeholder={
                 mode === "mission"
-                  ? "Ex.: Crie uma campanha completa para lançar meu curso de finanças no Instagram. Quero três vídeos, legendas e um calendário de publicação."
+                  ? "Ex.: Crie uma landing page para lançar meu curso de finanças. Quero posicionamento, copy, HTML/CSS e uma prévia para aprovação."
                   : "Preciso de uma proposta comercial para uma loja de roupas. O serviço é gestão de redes sociais, custa R$ 2.000 por mês e começa em outubro..."
               }
               value={task}
-              onChange={(e) => setTask(e.target.value)}
+              onChange={(e) => updateTask(e.target.value)}
               disabled={!!busy}
             />
           </label>
+          {mode === "mission" && brief && !brief.ready && (
+            <div className="mission-briefing" aria-live="polite">
+              <header>
+                <span>
+                  <Bot size={17} /> Agente Zero
+                </span>
+                <small>Perguntas {Math.min(brief.round + 1, 3)} de 3</small>
+              </header>
+              <p>{brief.understanding}</p>
+              <div className="mission-briefing-questions">
+                {brief.questions.map((question, index) => (
+                  <label key={`${brief.round}:${question}`}>
+                    {question}
+                    <textarea
+                      maxLength={2000}
+                      value={briefAnswers[index] ?? ""}
+                      onChange={(event) =>
+                        setBriefAnswers((current) =>
+                          brief.questions.map((_, answerIndex) =>
+                            answerIndex === index
+                              ? event.target.value
+                              : (current[answerIndex] ?? ""),
+                          ),
+                        )
+                      }
+                      disabled={!!busy}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          {mode === "mission" && brief?.ready && (
+            <div className="mission-brief-ready" aria-live="polite">
+              <span>
+                <ShieldCheck size={17} /> Briefing alinhado
+              </span>
+              <p>{brief.understanding}</p>
+            </div>
+          )}
           {mode === "mission" ? (
             <div className="mission-composer" hidden={signedIn && !company}>
               <div className="mission-budget">
@@ -389,9 +488,14 @@ export function AgentMarket({
                       !Number.isInteger(budget) ||
                       budget < 1 ||
                       budget > 10000 ||
-                      missionOverBudget))
+                      missionOverBudget ||
+                      unansweredBrief))
                 }
-                onClick={() => void run("autonomous")}
+                onClick={() =>
+                  void (brief?.ready
+                    ? run("autonomous", brief.consolidatedBrief ?? task)
+                    : alignMission())
+                }
               >
                 {busy ? (
                   <LoaderCircle className="animate-spin" size={16} />
@@ -400,9 +504,13 @@ export function AgentMarket({
                 )}
                 {signedIn
                   ? company
-                    ? "Montar equipe e executar"
+                    ? brief?.ready
+                      ? "Iniciar missão"
+                      : brief
+                        ? "Enviar respostas"
+                        : "Conversar com o Agente Zero"
                     : "Criar meu agente"
-                  : "Entrar para executar"}
+                  : "Entrar para alinhar a missão"}
                 {!busy && <ArrowRight size={16} />}
               </button>
             </div>
@@ -475,31 +583,36 @@ export function AgentMarket({
               </p>
             </div>
           )}
-          {mode === "mission" && (!signedIn || !!company) && !chain && !busy && !loadingChain && (
-            <div className="mission-examples" aria-label="Exemplos de metas">
-              <span>Experimente:</span>
-              <button
-                type="button"
-                onClick={() =>
-                  setTask(
-                    "Crie uma campanha de lançamento para um curso de finanças, com roteiro, legendas e calendário de conteúdo.",
-                  )
-                }
-              >
-                Campanha de lançamento
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setTask(
-                    "Analise o mercado de cafeterias por assinatura e entregue uma proposta comercial completa.",
-                  )
-                }
-              >
-                Pesquisa e proposta
-              </button>
-            </div>
-          )}
+          {mode === "mission" &&
+            (!signedIn || !!company) &&
+            !chain &&
+            !brief &&
+            !busy &&
+            !loadingChain && (
+              <div className="mission-examples" aria-label="Exemplos de metas">
+                <span>Experimente:</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateTask(
+                      "Crie uma landing page para lançar meu curso de finanças, com posicionamento, copy, HTML/CSS e uma prévia para aprovação.",
+                    )
+                  }
+                >
+                  Landing page de lançamento
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateTask(
+                      "Analise o mercado de cafeterias por assinatura e entregue uma proposta comercial completa.",
+                    )
+                  }
+                >
+                  Pesquisa e proposta
+                </button>
+              </div>
+            )}
           {mode === "mission" && loadingChain && (
             <div className="mission-restoring" role="status">
               <LoaderCircle className="animate-spin" size={15} />
@@ -515,14 +628,18 @@ export function AgentMarket({
                     ? "Retomando do ponto salvo"
                     : busy === "review"
                       ? "Conferindo sua revisão"
-                      : chain
-                        ? "Executando a próxima etapa"
-                        : "Preparando sua missão"}
+                      : busy === "brief"
+                        ? "Agente Zero está entendendo sua meta"
+                        : chain
+                          ? "Executando a próxima etapa"
+                          : "Preparando sua missão"}
                 </strong>
                 <span>
-                  {chain?.steps.length
-                    ? `${chain.steps.filter((step) => step.status === "completed").length} de ${chain.steps.length} etapas concluídas.`
-                    : "A equipe está organizando o trabalho."}
+                  {busy === "brief"
+                    ? "Ele verifica se falta alguma decisão antes de montar a equipe."
+                    : chain?.steps.length
+                      ? `${chain.steps.filter((step) => step.status === "completed").length} de ${chain.steps.length} etapas concluídas.`
+                      : "A equipe está organizando o trabalho."}
                 </span>
                 {chain && chain.steps.length > 0 && (
                   <ol aria-label="Progresso da missão">
@@ -761,7 +878,7 @@ export function AgentMarket({
                     disabled={!!busy}
                     onClick={() => {
                       setChain(null);
-                      setTask("");
+                      updateTask("");
                       setError("");
                       request.current = { key: "", id: "", orderId: "" };
                     }}

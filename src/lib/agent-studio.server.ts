@@ -36,6 +36,11 @@ import {
   missionStatusAfterDelivery,
   requireUntouchedMissionDescendants,
 } from "./mission-budget.ts";
+import {
+  missionBriefInputSchema,
+  resolveMissionBriefState,
+  type MissionBriefInput,
+} from "./mission-brief.ts";
 
 const missionPlanSchema = z.object({
   summary: z.string().trim().min(10).max(500),
@@ -314,6 +319,35 @@ async function runMarketplaceAuction(
 
 export const definitionHash = (spec: AgentDefinition) =>
   createHash("sha256").update(executionIdentity(spec)).digest("hex");
+
+export async function clarifyMissionBrief(
+  userId: string,
+  companyId: string,
+  rawInput: MissionBriefInput,
+) {
+  await ownedCompany(userId, companyId);
+  const input = missionBriefInputSchema.parse(rawInput);
+  const system = `Você é o Agente Zero, responsável por alinhar uma missão antes de qualquer execução ou gasto. Avalie se o objetivo, o público, a entrega esperada e as restrições necessárias estão claros. Faça somente perguntas que mudem materialmente a execução. Nunca pergunte algo já respondido. Retorne no máximo três perguntas curtas e objetivas por rodada. Na rodada 3, não faça novas perguntas: consolide o melhor briefing possível e indique premissas no entendimento. Retorne apenas JSON: {"ready":boolean,"understanding":"o que você entendeu em linguagem simples","questions":["pergunta"],"consolidatedBrief":"brief completo quando ready; string vazia quando faltar contexto"}.`;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const generated = await neuralakeJson(
+        attempt ? `${system}\nNova tentativa: entregue um único JSON válido.` : system,
+        input,
+        "reasoning",
+        fetch,
+        1800,
+      );
+      return resolveMissionBriefState(generated.value, input);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("O Agente Zero não conseguiu analisar o briefing.");
+}
+
 export async function buildAgent(prompt: string, current?: AgentDefinition) {
   const system = `Você cria e edita agentes especialistas executáveis por IA na NeuraMarket. Retorne apenas JSON com name, description, serviceTitle, category (Marketing,Vendas,Operações,Conteúdo,Desenvolvimento,Análise,Outro), instructions (instruções completas e objetivas, até 1500 caracteres), knowledge (string com conteúdo fornecido pelo dono, nunca inventar; use a string vazia se não houver), sections (1 a 8 títulos para estruturar a entrega), exampleTask, model (use text para escrita e análise simples, code para programação, reasoning apenas para lógica complexa), price (15 créditos simulados por padrão; só altere se solicitado, entre 1 e 1000), capability="agent.task.v1". Atenda à especialidade solicitada. Ao editar, preserve o que não foi pedido para mudar. As capacidades disponíveis são ler texto fornecido, analisar, escrever, planejar e gerar código/HTML como arquivos. Não há acesso à internet, Instagram, WhatsApp, pagamento real nem publicação de sites pelo agente. Para pedidos que dependem disso, configure a parte de produção do material e declare a dependência na description. Nunca afirme ter conectado uma ferramenta. Não exponha knowledge na descrição pública.`;
   let lastError: unknown;

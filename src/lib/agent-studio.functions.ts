@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { agentDefinitionSchema } from "./agent-definition";
+import { missionBriefInputSchema } from "./mission-brief";
 
 export const buildStudioAgent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -54,6 +55,21 @@ export const runStudioAgent = createServerFn({ method: "POST" })
       data.companyId,
       data.requestId,
       data.task,
+    ),
+  );
+
+export const briefAutonomousStudioMission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(
+    missionBriefInputSchema.extend({
+      companyId: z.string().uuid(),
+    }),
+  )
+  .handler(async ({ data, context }) =>
+    (await import("./agent-studio.server")).clarifyMissionBrief(
+      context.userId,
+      data.companyId,
+      data,
     ),
   );
 

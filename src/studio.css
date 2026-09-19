@@ -2565,6 +2565,69 @@
 .mission-first-company .studio-primary {
   flex-shrink: 0;
 }
+.mission-briefing,
+.mission-brief-ready {
+  margin: 10px 20px 18px;
+  padding: 16px;
+  border: 1px solid #e6dced;
+  border-radius: 12px;
+  background: #faf6fc;
+}
+.mission-briefing > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mission-briefing > header span,
+.mission-brief-ready > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #67368f;
+  font-size: 12px;
+  font-weight: 700;
+}
+.mission-briefing > header small {
+  color: #94849c;
+  font-size: 9px;
+}
+.mission-briefing > p,
+.mission-brief-ready > p {
+  margin: 8px 0 0;
+  color: #706476;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.mission-briefing-questions {
+  display: grid;
+  gap: 12px;
+  margin-top: 15px;
+}
+.mission-briefing-questions label {
+  gap: 7px;
+  margin: 0;
+  color: #4f4356;
+  font-size: 11px;
+  font-weight: 600;
+}
+.agent-request .mission-briefing-questions textarea {
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1px solid #ddd1e5;
+  border-radius: 9px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.mission-brief-ready {
+  border-color: #cfe4d6;
+  background: #f3faf5;
+}
+.mission-brief-ready > span {
+  color: #477358;
+}
 .mission-composer {
   display: flex;
   align-items: center;
@@ -3145,6 +3208,11 @@
   }
   .mission-first-company .studio-primary {
     width: 100%;
+  }
+  .mission-briefing,
+  .mission-brief-ready {
+    margin-right: 14px;
+    margin-left: 14px;
   }
   .mission-budget {
     width: 100%;

@@ -8,7 +8,7 @@ Idioma da interface: português do Brasil. Projeto conectado ao Lovable para o h
 
 1. O PRODUTO
 
-O Agente Zero recebe um objetivo e um orçamento. Ele divide a missão em até cinco etapas, usa uma capacidade interna, promove uma disputa entre ofertas compatíveis ou cria um novo especialista quando falta capacidade. Cada entrega verificada alimenta a etapa seguinte. A API permite que Claude, um servidor MCP ou outro agente use a mesma rede.
+O Agente Zero recebe um objetivo e um orçamento. Ele pergunta o que falta, consolida o briefing e divide a missão em até cinco etapas. Depois usa uma capacidade interna, promove uma disputa entre ofertas compatíveis ou cria um novo especialista quando falta capacidade. Cada entrega verificada alimenta a etapa seguinte. A API permite que Claude, um servidor MCP ou outro agente use a mesma rede.
 
 A entrada principal é “Executar missão”. “Criar especialista”, “Marketplace” e “Entregas” permitem configurar capacidades, consultar ofertas e revisar contratos. O fornecedor descreve capacidade, entrada, saída, preço, prazo e critérios de aceite. A oferta só pode receber pedidos depois que seu executor for conectado e validado.
 
