@@ -96,3 +96,35 @@ export const runAutonomousStudioChain = createServerFn({ method: "POST" })
       data.budget,
     ),
   );
+
+export const getAutonomousStudioChain = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator(
+    z.object({
+      companyId: z.string().uuid(),
+      requestId: z.string().uuid().optional(),
+    }),
+  )
+  .handler(async ({ data, context }) =>
+    (await import("./agent-studio.server")).getAutonomousChainStatus(
+      context.userId,
+      data.companyId,
+      data.requestId,
+    ),
+  );
+
+export const resumeAutonomousStudioChain = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(
+    z.object({
+      companyId: z.string().uuid(),
+      requestId: z.string().uuid(),
+    }),
+  )
+  .handler(async ({ data, context }) =>
+    (await import("./agent-studio.server")).resumeAutonomousChain(
+      context.userId,
+      data.companyId,
+      data.requestId,
+    ),
+  );

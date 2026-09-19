@@ -74,6 +74,7 @@ before(() => {
     "0006_restrict_unpublished_catalogue",
     "0008_complete_agent_chain",
     "0010_neuralake_specialists",
+    "0012_persist_autonomous_missions",
   ]) {
     sql(readFileSync(new URL(`../drizzle/migrations/${file}.sql`, import.meta.url), "utf8"));
   }
@@ -635,5 +636,81 @@ test("specialist RPCs are server-only and orders cannot exceed a budget or buy t
         `studio_place_agent_order('${o.s.user}',${j({ ...o.payload, buyerCompanyId: o.s.companyId, requestId: randomUUID() })})`,
       ),
     /offer_unavailable/,
+  );
+});
+
+test("autonomous missions persist progress, reject conflicting retries and can resume an expired lease", () => {
+  const c = company();
+  const requestId = randomUUID();
+  const inputHash = createHash("sha256").update("mission-input").digest("hex");
+  const task = "Crie uma campanha completa com agentes especializados.";
+  const claim = () =>
+    call(
+      `studio_claim_autonomous_mission('${c.user}','${c.companyId}','${requestId}','${inputHash}',${q(task)},80)`,
+    );
+  const first = claim();
+  assert.equal(first.claimed, true);
+  assert.equal(first.status, "planning");
+  assert.ok(first.leaseUntil);
+  assert.equal(
+    sql(`SELECT lease_until>now() AND lease_until<now()+interval '130 seconds'
+      FROM autonomous_missions WHERE id='${first.missionId}'`),
+    "t",
+  );
+  const concurrent = claim();
+  assert.equal(concurrent.claimed, false);
+  assert.equal(concurrent.missionId, first.missionId);
+  assert.equal(
+    sql(
+      `SELECT lease_token='${first.leaseToken}' FROM autonomous_missions WHERE id='${first.missionId}'`,
+    ),
+    "t",
+  );
+  sql(`INSERT INTO autonomous_mission_steps(mission_id,step_index,request_id,plan_step)
+    VALUES('${first.missionId}',0,'${randomUUID()}','{"role":"Roteirista"}'::jsonb)`);
+  assert.throws(
+    () =>
+      call(
+        `studio_claim_autonomous_mission('${c.user}','${c.companyId}','${requestId}','${"b".repeat(64)}',${q(task)},80)`,
+      ),
+    /idempotency_conflict/,
+  );
+  sql(
+    `UPDATE autonomous_missions SET lease_until=now()-interval '1 second',status='failed' WHERE id='${first.missionId}'`,
+  );
+  const resumed = claim();
+  assert.equal(resumed.claimed, true);
+  assert.notEqual(resumed.leaseToken, first.leaseToken);
+  assert.ok(resumed.leaseUntil);
+  sql(`UPDATE autonomous_missions SET status='completed',lease_token=NULL,lease_until=NULL
+    WHERE id='${first.missionId}'`);
+  assert.equal(claim().claimed, false);
+  sql(
+    readFileSync(
+      new URL("../drizzle/migrations/0012_persist_autonomous_missions.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    sql(`SELECT status FROM autonomous_missions WHERE id='${first.missionId}'`),
+    "completed",
+  );
+  assert.equal(
+    sql(
+      `SET test.user_id='${c.user}'; SET ROLE authenticated; SELECT count(*) FROM autonomous_missions WHERE id='${first.missionId}'`,
+    ),
+    "1",
+  );
+  assert.equal(
+    sql(
+      `SET test.user_id='${c.user}'; SET ROLE authenticated; SELECT count(*) FROM autonomous_mission_steps WHERE mission_id='${first.missionId}'`,
+    ),
+    "1",
+  );
+  assert.equal(
+    sql(
+      `SET test.user_id='${randomUUID()}'; SET ROLE authenticated; SELECT count(*) FROM autonomous_missions WHERE id='${first.missionId}'`,
+    ),
+    "0",
   );
 });

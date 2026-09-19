@@ -55,10 +55,11 @@ type View =
   "mission" | "builder" | "companies" | "market" | "orders" | "wallet" | "api" | "integrations";
 type Bootstrap = Awaited<ReturnType<typeof getStudioBootstrap>>;
 const navigation = [
-  { id: "builder", label: "Criar agente", icon: Plus },
-  { id: "companies", label: "Meus agentes", icon: Building2 },
-  { id: "market", label: "Marketplace", icon: Store },
-  { id: "orders", label: "Pedidos", icon: FileCheck2 },
+  { id: "mission", label: "Executar missão", icon: Sparkles, primary: true },
+  { id: "builder", label: "Criar especialista", icon: Plus, primary: false },
+  { id: "companies", label: "Minhas empresas", icon: Building2, primary: false },
+  { id: "market", label: "Marketplace", icon: Store, primary: false },
+  { id: "orders", label: "Entregas", icon: FileCheck2, primary: false },
 ] as const;
 const accountNavigation = [
   { id: "wallet", label: "Créditos", icon: Wallet },
@@ -320,9 +321,11 @@ export function CompanyStudio({
             {workspace.companies[0]?.name.slice(0, 1) ?? "N"}
           </span>
           <div>
-            <strong>Meu espaço</strong>
+            <strong>Minha operação</strong>
             <small>
-              {user ? `${workspace.companies.length} agentes` : "Crie seu primeiro agente"}
+              {user
+                ? `${workspace.companies.length} ${workspace.companies.length === 1 ? "empresa" : "empresas"}`
+                : "Crie sua primeira empresa"}
             </small>
           </div>
         </div>
@@ -330,7 +333,9 @@ export function CompanyStudio({
           {navigation.map((item) => (
             <button
               key={item.id}
-              className={view === item.id ? "active" : ""}
+              className={`${item.primary ? "studio-mission-nav" : ""} ${
+                view === item.id ? "active" : ""
+              }`}
               aria-current={view === item.id ? "page" : undefined}
               onClick={() => navigate(item.id)}
             >
@@ -344,7 +349,7 @@ export function CompanyStudio({
         </nav>
         {workspace.companies.length > 0 && (
           <div className="studio-recent">
-            <span>SEUS AGENTES</span>
+            <span>SUAS EMPRESAS</span>
             {workspace.companies.slice(0, 5).map((company) => (
               <button
                 key={company.id}
@@ -400,11 +405,11 @@ export function CompanyStudio({
             >
               <Menu size={20} />
             </button>
-            <span>Meu espaço</span>
+            <span>Minha operação</span>
             <ChevronRight size={14} />
             <strong>
               {view === "mission"
-                ? workspace.companies.find((c) => c.id === buyer)?.name || "Usar agente"
+                ? "Executar missão"
                 : [...navigation, ...accountNavigation].find((item) => item.id === view)?.label}
             </strong>
           </div>
@@ -414,7 +419,7 @@ export function CompanyStudio({
             ) : (
               <button className="studio-secondary" onClick={() => navigate("builder")}>
                 <Plus size={16} />
-                Criar agente
+                Criar especialista
               </button>
             )}
           </div>
@@ -539,7 +544,7 @@ export function CompanyStudio({
                         className="studio-primary"
                         onClick={() => navigate("mission", company.id)}
                       >
-                        Abrir agente <ArrowRight size={16} />
+                        Executar missão <ArrowRight size={16} />
                       </button>
                       {company.visibility === "commercial" && (
                         <details className="studio-agent-options">

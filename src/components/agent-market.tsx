@@ -8,9 +8,16 @@ import {
   ShieldCheck,
   Network,
   WalletCards,
+  CircleAlert,
+  RotateCcw,
 } from "lucide-react";
 import { AGENT_CAPABILITY, type AgentResult } from "@/lib/agent-definition";
-import { runAutonomousStudioChain, runStudioAgent } from "@/lib/agent-studio.functions";
+import {
+  getAutonomousStudioChain,
+  resumeAutonomousStudioChain,
+  runAutonomousStudioChain,
+  runStudioAgent,
+} from "@/lib/agent-studio.functions";
 import {
   placeStudioOrder,
   executeStudioOrder,
@@ -19,6 +26,10 @@ import {
 } from "@/lib/studio.functions";
 import type { StudioWorkspace, StudioDetails } from "@/lib/studio.types";
 import { AgentOutput } from "./agent-output";
+
+type AutonomousChain = NonNullable<Awaited<ReturnType<typeof getAutonomousStudioChain>>> & {
+  leaseUntil?: string | null;
+};
 
 export function AgentMarket({
   workspace,
@@ -46,19 +57,105 @@ export function AgentMarket({
   const [search, setSearch] = useState(""),
     [busy, setBusy] = useState(""),
     [error, setError] = useState("");
+  const [loadingChain, setLoadingChain] = useState(false);
   const [result, setResult] = useState<AgentResult | null>(null);
-  const [chain, setChain] = useState<Awaited<ReturnType<typeof runAutonomousStudioChain>> | null>(
-    null,
-  );
+  const [chain, setChain] = useState<AutonomousChain | null>(null);
   const request = useRef({ key: "", id: "", orderId: "" });
   const selected = workspace.companies.find((c) => c.id === company);
   const offers = workspace.offers.filter((o) => o.capability === AGENT_CAPABILITY);
   const chosen = offers.find((o) => o.id === offerId);
   const balance = workspace.accounts.find((a) => a.company_id === company)?.available_units ?? 0;
+  const leaseActive = Boolean(
+    chain &&
+    (chain.status === "planning" || chain.status === "running") &&
+    chain.leaseUntil &&
+    Date.parse(chain.leaseUntil) > Date.now(),
+  );
+  const hasOrdersAwaitingReview = Boolean(
+    chain?.status === "completed" &&
+    chain.steps.some((step) => step.order && step.order.order.status !== "settled"),
+  );
   useEffect(() => {
     if (!workspace.companies.some((c) => c.id === company))
       setCompany(workspace.companies[0]?.id ?? "");
   }, [workspace.companies, company]);
+  useEffect(() => {
+    if (mode !== "mission" || !signedIn || !company) {
+      setLoadingChain(false);
+      return;
+    }
+    let current = true;
+    setLoadingChain(true);
+    void getAutonomousStudioChain({ data: { companyId: company } })
+      .then((saved) => {
+        if (!current) return;
+        setChain(saved);
+        if (saved) request.current = { key: "", id: saved.requestId, orderId: "" };
+      })
+      .catch((reason) => {
+        if (current)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Não foi possível recuperar a última missão.",
+          );
+      })
+      .finally(() => {
+        if (current) setLoadingChain(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [company, mode, signedIn]);
+  useEffect(() => {
+    if (
+      mode !== "mission" ||
+      !signedIn ||
+      !company ||
+      !chain ||
+      busy ||
+      (chain.status !== "planning" && chain.status !== "running")
+    )
+      return;
+    const timer = window.setInterval(() => {
+      void getAutonomousStudioChain({
+        data: { companyId: company, requestId: chain.requestId },
+      })
+        .then((saved) => {
+          if (saved) setChain(saved);
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [busy, chain, company, mode, signedIn]);
+
+  async function resumeChain() {
+    if (!chain || busy) return;
+    setBusy("resume");
+    setError("");
+    try {
+      const value = await resumeAutonomousStudioChain({
+        data: { companyId: company, requestId: chain.requestId },
+      });
+      setChain(value);
+      await onRefresh();
+    } catch (reason) {
+      setError(
+        reason instanceof Error && reason.message.length < 300
+          ? reason.message
+          : "A missão continua salva. Tente retomá-la novamente.",
+      );
+      try {
+        setChain(
+          await getAutonomousStudioChain({
+            data: { companyId: company, requestId: chain.requestId },
+          }),
+        );
+      } catch {}
+    } finally {
+      setBusy("");
+    }
+  }
   async function run(kind: "personal" | "hire" | "autonomous") {
     if (!signedIn) {
       onLogin();
@@ -71,6 +168,7 @@ export function AgentMarket({
     if (busy) return;
     setBusy(kind);
     setError("");
+    if (kind === "autonomous") setChain(null);
     const key = JSON.stringify({ kind, company, task, budget, offerId });
     if (request.current.key !== key)
       request.current = { key, id: crypto.randomUUID(), orderId: "" };
@@ -112,6 +210,15 @@ export function AgentMarket({
           ? e.message
           : "Não foi possível concluir. Confira seus pedidos antes de repetir.",
       );
+      if (kind === "autonomous") {
+        try {
+          setChain(
+            await getAutonomousStudioChain({
+              data: { companyId: company, requestId: request.current.id },
+            }),
+          );
+        } catch {}
+      }
       // Preserve the reserved order and show its retry/cancel controls if inference fails.
       if (request.current.orderId) {
         try {
@@ -126,7 +233,7 @@ export function AgentMarket({
     <div className={`studio-page agent-market ${mode === "mission" ? "mission-mode" : ""}`}>
       <div className="agent-market-title">
         <span className="studio-eyebrow">
-          {mode === "market" ? "ESPECIALISTAS PARA O SEU AGENTE" : "DO PEDIDO À ENTREGA"}
+          {mode === "market" ? "ESPECIALISTAS PARA O SEU AGENTE" : "NOVA MISSÃO"}
         </span>
         <h1>
           {mode === "market"
@@ -136,7 +243,7 @@ export function AgentMarket({
         <p>
           {mode === "market"
             ? "Conheça os serviços da rede ou deixe seu agente escolher quem contratar."
-            : "O gestor entende o trabalho, escolhe os especialistas e entrega o resultado dentro do orçamento."}
+            : "Escreva o resultado que espera. A plataforma divide o trabalho, escolhe quem vai fazê-lo e reúne as entregas."}
         </p>
       </div>
       <div className="agent-market-columns">
@@ -148,7 +255,9 @@ export function AgentMarket({
               onChange={(e) => {
                 setCompany(e.target.value);
                 setResult(null);
+                setChain(null);
                 setOfferId("");
+                request.current = { key: "", id: "", orderId: "" };
               }}
               disabled={!!busy}
             >
@@ -165,7 +274,7 @@ export function AgentMarket({
           <label className={mode === "mission" ? "mission-goal" : undefined}>
             {mode === "mission" ? "Qual é a meta?" : "Descreva o trabalho"}
             <textarea
-              maxLength={12000}
+              maxLength={mode === "mission" ? 6000 : 12000}
               placeholder={
                 mode === "mission"
                   ? "Ex.: Crie uma campanha completa para lançar meu curso de finanças no Instagram. Quero três vídeos, legendas e um calendário de publicação."
@@ -199,7 +308,14 @@ export function AgentMarket({
               </div>
               <button
                 className="studio-primary"
-                disabled={!!busy || task.trim().length < 10 || !company || budget < 1}
+                disabled={
+                  !!busy ||
+                  (!!company &&
+                    (task.trim().length < 10 ||
+                      !Number.isInteger(budget) ||
+                      budget < 1 ||
+                      budget > 10000))
+                }
                 onClick={() => void run("autonomous")}
               >
                 {busy ? (
@@ -284,7 +400,7 @@ export function AgentMarket({
               </p>
             </div>
           )}
-          {mode === "mission" && !chain && !busy && (
+          {mode === "mission" && !chain && !busy && !loadingChain && (
             <div className="mission-examples" aria-label="Exemplos de metas">
               <span>Experimente:</span>
               <button
@@ -309,12 +425,24 @@ export function AgentMarket({
               </button>
             </div>
           )}
+          {mode === "mission" && loadingChain && (
+            <div className="mission-restoring" role="status">
+              <LoaderCircle className="animate-spin" size={15} />
+              Recuperando a última missão desta empresa...
+            </div>
+          )}
           {busy && (
             <div className="mission-running" role="status">
               <LoaderCircle className="animate-spin" size={18} />
               <div>
                 <strong>Os agentes estão trabalhando</strong>
-                <span>Planejando a cadeia, escolhendo especialistas e verificando entregas.</span>
+                <span>Esta missão pode levar alguns minutos.</span>
+                <ol aria-label="Etapas da execução">
+                  <li>Entendendo seu pedido</li>
+                  <li>Comparando especialistas</li>
+                  <li>Produzindo as entregas</li>
+                  <li>Conferindo o resultado</li>
+                </ol>
               </div>
             </div>
           )}
@@ -331,20 +459,40 @@ export function AgentMarket({
         </section>
         <section>
           {chain ? (
-            <div className="autonomous-result">
+            <div className={`autonomous-result mission-${chain.status}`}>
               <div className="mission-result-status">
                 <span className="studio-eyebrow">
-                  {chain.blockedTools.length > 0 ? "EXECUÇÃO PARCIAL" : "CADEIA EXECUTADA"}
+                  {chain.status === "planning"
+                    ? "PREPARANDO A MISSÃO"
+                    : chain.status === "running"
+                      ? "AGENTES TRABALHANDO"
+                      : chain.status === "failed"
+                        ? "MISSÃO INTERROMPIDA"
+                        : hasOrdersAwaitingReview
+                          ? "ENTREGAS PRONTAS PARA REVISÃO"
+                          : chain.blockedTools.length > 0
+                            ? "PARTE DA MISSÃO CONCLUÍDA"
+                            : "MISSÃO CONCLUÍDA"}
                 </span>
-                <span>
-                  <ShieldCheck size={14} /> Estrutura das entregas verificada
-                </span>
+                {chain.status === "completed" ? (
+                  <span>
+                    <ShieldCheck size={14} /> Formato das entregas conferido
+                  </span>
+                ) : chain.status === "failed" ? (
+                  <span className="failed">
+                    <CircleAlert size={14} /> O trabalho concluído ficou salvo
+                  </span>
+                ) : (
+                  <span className="running">
+                    <LoaderCircle className="animate-spin" size={14} /> Atualização salva
+                  </span>
+                )}
               </div>
               <h2>{chain.summary}</h2>
               <div className="mission-budget-summary">
                 <span>
                   <strong>{chain.initialBudget - chain.remainingBudget}</strong>
-                  créditos reservados
+                  créditos comprometidos
                 </span>
                 <span>
                   <strong>{chain.remainingBudget}</strong>
@@ -352,9 +500,15 @@ export function AgentMarket({
                 </span>
                 <span>
                   <strong>{chain.steps.length}</strong>
-                  agentes na cadeia
+                  especialistas usados
                 </span>
               </div>
+              {chain.errorMessage && (
+                <div className="mission-failure">
+                  <strong>O trabalho parou nesta etapa</strong>
+                  <span>{chain.errorMessage}</span>
+                </div>
+              )}
               {chain.blockedTools.length > 0 && (
                 <div className="mission-blocked-tools">
                   <strong>Falta conectar para concluir toda a meta</strong>
@@ -362,24 +516,45 @@ export function AgentMarket({
                 </div>
               )}
               <div className="chain-steps">
+                {chain.steps.length === 0 && (
+                  <div className="mission-steps-empty">
+                    <LoaderCircle className="animate-spin" size={17} />A equipe está definindo as
+                    etapas da missão.
+                  </div>
+                )}
                 {chain.steps.map((step, index) => (
-                  <article key={`${step.role}:${index}`}>
+                  <article className={`mission-step-${step.status}`} key={`${step.role}:${index}`}>
                     <header>
                       <span>{index + 1}</span>
                       <div>
                         <strong>{step.role}</strong>
-                        <small className={`chain-source ${step.source}`}>
-                          {step.source === "network"
-                            ? `Contratado: ${step.provider}`
-                            : step.source === "created"
-                              ? `Criado: ${step.provider}`
-                              : `Interno: ${step.provider}`}
-                        </small>
+                        <div className="mission-step-labels">
+                          <small className={`mission-step-status ${step.status}`}>
+                            {step.status === "completed"
+                              ? "Concluído"
+                              : step.status === "running"
+                                ? "Trabalhando"
+                                : step.status === "failed"
+                                  ? "Interrompido"
+                                  : "Aguardando"}
+                          </small>
+                          {step.source && (
+                            <small className={`chain-source ${step.source}`}>
+                              {step.source === "network"
+                                ? `Escolhido no marketplace: ${step.provider}`
+                                : step.source === "created"
+                                  ? `Criado para esta tarefa: ${step.provider}`
+                                  : `Da sua empresa: ${step.provider}`}
+                            </small>
+                          )}
+                        </div>
                       </div>
                     </header>
                     {step.competition.length > 0 && (
                       <div className="chain-competition">
-                        <span>{step.competition.length} propostas recebidas em paralelo</span>
+                        <span>
+                          {step.competition.length} especialistas enviaram propostas ao mesmo tempo
+                        </span>
                         <div>
                           {step.competition.map((proposal) => (
                             <article
@@ -393,14 +568,14 @@ export function AgentMarket({
                               <p>{proposal.approach}</p>
                               <footer>
                                 <span>{proposal.price} créditos</span>
-                                <span>{proposal.viability}% viável</span>
+                                <span>{proposal.viability}% de chance de atender</span>
                                 <span>
                                   {proposal.approved + proposal.rejected === 0
                                     ? "sem histórico"
-                                    : `${Math.round(proposal.reputation * 100)}% confiança · ${proposal.approved} aprovadas · ${proposal.rejected} rejeitadas`}
+                                    : `${Math.round(proposal.reputation * 100)}% de confiança · ${proposal.approved} aprovadas · ${proposal.rejected} rejeitadas`}
                                 </span>
                                 {proposal.score !== null && (
-                                  <strong>{Math.round(proposal.score * 100)}/100</strong>
+                                  <strong>Nota {Math.round(proposal.score * 100)}/100</strong>
                                 )}
                               </footer>
                             </article>
@@ -409,13 +584,32 @@ export function AgentMarket({
                       </div>
                     )}
                     <div className="chain-decision">
-                      <span>Por que este agente</span>
+                      <span>Por que foi escolhido</span>
                       <p>{step.reason}</p>
                     </div>
-                    <div className="chain-delivery">
-                      <span>Entrega</span>
-                      <AgentOutput value={step.result} />
-                    </div>
+                    {step.result ? (
+                      <div className="chain-delivery">
+                        <span>Entrega</span>
+                        <AgentOutput value={step.result} />
+                      </div>
+                    ) : (
+                      <div className={`mission-step-waiting ${step.status}`}>
+                        {step.status === "failed" ? (
+                          <CircleAlert size={15} />
+                        ) : (
+                          <LoaderCircle
+                            className={step.status === "running" ? "animate-spin" : undefined}
+                            size={15}
+                          />
+                        )}
+                        <span>
+                          {step.errorMessage ||
+                            (step.status === "running"
+                              ? "Este especialista ainda está produzindo a entrega."
+                              : "Esta etapa começa quando a anterior terminar.")}
+                        </span>
+                      </div>
+                    )}
                     {step.order && (
                       <button className="studio-secondary" onClick={() => onOrder(step.order!)}>
                         Revisar contratação <ArrowRight size={15} />
@@ -424,16 +618,40 @@ export function AgentMarket({
                   </article>
                 ))}
               </div>
-              <button
-                className="studio-secondary mission-again"
-                onClick={() => {
-                  setChain(null);
-                  setTask("");
-                  request.current = { key: "", id: "", orderId: "" };
-                }}
-              >
-                Nova missão
-              </button>
+              <div className="mission-result-actions">
+                {chain.status !== "completed" && (
+                  <button
+                    className={`studio-primary ${leaseActive ? "mission-lease-active" : ""}`}
+                    disabled={!!busy || leaseActive}
+                    onClick={() => void resumeChain()}
+                  >
+                    {busy === "resume" ? (
+                      <LoaderCircle className="animate-spin" size={15} />
+                    ) : leaseActive ? (
+                      <LoaderCircle className="animate-spin" size={15} />
+                    ) : (
+                      <RotateCcw size={15} />
+                    )}
+                    {busy === "resume"
+                      ? "Retomando..."
+                      : leaseActive
+                        ? "Execução ainda reservada"
+                        : "Retomar missão"}
+                  </button>
+                )}
+                <button
+                  className="studio-secondary mission-again"
+                  disabled={!!busy}
+                  onClick={() => {
+                    setChain(null);
+                    setTask("");
+                    setError("");
+                    request.current = { key: "", id: "", orderId: "" };
+                  }}
+                >
+                  Nova missão
+                </button>
+              </div>
             </div>
           ) : result ? (
             <>
@@ -475,30 +693,28 @@ export function AgentMarket({
           ) : mode === "mission" ? (
             <div className="mission-explainer">
               <Network size={28} />
-              <h2>Uma meta entra. Uma equipe começa a trabalhar.</h2>
-              <p>Você acompanha as decisões e recebe cada entrega da cadeia.</p>
+              <h2>Você pede. A equipe trabalha.</h2>
+              <p>As decisões e entregas aparecem aqui.</p>
               <ol>
                 <li>
                   <span>1</span>
                   <div>
-                    <strong>O gestor entende a meta</strong>
-                    <small>Divide o trabalho e define quem precisa participar.</small>
+                    <strong>Entendemos o pedido</strong>
+                    <small>O trabalho é dividido em etapas claras.</small>
                   </div>
                 </li>
                 <li>
                   <span>2</span>
                   <div>
-                    <strong>A equipe é montada</strong>
-                    <small>Usa agentes internos, contrata na rede ou cria um especialista.</small>
+                    <strong>Escolhemos a equipe</strong>
+                    <small>Comparamos especialistas ou criamos um para a tarefa.</small>
                   </div>
                 </li>
                 <li>
                   <span>3</span>
                   <div>
-                    <strong>As entregas viram uma cadeia</strong>
-                    <small>
-                      Cada agente recebe o trabalho anterior e a plataforma verifica a estrutura.
-                    </small>
+                    <strong>O resultado é conferido</strong>
+                    <small>Cada etapa usa o trabalho anterior até concluir a missão.</small>
                   </div>
                 </li>
               </ol>

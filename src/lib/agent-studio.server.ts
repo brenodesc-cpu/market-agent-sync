@@ -11,7 +11,13 @@ import {
 } from "./agent-definition";
 import type { AgentDefinition, AgentResult } from "./agent-definition";
 import { neuralakeJson } from "./neuralake-json.server";
-import { runtimeDb, ownedCompany, rpc, catalogueOffers } from "./studio-runtime.server";
+import {
+  runtimeDb,
+  ownedCompany,
+  rpc,
+  catalogueOffers,
+  orderDetails,
+} from "./studio-runtime.server";
 import type { OrderRequest } from "./a2a-contract";
 import type { StudioDetails } from "./studio.types";
 import { resolveMissionRoute } from "./mission-router";
@@ -23,6 +29,7 @@ import {
   type AgentBid,
   type SupplierReputation,
 } from "./agent-auction";
+import { createOnDemandAgentDefinition } from "./on-demand-agent";
 
 const missionPlanSchema = z.object({
   summary: z.string().trim().min(10).max(500),
@@ -44,10 +51,135 @@ const missionPlanSchema = z.object({
     .min(1)
     .max(2),
 });
+type MissionPlan = z.infer<typeof missionPlanSchema>;
+type MissionCompetition = {
+  offerVersionId: string;
+  provider: string;
+  price: number;
+  viability: number;
+  reputation: number;
+  approved: number;
+  rejected: number;
+  score: number | null;
+  approach: string;
+  selected: boolean;
+};
+type MissionCompletedStep = {
+  status: "completed";
+  role: string;
+  source: "internal" | "network" | "created";
+  provider: string;
+  reason: string;
+  result: AgentResult;
+  order: StudioDetails | null;
+  competition: MissionCompetition[];
+};
 
 function derivedRequestId(requestId: string, step: number, purpose: string) {
   const hex = createHash("sha256").update(`${requestId}:${step}:${purpose}`).digest("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+const missionLeaseExpiry = () => new Date(Date.now() + 2 * 60_000).toISOString();
+
+async function updateClaimedMission(
+  db: Awaited<ReturnType<typeof runtimeDb>>,
+  missionId: string,
+  leaseToken: string,
+  values: Record<string, unknown>,
+) {
+  const updated = await db
+    .from("autonomous_missions")
+    .update({ ...values, updated_at: new Date().toISOString() })
+    .eq("id", missionId)
+    .eq("lease_token", leaseToken)
+    .select("id")
+    .maybeSingle();
+  if (updated.error || !updated.data) throw new Error("A execução da missão perdeu sua reserva.");
+}
+
+async function autonomousMissionSnapshot(
+  db: Awaited<ReturnType<typeof runtimeDb>>,
+  userId: string,
+  companyId: string,
+  requestId?: string,
+) {
+  let query = db
+    .from("autonomous_missions")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("company_id", companyId);
+  if (requestId) query = query.eq("request_id", requestId);
+  const mission = await query.order("updated_at", { ascending: false }).limit(1).maybeSingle();
+  if (mission.error) throw new Error("Não foi possível recuperar a missão.");
+  if (!mission.data) return null;
+  const persistedSteps = await db
+    .from("autonomous_mission_steps")
+    .select("*")
+    .eq("mission_id", mission.data.id)
+    .order("step_index");
+  if (persistedSteps.error) throw new Error("Não foi possível recuperar as etapas da missão.");
+  const steps = await Promise.all(
+    (persistedSteps.data ?? []).map(async (row) => {
+      const planned = missionPlanSchema.shape.steps.element.parse(row.plan_step);
+      return {
+        status: row.status as "pending" | "running" | "completed" | "failed",
+        role: planned.role,
+        source: (row.source ?? null) as "internal" | "network" | "created" | null,
+        provider: (row.provider as string | null) ?? "Aguardando atribuição",
+        reason: (row.reason as string | null) ?? planned.reason,
+        result: row.result ? agentResultSchema.parse(row.result) : null,
+        order: row.order_id ? await orderDetails(userId, row.order_id as string, companyId) : null,
+        competition: (Array.isArray(row.competition)
+          ? row.competition
+          : []) as MissionCompetition[],
+        errorMessage: (row.error_message as string | null) ?? null,
+      };
+    }),
+  );
+  return {
+    missionId: mission.data.id as string,
+    requestId: mission.data.request_id as string,
+    status: mission.data.status as "planning" | "running" | "completed" | "failed",
+    summary: (mission.data.summary as string | null) ?? "Planejando a missão.",
+    blockedTools: (Array.isArray(mission.data.blocked_tools)
+      ? mission.data.blocked_tools
+      : []) as string[],
+    initialBudget: mission.data.initial_budget as number,
+    remainingBudget: mission.data.remaining_budget as number,
+    errorMessage: (mission.data.error_message as string | null) ?? null,
+    leaseUntil: (mission.data.lease_until as string | null) ?? null,
+    steps,
+  };
+}
+
+export async function getAutonomousChainStatus(
+  userId: string,
+  companyId: string,
+  requestId?: string,
+) {
+  await ownedCompany(userId, companyId);
+  return autonomousMissionSnapshot(await runtimeDb(), userId, companyId, requestId);
+}
+
+export async function resumeAutonomousChain(userId: string, companyId: string, requestId: string) {
+  await ownedCompany(userId, companyId);
+  const db = await runtimeDb();
+  const mission = await db
+    .from("autonomous_missions")
+    .select("task,initial_budget")
+    .eq("user_id", userId)
+    .eq("company_id", companyId)
+    .eq("request_id", requestId)
+    .maybeSingle();
+  if (mission.error || !mission.data) throw new Error("Missão não encontrada.");
+  return runAutonomousChain(
+    userId,
+    companyId,
+    requestId,
+    mission.data.task,
+    mission.data.initial_budget,
+  );
 }
 
 async function marketplaceReputations(
@@ -493,200 +625,396 @@ export async function runAutonomousChain(
 ) {
   await ownedCompany(userId, companyId);
   const db = await runtimeDb();
-  const definitionRecord = await db
-    .from("agent_definitions")
-    .select("definition")
-    .eq("company_id", companyId)
-    .maybeSingle();
-  if (definitionRecord.error) throw new Error("Não foi possível ler as capacidades internas.");
-  const own = definitionRecord.data
-    ? agentDefinitionSchema.parse(definitionRecord.data.definition)
-    : null;
-  const offers = (await catalogueOffers(db)).filter(
-    (offer) => offer.capability === AGENT_CAPABILITY && offer.companyId !== companyId,
-  );
-  const planningSystem =
-    "Você planeja uma missão para uma rede de agentes. Divida a solicitação em 1 ou 2 etapas sequenciais, cada uma com uma entrega útil para a próxima. Para cada etapa decida entre internal, network ou create. Use network somente quando houver ofertas adequadas e dentro do orçamento; o sistema promoverá uma disputa entre elas. Use internal somente se a capacidade interna for diretamente compatível. Use create quando faltar capacidade. As únicas capacidades nativas são ler dados fornecidos, analisar, escrever, planejar e gerar arquivos de texto, código ou HTML. Liste em blockedTools qualquer ação externa necessária, como navegar, editar vídeo, enviar mensagens ou publicar em redes sociais. Planeje o trabalho preparatório possível e nunca afirme que uma ferramenta ausente será executada. Retorne somente JSON com summary, blockedTools e steps. Cada step deve conter role, objective, category, instructions, sections, model, action, offerVersionId e reason.";
-  let plan: z.infer<typeof missionPlanSchema> | null = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const planned = await neuralakeJson(
-        attempt
-          ? `${planningSystem} Esta é uma nova tentativa. Entregue um único JSON completo.`
-          : planningSystem,
-        {
-          mission: task,
-          budget,
-          internal: own
-            ? {
-                name: own.name,
-                description: own.description,
-                serviceTitle: own.serviceTitle,
-                category: own.category,
-              }
-            : null,
-          offers: offers.map((offer) => ({
-            id: offer.id,
-            company: offer.companyName,
-            title: offer.title,
-            description: offer.description,
-            category: offer.category,
-            price: offer.price,
-          })),
-        },
-        "reasoning",
-        fetch,
-        3000,
-      );
-      plan = missionPlanSchema.parse(planned.value);
-      break;
-    } catch {
-      plan = null;
-    }
+  const inputHash = createHash("sha256")
+    .update(JSON.stringify({ companyId, task, budget }))
+    .digest("hex");
+  const claim = (await rpc("studio_claim_autonomous_mission", {
+    _user: userId,
+    _company: companyId,
+    _request: requestId,
+    _input_hash: inputHash,
+    _task: task,
+    _budget: budget,
+  })) as {
+    missionId: string;
+    status: string;
+    claimed: boolean;
+    leaseToken?: string;
+  };
+  if (!claim.claimed) {
+    const existing = await autonomousMissionSnapshot(db, userId, companyId, requestId);
+    if (existing?.status === "completed") return existing;
+    throw new Error("Esta missão já está em execução. O progresso continua salvo.");
   }
-  if (!plan)
-    throw new Error("O gestor não conseguiu montar uma cadeia válida após duas tentativas.");
-
-  let remainingBudget = budget;
-  const completed: Array<{
-    role: string;
-    source: "internal" | "network" | "created";
-    provider: string;
-    reason: string;
-    result: AgentResult;
-    order: StudioDetails | null;
-    competition: Array<{
-      offerVersionId: string;
-      provider: string;
-      price: number;
-      viability: number;
-      reputation: number;
-      approved: number;
-      rejected: number;
-      score: number | null;
-      approach: string;
-      selected: boolean;
-    }>;
-  }> = [];
-  for (const [index, step] of plan.steps.entries()) {
-    const auction =
-      step.action === "network"
-        ? await runMarketplaceAuction(
-            db,
-            companyId,
-            offers,
-            step.objective,
-            step.category,
-            remainingBudget,
-            step.offerVersionId,
-          )
-        : { winner: null, competition: [] };
-    const candidate = auction.winner
-      ? offers.find((offer) => offer.id === auction.winner!.offerVersionId)
-      : undefined;
-    const route = resolveMissionRoute(
-      {
-        mode: step.action,
-        offerVersionId: candidate?.id ?? step.offerVersionId,
-      },
-      Boolean(own),
-      candidate ? [candidate.id] : [],
+  const missionId = claim.missionId;
+  const leaseToken = claim.leaseToken!;
+  try {
+    const [definitionRecord, storedMission] = await Promise.all([
+      db.from("agent_definitions").select("definition").eq("company_id", companyId).maybeSingle(),
+      db.from("autonomous_missions").select("plan,remaining_budget").eq("id", missionId).single(),
+    ]);
+    if (definitionRecord.error || storedMission.error)
+      throw new Error("Não foi possível recuperar o estado da missão.");
+    const own = definitionRecord.data
+      ? agentDefinitionSchema.parse(definitionRecord.data.definition)
+      : null;
+    let offers = (await catalogueOffers(db)).filter(
+      (offer) => offer.capability === AGENT_CAPABILITY && offer.companyId !== companyId,
     );
-    const priorContext = JSON.stringify(
-      completed.map((entry) => ({ role: entry.role, result: entry.result })),
-    ).slice(-7500);
-    const scopedTask = [
-      `Missão: ${task.slice(0, 3500)}`,
-      `Etapa atual: ${step.objective}`,
-      priorContext ? `Entregas anteriores: ${priorContext}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n\n")
-      .slice(0, 12000);
-    const stepRequest = derivedRequestId(requestId, index, route.mode);
-
-    if (route.mode === "internal" && own) {
-      const execution = await runPersonalAgent(userId, companyId, stepRequest, scopedTask);
-      completed.push({
-        role: step.role,
-        source: "internal",
-        provider: own.name,
-        reason: step.reason,
-        result: execution.result,
-        order: null,
-        competition: auction.competition,
-      });
-      continue;
+    let plan: MissionPlan | null = storedMission.data.plan
+      ? missionPlanSchema.parse(storedMission.data.plan)
+      : null;
+    if (!plan) {
+      const planningSystem =
+        "Você planeja uma missão para uma rede de agentes. Divida a solicitação em 1 ou 2 etapas sequenciais, cada uma com uma entrega útil para a próxima. Para cada etapa decida entre internal, network ou create. Use network somente quando houver ofertas adequadas e dentro do orçamento; o sistema promoverá uma disputa entre elas. Use internal somente se a capacidade interna for diretamente compatível. Use create quando faltar capacidade. As únicas capacidades nativas são ler dados fornecidos, analisar, escrever, planejar e gerar arquivos de texto, código ou HTML. Liste em blockedTools qualquer ação externa necessária, como navegar, editar vídeo, enviar mensagens ou publicar em redes sociais. Planeje o trabalho preparatório possível e nunca afirme que uma ferramenta ausente será executada. Retorne somente JSON com summary, blockedTools e steps. Cada step deve conter role, objective, category, instructions, sections, model, action, offerVersionId e reason.";
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const planned = await neuralakeJson(
+            attempt
+              ? `${planningSystem} Esta é uma nova tentativa. Entregue um único JSON completo.`
+              : planningSystem,
+            {
+              mission: task,
+              budget,
+              internal: own
+                ? {
+                    name: own.name,
+                    description: own.description,
+                    serviceTitle: own.serviceTitle,
+                    category: own.category,
+                  }
+                : null,
+              offers: offers.map((offer) => ({
+                id: offer.id,
+                company: offer.companyName,
+                title: offer.title,
+                description: offer.description,
+                category: offer.category,
+                price: offer.price,
+              })),
+            },
+            "reasoning",
+            fetch,
+            3000,
+          );
+          plan = missionPlanSchema.parse(planned.value);
+          break;
+        } catch {
+          plan = null;
+        }
+      }
+      if (!plan)
+        throw new Error("O gestor não conseguiu montar uma cadeia válida após duas tentativas.");
     }
+    await updateClaimedMission(db, missionId, leaseToken, {
+      plan,
+      summary: plan.summary,
+      blocked_tools: plan.blockedTools,
+      status: "running",
+      lease_until: missionLeaseExpiry(),
+    });
+    const seeded = await db.from("autonomous_mission_steps").upsert(
+      plan.steps.map((step, index) => ({
+        mission_id: missionId,
+        step_index: index,
+        request_id: derivedRequestId(requestId, index, "mission-step"),
+        plan_step: step,
+      })),
+      { onConflict: "mission_id,step_index", ignoreDuplicates: true },
+    );
+    if (seeded.error) throw new Error("Não foi possível salvar as etapas da missão.");
+    const persisted = await db
+      .from("autonomous_mission_steps")
+      .select("*")
+      .eq("mission_id", missionId)
+      .order("step_index");
+    if (persisted.error) throw new Error("Não foi possível ler as etapas salvas.");
+    const rows = new Map((persisted.data ?? []).map((row) => [row.step_index as number, row]));
+    let remainingBudget = budget;
+    const completed: MissionCompletedStep[] = [];
 
-    if (route.mode === "network" && candidate && auction.winner) {
-      const winner = auction.winner;
-      const created = await createAgentOrder(userId, {
-        buyerCompanyId: companyId,
-        title: `${step.role}: ${step.objective}`.slice(0, 120),
-        task: scopedTask,
-        budget: remainingBudget,
-        offerVersionId: candidate.id,
-        testFailure: false,
-        autoCorrect: true,
-        humanReview: true,
-        requestId: stepRequest,
-      });
-      const { runOrder } = await import("./studio-runtime.server");
-      const order = await runOrder(userId, created.orderId);
-      const delivery = order.deliveries.find(
-        (item) => item.version === order.order.current_delivery_version,
+    for (const [index, step] of plan.steps.entries()) {
+      const persistedStep = rows.get(index);
+      if (persistedStep?.status === "completed" && persistedStep.result) {
+        const restoredOrder = persistedStep.order_id
+          ? await orderDetails(userId, persistedStep.order_id, companyId)
+          : null;
+        remainingBudget -= restoredOrder?.contract.price_units ?? 0;
+        completed.push({
+          status: "completed",
+          role: step.role,
+          source: persistedStep.source,
+          provider: persistedStep.provider,
+          reason: persistedStep.reason,
+          result: agentResultSchema.parse(persistedStep.result),
+          order: restoredOrder,
+          competition: Array.isArray(persistedStep.competition) ? persistedStep.competition : [],
+        } as MissionCompletedStep);
+        continue;
+      }
+
+      const priorContext = JSON.stringify(
+        completed.map((entry) => ({ role: entry.role, result: entry.result })),
+      ).slice(-7500);
+      const scopedTask = [
+        `Missão: ${task.slice(0, 3500)}`,
+        `Etapa atual: ${step.objective}`,
+        priorContext ? `Entregas anteriores: ${priorContext}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+        .slice(0, 12000);
+
+      let competition = (
+        Array.isArray(persistedStep?.competition) ? persistedStep.competition : []
+      ) as MissionCompetition[];
+      let candidate = persistedStep?.offer_version_id
+        ? offers.find((offer) => offer.id === persistedStep.offer_version_id)
+        : undefined;
+      let winnerReason = persistedStep?.reason as string | undefined;
+      let winnerScore: number | null = null;
+      if (step.action === "network" && !candidate) {
+        const auction = await runMarketplaceAuction(
+          db,
+          companyId,
+          offers,
+          step.objective,
+          step.category,
+          remainingBudget,
+          step.offerVersionId,
+        );
+        candidate = auction.winner
+          ? offers.find((offer) => offer.id === auction.winner!.offerVersionId)
+          : undefined;
+        competition = auction.competition;
+        winnerReason = auction.winner?.reason;
+        winnerScore = auction.winner?.totalScore ?? null;
+      }
+      const route = resolveMissionRoute(
+        { mode: step.action, offerVersionId: candidate?.id ?? step.offerVersionId },
+        Boolean(own),
+        candidate ? [candidate.id] : [],
       );
-      if (!delivery?.artifact_content)
-        throw new Error(`O agente ${candidate.companyName} não entregou um resultado utilizável.`);
-      const result = agentResultSchema.parse(JSON.parse(delivery.artifact_content));
-      remainingBudget -= candidate.price;
+      const source = route.mode;
+      const provider =
+        route.mode === "internal" && own
+          ? own.name
+          : route.mode === "network" && candidate
+            ? candidate.companyName
+            : step.role;
+      const reason =
+        route.mode === "network" && candidate
+          ? `${winnerReason ?? step.reason} Pontuação ${Math.round((winnerScore ?? 0) * 100)}/100 entre ${competition.length} proposta(s).`
+          : step.reason;
+      const started = await db
+        .from("autonomous_mission_steps")
+        .update({
+          status: "running",
+          source,
+          provider,
+          reason,
+          competition,
+          offer_version_id: candidate?.id ?? null,
+          error_message: null,
+          started_at: persistedStep?.started_at ?? new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("mission_id", missionId)
+        .eq("step_index", index);
+      if (started.error) throw new Error("Não foi possível registrar o início da etapa.");
+      await updateClaimedMission(db, missionId, leaseToken, {
+        status: "running",
+        lease_until: missionLeaseExpiry(),
+      });
+
+      let result: AgentResult;
+      let order: StudioDetails | null = null;
+      let finalSource: "internal" | "network" | "created" = source;
+      let finalProvider = provider;
+      let finalReason = reason;
+      let contractedPrice = 0;
+
+      if (route.mode === "internal" && own) {
+        const execution = await runPersonalAgent(
+          userId,
+          companyId,
+          derivedRequestId(requestId, index, "internal-run"),
+          scopedTask,
+        );
+        result = execution.result;
+      } else if (route.mode === "network" && candidate) {
+        const placed = await createAgentOrder(userId, {
+          buyerCompanyId: companyId,
+          title: `${step.role}: ${step.objective}`.slice(0, 120),
+          task: scopedTask,
+          budget: remainingBudget,
+          offerVersionId: candidate.id,
+          testFailure: false,
+          autoCorrect: true,
+          humanReview: true,
+          requestId: derivedRequestId(requestId, index, "network-order"),
+        });
+        const { runOrder } = await import("./studio-runtime.server");
+        const orderRecorded = await db
+          .from("autonomous_mission_steps")
+          .update({ order_id: placed.orderId, updated_at: new Date().toISOString() })
+          .eq("mission_id", missionId)
+          .eq("step_index", index);
+        if (orderRecorded.error) throw new Error("Não foi possível vincular o contrato à etapa.");
+        await updateClaimedMission(db, missionId, leaseToken, {
+          status: "running",
+          lease_until: missionLeaseExpiry(),
+        });
+        order = await runOrder(userId, placed.orderId);
+        const delivery = order.deliveries.find(
+          (item) => item.version === order!.order.current_delivery_version,
+        );
+        if (!delivery?.artifact_content)
+          throw new Error(
+            `O agente ${candidate.companyName} não entregou um resultado utilizável.`,
+          );
+        result = agentResultSchema.parse(JSON.parse(delivery.artifact_content));
+        contractedPrice = candidate.price;
+      } else {
+        const newDefinition = createOnDemandAgentDefinition(
+          {
+            category: step.category,
+            instructions: step.instructions,
+            model: step.model,
+          },
+          remainingBudget,
+        );
+        const trial = await trialAgent(userId, newDefinition, scopedTask);
+        const supplier = await createSpecialist(
+          userId,
+          derivedRequestId(requestId, index, "created-supplier"),
+          newDefinition,
+          trial.trialId,
+        );
+        await updateClaimedMission(db, missionId, leaseToken, {
+          status: "running",
+          lease_until: missionLeaseExpiry(),
+        });
+        const version = await db
+          .from("offer_versions")
+          .select("id,price_units")
+          .eq("offer_id", supplier.offerId)
+          .eq("available", true)
+          .order("version", { ascending: false })
+          .limit(1)
+          .single();
+        if (version.error || !version.data)
+          throw new Error("O agente foi criado, mas sua oferta não ficou disponível.");
+        const offerVersionId = version.data.id as string;
+        const prepared = await db
+          .from("autonomous_mission_steps")
+          .update({ offer_version_id: offerVersionId, updated_at: new Date().toISOString() })
+          .eq("mission_id", missionId)
+          .eq("step_index", index);
+        if (prepared.error) throw new Error("Não foi possível registrar o fornecedor criado.");
+        const placed = await createAgentOrder(userId, {
+          buyerCompanyId: companyId,
+          title: `${step.role}: ${step.objective}`.slice(0, 120),
+          task: scopedTask,
+          budget: remainingBudget,
+          offerVersionId,
+          testFailure: false,
+          autoCorrect: true,
+          humanReview: true,
+          requestId: derivedRequestId(requestId, index, "created-order"),
+        });
+        const { runOrder } = await import("./studio-runtime.server");
+        const orderRecorded = await db
+          .from("autonomous_mission_steps")
+          .update({ order_id: placed.orderId, updated_at: new Date().toISOString() })
+          .eq("mission_id", missionId)
+          .eq("step_index", index);
+        if (orderRecorded.error) throw new Error("Não foi possível vincular o contrato à etapa.");
+        await updateClaimedMission(db, missionId, leaseToken, {
+          status: "running",
+          lease_until: missionLeaseExpiry(),
+        });
+        order = await runOrder(userId, placed.orderId);
+        const delivery = order.deliveries.find(
+          (item) => item.version === order!.order.current_delivery_version,
+        );
+        if (!delivery?.artifact_content)
+          throw new Error(`O agente ${newDefinition.name} não entregou um resultado utilizável.`);
+        result = agentResultSchema.parse(JSON.parse(delivery.artifact_content));
+        contractedPrice = version.data.price_units as number;
+        finalSource = "created";
+        finalProvider = newDefinition.name;
+        finalReason = `${step.reason} O agente foi publicado como fornecedor e contratado pela cadeia.`;
+        offers = (await catalogueOffers(db)).filter(
+          (offer) => offer.capability === AGENT_CAPABILITY && offer.companyId !== companyId,
+        );
+      }
+
+      remainingBudget -= contractedPrice;
+      const finished = await db
+        .from("autonomous_mission_steps")
+        .update({
+          status: "completed",
+          source: finalSource,
+          provider: finalProvider,
+          reason: finalReason,
+          result,
+          order_id: order?.order.id ?? null,
+          error_message: null,
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("mission_id", missionId)
+        .eq("step_index", index);
+      if (finished.error) throw new Error("Não foi possível salvar a entrega da etapa.");
+      await updateClaimedMission(db, missionId, leaseToken, {
+        remaining_budget: remainingBudget,
+        status: "running",
+        lease_until: missionLeaseExpiry(),
+      });
       completed.push({
+        status: "completed",
         role: step.role,
-        source: "network",
-        provider: candidate.companyName,
-        reason: `${winner.reason} Pontuação ${Math.round(winner.totalScore * 100)}/100 entre ${auction.competition.length} proposta(s).`,
+        source: finalSource,
+        provider: finalProvider,
+        reason: finalReason,
         result,
         order,
-        competition: auction.competition,
+        competition,
       });
-      continue;
     }
 
-    const newDefinition = agentDefinitionSchema.parse({
-      name: step.role,
-      description: `Especialista criado para ${step.objective}`.slice(0, 1000),
-      serviceTitle: step.objective.slice(0, 100),
-      category: step.category,
-      instructions: step.instructions,
-      knowledge: "",
-      sections: step.sections,
-      exampleTask: scopedTask.slice(0, 3000),
-      model: step.model,
-      price: 15,
-      visibility: "private",
-      capability: AGENT_CAPABILITY,
+    await updateClaimedMission(db, missionId, leaseToken, {
+      status: "completed",
+      error_message: null,
+      lease_token: null,
+      lease_until: null,
     });
-    const trial = await trialAgent(userId, newDefinition, scopedTask);
-    await createSpecialist(userId, stepRequest, newDefinition, trial.trialId);
-    completed.push({
-      role: step.role,
-      source: "created",
-      provider: newDefinition.name,
-      reason: step.reason,
-      result: trial.result,
-      order: null,
-      competition: auction.competition,
-    });
+    return (await autonomousMissionSnapshot(db, userId, companyId, requestId))!;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "A missão não foi concluída.";
+    await db
+      .from("autonomous_mission_steps")
+      .update({
+        status: "failed",
+        error_message: message.slice(0, 1000),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("mission_id", missionId)
+      .eq("status", "running");
+    await db
+      .from("autonomous_missions")
+      .update({
+        status: "failed",
+        error_message: message.slice(0, 1000),
+        lease_token: null,
+        lease_until: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", missionId)
+      .eq("lease_token", leaseToken);
+    throw error;
   }
-
-  return {
-    summary: plan.summary,
-    blockedTools: plan.blockedTools,
-    initialBudget: budget,
-    remainingBudget,
-    steps: completed,
-  };
 }
 export async function createAgentOrder(userId: string, request: OrderRequest) {
   await ownedCompany(userId, request.buyerCompanyId);

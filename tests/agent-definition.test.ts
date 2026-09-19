@@ -17,6 +17,7 @@ import {
   shortlistAuctionCandidates,
 } from "../src/lib/agent-auction.ts";
 import type { AgentOffer } from "../src/lib/a2a-contract.ts";
+import { createOnDemandAgentDefinition } from "../src/lib/on-demand-agent.ts";
 const spec = agentDefinitionSchema.parse({
   name: "Propostas",
   description: "Escreve propostas comerciais completas.",
@@ -297,4 +298,30 @@ test("auction combines viability, verified reputation and price without acceptin
   assert.equal(winner?.offerVersionId, reliable.id);
   assert.equal(winner?.reputation.approved, 18);
   assert.ok((winner?.totalScore ?? 0) > 0.75);
+});
+
+test("on-demand commercial metadata does not expose the private mission", () => {
+  const privateMission = "Campanha sigilosa para Cliente Órbita";
+  const created = createOnDemandAgentDefinition(
+    {
+      category: "Marketing",
+      instructions: `Execute ${privateMission} seguindo todos os critérios privados enviados.`,
+      model: "reasoning",
+    },
+    7,
+  );
+  const publicMetadata = JSON.stringify({
+    name: created.name,
+    description: created.description,
+    serviceTitle: created.serviceTitle,
+    sections: created.sections,
+    exampleTask: created.exampleTask,
+  });
+  assert.equal(publicMetadata.includes(privateMission), false);
+  assert.equal(created.instructions.includes(privateMission), true);
+  assert.equal(created.price, 7);
+  assert.throws(
+    () => createOnDemandAgentDefinition({ ...created, instructions: created.instructions }, 0),
+    /orçamento restante/,
+  );
 });

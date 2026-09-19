@@ -136,6 +136,19 @@
   color: #3344a8;
   border-color: #e1e2ef;
 }
+.studio-sidebar nav button.studio-mission-nav {
+  margin-bottom: 8px;
+  border-color: #3546c8;
+  background: #3546c8;
+  color: #fff;
+  box-shadow: 0 6px 16px #3546c826;
+}
+.studio-sidebar nav button.studio-mission-nav:hover,
+.studio-sidebar nav button.studio-mission-nav.active {
+  border-color: #2739b6;
+  background: #2739b6;
+  color: #fff;
+}
 .studio-sidebar nav button > span {
   margin-left: auto;
   background: #dbdff4;
@@ -2616,6 +2629,41 @@
   color: #8c7b96;
   font-size: 10px;
 }
+.mission-running ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.mission-running li {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #eee4f5;
+  color: #735986;
+  font-size: 9px;
+}
+.mission-running li:first-child {
+  background: #7740a5;
+  color: #fff;
+  animation: mission-pulse 1.4s ease-in-out infinite;
+}
+.mission-restoring {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-top: 1px solid #eee8f1;
+  background: #faf8fb;
+  color: #897d90;
+  font-size: 10px;
+}
+@keyframes mission-pulse {
+  50% {
+    opacity: 0.58;
+  }
+}
 .mission-mode .agent-request > .agent-error {
   margin: 14px 18px 18px;
 }
@@ -2708,6 +2756,12 @@
   color: #54765f;
   font-size: 10px;
 }
+.mission-result-status > span.failed {
+  color: #a54d5c;
+}
+.mission-result-status > span.running {
+  color: #704496;
+}
 .mission-budget-summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2745,6 +2799,32 @@
 .mission-blocked-tools span {
   color: #a96772;
 }
+.mission-failure {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 18px 0;
+  padding: 13px 15px;
+  border: 1px solid #efd5da;
+  border-radius: 10px;
+  background: #fff4f5;
+  color: #993c4b;
+  font-size: 11px;
+}
+.mission-failure span {
+  color: #a86872;
+}
+.mission-steps-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 26px;
+  border: 1px dashed #dfd4e5;
+  border-radius: 11px;
+  color: #897990;
+  font-size: 11px;
+}
 .mission-mode .chain-steps {
   gap: 0;
   margin: 25px 0;
@@ -2775,9 +2855,47 @@
   background: #7842a6;
   color: #fff;
 }
+.mission-mode .chain-steps article.mission-step-pending > header > span {
+  border: 1px solid #dbd1e0;
+  background: #f5f1f7;
+  color: #908296;
+}
+.mission-mode .chain-steps article.mission-step-running > header > span {
+  animation: mission-pulse 1.4s ease-in-out infinite;
+}
+.mission-mode .chain-steps article.mission-step-failed > header > span {
+  background: #b65061;
+}
 .mission-mode .chain-steps article header strong {
   color: #3f3446;
   font-size: 14px;
+}
+.mission-step-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+.mission-step-status {
+  display: inline-flex !important;
+  width: fit-content;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #f1edf3;
+  color: #86788d !important;
+  font-size: 9px !important;
+}
+.mission-step-status.completed {
+  background: #eaf6ef;
+  color: #4f765d !important;
+}
+.mission-step-status.running {
+  background: #f2eafb;
+  color: #74489a !important;
+}
+.mission-step-status.failed {
+  background: #fff0f2;
+  color: #a64a5a !important;
 }
 .chain-source {
   display: inline-flex !important;
@@ -2824,6 +2942,45 @@
 }
 .chain-delivery .agent-output {
   padding-bottom: 0;
+}
+.mission-step-waiting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 13px;
+  padding: 13px 15px;
+  border: 1px dashed #ddd3e2;
+  border-radius: 10px;
+  color: #8a7c91;
+  font-size: 10px;
+}
+.mission-step-waiting.running {
+  border-style: solid;
+  background: #faf6fd;
+  color: #734799;
+}
+.mission-step-waiting.failed {
+  border-color: #efd5da;
+  border-style: solid;
+  background: #fff5f6;
+  color: #a14857;
+}
+.mission-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: 14px;
+}
+.mission-result-actions .mission-again {
+  margin-left: 0;
+}
+.mission-result-actions .mission-lease-active:disabled {
+  border-color: #d9d0df;
+  background: #eee9f1;
+  box-shadow: none;
+  color: #75687c;
+  opacity: 1;
+  cursor: wait;
 }
 .mission-again {
   margin-left: 14px;
