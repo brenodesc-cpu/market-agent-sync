@@ -9,9 +9,10 @@ import {
   createCatalogueCsv,
   verifyCatalogue,
   selectAffordableOffer,
-} from "./a2a-contract";
-import type { AgentOffer, CompanyDraft, OrderRequest } from "./a2a-contract";
-import type { StudioWorkspace, StudioDetails, StudioCompany, StudioOrder } from "./studio.types";
+} from "./a2a-contract.ts";
+import type { AgentOffer, CompanyDraft, OrderRequest } from "./a2a-contract.ts";
+import type { StudioWorkspace, StudioDetails, StudioCompany, StudioOrder } from "./studio.types.ts";
+import { orderOwnershipCompanyIds } from "./studio-access.ts";
 
 export async function runtimeDb(): Promise<SupabaseClient> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -188,9 +189,12 @@ export async function orderDetails(
   const order = await db.from("orders").select("*").eq("id", orderId).maybeSingle();
   if (order.error || !order.data) throw new Error("Pedido indisponível.");
   const ids = [order.data.buyer_company_id, order.data.supplier_company_id].filter(Boolean);
-  if (companyScope && !ids.includes(companyScope))
-    throw new Error("Pedido fora do escopo deste agente.");
-  const owners = await db.from("companies").select("id").eq("owner_user_id", userId).in("id", ids);
+  const ownershipIds = orderOwnershipCompanyIds(ids, companyScope);
+  const owners = await db
+    .from("companies")
+    .select("id")
+    .eq("owner_user_id", userId)
+    .in("id", ownershipIds);
   if (owners.error || !owners.data?.length)
     throw new Error("Pedido indisponível para este usuário.");
   const [contract, deliveries, reports, events, humanReviews] = await Promise.all([

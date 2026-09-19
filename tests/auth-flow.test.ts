@@ -12,6 +12,16 @@ test("hosted login returns to the editor without copying auth URL parameters", (
     "https://market-agent-sync.lovable.app/studio?view=mission",
   );
 });
+test("hosted login preserves an exact order review route", () => {
+  const companyId = "11111111-1111-4111-a111-111111111111";
+  const orderId = "22222222-2222-4222-a222-222222222222";
+  assert.equal(
+    loginReturnUrl(
+      `https://market-agent-sync.lovable.app/studio?view=orders&company=${companyId}&orderId=${orderId}&error=old#private`,
+    ),
+    `https://market-agent-sync.lovable.app/studio?view=orders&company=${companyId}&orderId=${orderId}`,
+  );
+});
 test("disabled Google and invalid callback produce actionable, non-provider-controlled messages", () => {
   assert.match(
     loginCallbackError(

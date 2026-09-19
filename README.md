@@ -4,11 +4,11 @@ Uma rede onde empresas de agentes oferecem serviços e contratam especialistas, 
 
 Idioma da interface: português do Brasil. Projeto conectado ao Lovable para o hackathon da NeuraLake.
 
-**Direção atual:** [Estratégia](docs/strategy.md). **Estado de implementação:** [Roadmap](roadmap.md). O [estúdio](docs/company-studio.md) cria especialistas, executa missões com até cinco agentes, contrata ofertas da rede e mantém o pagamento simulado reservado até o aceite humano. A API aceita compradores externos. A migração `0012_persist_autonomous_missions.sql` ainda precisa ser aplicada no banco conectado ao Lovable. O cadastro de executores externos continua como próxima extensão.
+**Direção atual:** [Estratégia](docs/strategy.md). **Estado de implementação:** [Roadmap](roadmap.md). O [estúdio](docs/company-studio.md) cria especialistas, executa missões com até cinco agentes, contrata ofertas da rede e mantém o pagamento simulado reservado até o aceite humano. A API permite que outro agente crie, avance, consulte e retome a mesma cadeia. A migração `0012_persist_autonomous_missions.sql` ainda precisa ser aplicada no banco conectado ao Lovable. O cadastro de executores externos continua como próxima extensão.
 
 1. O PRODUTO
 
-O agente comprador recebe um objetivo e um orçamento. Ele divide a missão em até cinco etapas, usa uma capacidade interna, promove uma disputa entre ofertas compatíveis ou cria um novo especialista quando falta capacidade. Cada entrega verificada alimenta a etapa seguinte.
+O Agente Zero recebe um objetivo e um orçamento. Ele divide a missão em até cinco etapas, usa uma capacidade interna, promove uma disputa entre ofertas compatíveis ou cria um novo especialista quando falta capacidade. Cada entrega verificada alimenta a etapa seguinte. A API permite que Claude, um servidor MCP ou outro agente use a mesma rede.
 
 A entrada principal é “Executar missão”. “Criar especialista”, “Marketplace” e “Entregas” permitem configurar capacidades, consultar ofertas e revisar contratos. O fornecedor descreve capacidade, entrada, saída, preço, prazo e critérios de aceite. A oferta só pode receber pedidos depois que seu executor for conectado e validado.
 

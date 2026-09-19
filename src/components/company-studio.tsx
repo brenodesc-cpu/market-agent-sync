@@ -44,7 +44,7 @@ import {
   submitHumanReview,
   setCompanyCommercial,
 } from "@/lib/studio.functions";
-import { StudioAccessError } from "@/lib/studio-access";
+import { StudioAccessError, studioOrderSelection } from "@/lib/studio-access";
 import { AgentMarket } from "./agent-market";
 import { AgentBuilder } from "./agent-builder";
 import { AgentOutput, downloadAgentFile } from "./agent-output";
@@ -122,9 +122,11 @@ function friendlyError(error: unknown) {
 export function CompanyStudio({
   initialView = "mission",
   initialCompany,
+  initialOrderId,
 }: {
   initialView?: View;
   initialCompany?: string;
+  initialOrderId?: string;
 }) {
   const routeNavigate = useNavigate();
   const [view, setView] = useState<View>(initialView);
@@ -239,12 +241,41 @@ export function CompanyStudio({
       setOrder(null);
     }
   }, [user]);
+  useEffect(() => {
+    const selection = studioOrderSelection(initialOrderId, initialCompany);
+    if (!authReady || !selection) return;
+    if (!user) {
+      setLogin(true);
+      return;
+    }
+    let cancelled = false;
+    setBusy("load-order");
+    setError("");
+    void getStudioOrder({ data: selection })
+      .then((detail) => {
+        if (cancelled) return;
+        setOrder(detail);
+        setView("orders");
+        setBuyer(detail.order.buyer_company_id);
+      })
+      .catch((loadError) => {
+        if (cancelled) return;
+        setOrder(null);
+        setError(friendlyError(loadError));
+      })
+      .finally(() => {
+        if (!cancelled) setBusy("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, user, initialOrderId, initialCompany]);
   const readiness = {
     checked: connectionReady && authReady,
     backendConfigured: bootstrap.backendConfigured,
     neuralakeConfigured: bootstrap.neuralakeConfigured,
   };
-  function navigate(next: View, companyId?: string) {
+  function navigate(next: View, companyId?: string, orderId?: string) {
     setView(next);
     if (companyId) setBuyer(companyId);
     void routeNavigate({
@@ -252,7 +283,10 @@ export function CompanyStudio({
       search: {
         view: next,
         company:
-          next === "mission" || next === "market" ? companyId || buyer || undefined : undefined,
+          next === "mission" || next === "market" || (next === "orders" && orderId)
+            ? companyId || buyer || undefined
+            : undefined,
+        orderId: next === "orders" ? orderId : undefined,
       },
     });
     setSidebar(false);
@@ -274,8 +308,15 @@ export function CompanyStudio({
   }
   async function loadOrder(id: string) {
     await action("load-order", async () => {
-      setOrder(await getStudioOrder({ data: { orderId: id } }));
-      navigate("orders");
+      const summary = workspace.orders.find((item) => item.id === id);
+      const companyId = workspace.companies.some(
+        (company) => company.id === summary?.buyer_company_id,
+      )
+        ? summary?.buyer_company_id
+        : summary?.supplier_company_id;
+      const selection = studioOrderSelection(id, companyId)!;
+      setOrder(await getStudioOrder({ data: selection }));
+      navigate("orders", companyId, id);
     });
   }
   async function execute() {
@@ -585,7 +626,7 @@ export function CompanyStudio({
             onRefresh={refresh}
             onOrder={(detail) => {
               setOrder(detail);
-              navigate("orders");
+              navigate("orders", detail.order.buyer_company_id, detail.order.id);
             }}
           />
         )}
@@ -599,7 +640,13 @@ export function CompanyStudio({
             />
             {order ? (
               <>
-                <button className="studio-text-button" onClick={() => setOrder(null)}>
+                <button
+                  className="studio-text-button"
+                  onClick={() => {
+                    setOrder(null);
+                    navigate("orders");
+                  }}
+                >
                   ← Todos os pedidos
                 </button>
                 <div className="studio-order-heading">

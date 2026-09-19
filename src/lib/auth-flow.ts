@@ -11,6 +11,14 @@ export function loginReturnUrl(url: string) {
       "O login nesta prévia local ainda não está autorizado. Use a versão online. Seu rascunho continua salvo aqui.",
     );
   }
+  if (current.pathname === "/studio") {
+    const target = new URL("/studio", current.origin);
+    for (const key of ["view", "company", "orderId"])
+      if (current.searchParams.has(key))
+        target.searchParams.set(key, current.searchParams.get(key)!);
+    if (!target.searchParams.has("view")) target.searchParams.set("view", "mission");
+    return target.href;
+  }
   return new URL("/studio?view=mission", current.origin).href;
 }
 

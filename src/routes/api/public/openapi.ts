@@ -5,6 +5,12 @@ const orderId = {
   required: true,
   schema: { type: "string", format: "uuid" },
 };
+const missionRequestId = {
+  name: "requestId",
+  in: "path",
+  required: true,
+  schema: { type: "string", format: "uuid" },
+};
 const auth = [{ agentKey: [] }];
 const responses = {
   "200": { description: "Operação concluída; créditos simulados" },
@@ -13,12 +19,15 @@ const responses = {
   "403": { description: "Empresa sem permissão" },
   "404": { description: "Pedido não encontrado no escopo da empresa" },
   "409": { description: "Operação bloqueada pelo contrato ou pelo saldo" },
+  "413": { description: "Corpo da requisição acima do limite" },
+  "422": { description: "Missão inviável com o orçamento ou as capacidades disponíveis" },
+  "503": { description: "Provedor de inferência ou dependência temporariamente indisponível" },
 };
 const spec = {
   openapi: "3.1.0",
   info: {
     title: "NeuraMarket Agent API",
-    version: "0.4.0",
+    version: "0.5.0",
     description:
       "API HTTP própria para empresas de agentes. Gere uma chave da empresa no estúdio. Pagamentos simulados. Não declara compatibilidade com o protocolo A2A do Google.",
   },
@@ -38,19 +47,67 @@ const spec = {
     },
     "/missions": {
       post: {
-        summary: "Delegar a seleção, reserva, execução e verificação em uma chamada",
+        summary: "Criar ou recuperar uma missão autônoma",
         security: auth,
         requestBody: {
           required: true,
           content: {
-            "application/json": { schema: { $ref: "#/components/schemas/OrderRequest" } },
+            "application/json": { schema: { $ref: "#/components/schemas/MissionRequest" } },
           },
         },
         responses: {
           ...responses,
           "201": {
-            description:
-              "Detalhes do pedido. accepted aguarda aceite humano no estúdio. Uma repetição com o mesmo requestId retoma o mesmo pedido.",
+            description: "Missão criada. Use a rota advance informada para executar o planejamento ou uma etapa.",
+            headers: { Location: { schema: { type: "string" } } },
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/MissionSnapshot" } },
+            },
+          },
+          "200": {
+            description: "A repetição idempotente recuperou a missão existente.",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/MissionSnapshot" } },
+            },
+          },
+        },
+      },
+    },
+    "/missions/{requestId}": {
+      get: {
+        summary: "Consultar progresso, entregas e revisões pendentes da missão",
+        security: auth,
+        parameters: [missionRequestId],
+        responses: {
+          ...responses,
+          "200": {
+            description: "Estado persistido da missão no escopo da empresa autenticada.",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/MissionSnapshot" } },
+            },
+          },
+        },
+      },
+    },
+    "/missions/{requestId}/advance": {
+      post: {
+        summary: "Executar somente o planejamento ou a próxima etapa da missão",
+        security: auth,
+        parameters: [missionRequestId],
+        responses: {
+          ...responses,
+          "200": {
+            description: "Uma unidade de trabalho foi executada ou o estado terminal foi recuperado.",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/MissionSnapshot" } },
+            },
+          },
+          "202": {
+            description: "Outra execução possui o lease. Aguarde Retry-After e consulte novamente.",
+            headers: { "Retry-After": { schema: { type: "integer", minimum: 1 } } },
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/MissionSnapshot" } },
+            },
           },
         },
       },
@@ -131,6 +188,79 @@ const spec = {
       agentKey: { type: "http", scheme: "bearer", bearerFormat: "nm_<chave da empresa>" },
     },
     schemas: {
+      MissionRequest: {
+        type: "object",
+        additionalProperties: false,
+        required: ["requestId", "task", "budget"],
+        properties: {
+          requestId: {
+            type: "string",
+            format: "uuid",
+            description: "UUID estável para criar, consultar e retomar a missão sem duplicá-la.",
+          },
+          task: { type: "string", minLength: 10, maxLength: 6000 },
+          budget: { type: "integer", minimum: 1, maximum: 10000 },
+        },
+      },
+      MissionSnapshot: {
+        type: "object",
+        required: [
+          "missionId",
+          "requestId",
+          "status",
+          "terminal",
+          "retryable",
+          "nextAction",
+          "completedSteps",
+          "totalSteps",
+          "steps",
+          "pendingReviews",
+        ],
+        properties: {
+          missionId: { type: "string", format: "uuid" },
+          requestId: { type: "string", format: "uuid" },
+          status: {
+            type: "string",
+            enum: ["planning", "running", "awaiting_review", "completed", "failed"],
+          },
+          terminal: {
+            type: "boolean",
+            description: "Indica que a missão terminou e não deve receber outro avanço.",
+          },
+          retryable: {
+            type: "boolean",
+            description: "Em falha, indica que a mesma missão pode ser retomada com advance.",
+          },
+          nextAction: {
+            type: "string",
+            enum: ["advance", "wait", "review", "done", "restart"],
+            description:
+              "advance executa a próxima unidade; wait respeita Retry-After; review exige aceite humano; done encerra; restart pede outra missão.",
+          },
+          leaseUntil: { type: ["string", "null"], format: "date-time" },
+          completedSteps: { type: "integer", minimum: 0 },
+          totalSteps: { type: "integer", minimum: 0, maximum: 5 },
+          pendingReviews: { type: "array", items: { type: "object" } },
+          steps: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                status: { type: "string" },
+                role: { type: "string" },
+                source: { type: ["string", "null"] },
+                provider: { type: "string" },
+                budgetCap: { type: "integer", minimum: 0 },
+                orderId: { type: ["string", "null"], format: "uuid" },
+                verification: { type: ["object", "null"] },
+                delivery: { type: ["object", "null"] },
+                reviewUrl: { type: ["string", "null"] },
+                result: { type: ["object", "null"] },
+              },
+            },
+          },
+        },
+      },
       OrderRequest: {
         type: "object",
         required: ["requestId", "title", "budget"],

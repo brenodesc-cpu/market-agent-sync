@@ -12,6 +12,17 @@ export class StudioAccessError extends Error {
   }
 }
 
+export function studioOrderSelection(orderId?: string, companyId?: string) {
+  if (!orderId) return null;
+  return { orderId, ...(companyId ? { companyId } : {}) };
+}
+
+export function orderOwnershipCompanyIds(orderCompanyIds: string[], companyScope?: string) {
+  if (companyScope && !orderCompanyIds.includes(companyScope))
+    throw new Error("Pedido fora do escopo deste agente.");
+  return companyScope ? [companyScope] : orderCompanyIds;
+}
+
 // Both builder actions stop before making a request when the environment is incomplete.
 export async function withStudioAccess<T>(
   operation: "draft" | "publish",
@@ -20,13 +31,25 @@ export async function withStudioAccess<T>(
   perform: () => Promise<T>,
 ): Promise<T> {
   if (!readiness.checked)
-    throw new StudioAccessError("checking", "Ainda estamos conferindo a conexão. Tente novamente em alguns segundos.");
+    throw new StudioAccessError(
+      "checking",
+      "Ainda estamos conferindo a conexão. Tente novamente em alguns segundos.",
+    );
   if (!readiness.backendConfigured)
-    throw new StudioAccessError("server", "Este ambiente está sem a conexão de servidor necessária. Use a versão online para criar e publicar sua empresa.");
+    throw new StudioAccessError(
+      "server",
+      "Este ambiente está sem a conexão de servidor necessária. Use a versão online para criar e publicar sua empresa.",
+    );
   if (operation === "draft" && !readiness.neuralakeConfigured)
-    throw new StudioAccessError("neuralake", "A criação com IA está indisponível neste ambiente. Sua descrição foi preservada; você também pode configurar o rascunho manualmente.");
+    throw new StudioAccessError(
+      "neuralake",
+      "A criação com IA está indisponível neste ambiente. Sua descrição foi preservada; você também pode configurar o rascunho manualmente.",
+    );
   if (!userId)
-    throw new StudioAccessError("login", "Entre na sua conta para continuar. Sua descrição e seu rascunho foram preservados.");
+    throw new StudioAccessError(
+      "login",
+      "Entre na sua conta para continuar. Sua descrição e seu rascunho foram preservados.",
+    );
   return perform();
 }
 

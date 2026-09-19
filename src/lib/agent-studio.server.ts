@@ -8,19 +8,19 @@ import {
   executionIdentity,
   normalizeAgentResult,
   parseGeneratedDefinition,
-} from "./agent-definition";
-import type { AgentDefinition, AgentResult } from "./agent-definition";
-import { neuralakeJson } from "./neuralake-json.server";
+} from "./agent-definition.ts";
+import type { AgentDefinition, AgentResult } from "./agent-definition.ts";
+import { neuralakeJson } from "./neuralake-json.server.ts";
 import {
   runtimeDb,
   ownedCompany,
   rpc,
   catalogueOffers,
   orderDetails,
-} from "./studio-runtime.server";
-import type { OrderRequest } from "./a2a-contract";
-import type { StudioDetails } from "./studio.types";
-import { resolveMissionRoute } from "./mission-router";
+} from "./studio-runtime.server.ts";
+import type { OrderRequest } from "./a2a-contract.ts";
+import type { StudioDetails } from "./studio.types.ts";
+import { resolveMissionRoute } from "./mission-router.ts";
 import {
   historicalReputation,
   scoreAuctionBids,
@@ -28,14 +28,14 @@ import {
   shortlistAuctionCandidates,
   type AgentBid,
   type SupplierReputation,
-} from "./agent-auction";
-import { createOnDemandAgentDefinition } from "./on-demand-agent";
+} from "./agent-auction.ts";
+import { createOnDemandAgentDefinition } from "./on-demand-agent.ts";
 import {
   allocateMissionStepBudgets,
   MAX_MISSION_STEPS,
   missionStatusAfterDelivery,
   requireUntouchedMissionDescendants,
-} from "./mission-budget";
+} from "./mission-budget.ts";
 
 const missionPlanSchema = z.object({
   summary: z.string().trim().min(10).max(500),
@@ -778,7 +778,7 @@ async function progressAutonomousChain(
               .eq("mission_id", missionId)
               .eq("step_index", index);
             if (retrying.error) throw new Error("Não foi possível retomar a correção da etapa.");
-            const { runOrder } = await import("./studio-runtime.server");
+            const { runOrder } = await import("./studio-runtime.server.ts");
             restoredOrder = await runOrder(userId, restoredOrder.order.id);
             if (!["accepted", "settled"].includes(restoredOrder.order.status))
               throw new Error("A correção não passou pela verificação objetiva.");
@@ -939,7 +939,7 @@ async function progressAutonomousChain(
           humanReview: true,
           requestId: derivedRequestId(requestId, index, "network-order"),
         });
-        const { runOrder } = await import("./studio-runtime.server");
+        const { runOrder } = await import("./studio-runtime.server.ts");
         const orderRecorded = await db
           .from("autonomous_mission_steps")
           .update({ order_id: placed.orderId, updated_at: new Date().toISOString() })
@@ -1173,15 +1173,18 @@ export async function startAutonomousChain(
   const inputHash = createHash("sha256")
     .update(JSON.stringify({ companyId, task, budget }))
     .digest("hex");
-  await rpc("studio_start_autonomous_mission", {
+  const start = (await rpc("studio_start_autonomous_mission", {
     _user: userId,
     _company: companyId,
     _request: requestId,
     _input_hash: inputHash,
     _task: task,
     _budget: budget,
-  });
-  return (await autonomousMissionSnapshot(await runtimeDb(), userId, companyId, requestId))!;
+  })) as { created?: boolean };
+  return {
+    ...(await autonomousMissionSnapshot(await runtimeDb(), userId, companyId, requestId))!,
+    created: start.created === true,
+  };
 }
 
 export async function advanceAutonomousChain(userId: string, companyId: string, requestId: string) {

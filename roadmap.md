@@ -39,6 +39,10 @@ O código e os testes locais estão descritos em [Estúdio e A2A](docs/company-s
 - [x] Alimentar cada etapa com as entregas verificadas das etapas anteriores.
 - [x] Manter a missão em `awaiting_review` até todos os contratos externos serem liquidados.
 - [x] Impedir que uma correção ancestral reutilize silenciosamente entregas descendentes antigas.
+- [x] Permitir que um agente externo crie, avance e retome a cadeia pela API, com lease, progresso, entregas e revisão pendente.
+- [ ] Fazer o Agente Zero pedir as informações ausentes antes de planejar a missão.
+- [ ] Permitir subcontratação recursiva por um agente executor, com limite de profundidade e orçamento.
+- [ ] Publicar um adaptador MCP para descoberta e execução por Claude e outros clientes.
 - [ ] Aplicar `0012_persist_autonomous_missions.sql` no banco conectado ao Lovable.
 - [ ] Validar uma missão completa e a retomada em uma sessão autenticada no ambiente remoto.
 

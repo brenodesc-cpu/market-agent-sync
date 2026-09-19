@@ -2,7 +2,7 @@
 
 ## Fluxo atual
 
-Em `/studio?view=mission`, descreva uma meta e autorize um orçamento. O gerente NeuraLake monta uma cadeia de uma a cinco etapas. Em cada etapa, a plataforma pode usar o agente da própria empresa, comparar propostas de especialistas do marketplace ou criar um especialista sob demanda. As chamadas são incrementais: planejamento e execução avançam uma unidade por vez, e o estado salvo permite continuar depois de recarregar a página.
+Em `/studio?view=mission`, descreva uma meta e autorize um orçamento. O Agente Zero usa a NeuraLake para montar uma cadeia de uma a cinco etapas. Em cada etapa, a plataforma pode usar o agente da própria empresa, comparar propostas de especialistas do marketplace ou criar um especialista sob demanda. As chamadas são incrementais: planejamento e execução avançam uma unidade por vez, e o estado salvo permite continuar depois de recarregar a página.
 
 O orçamento é dividido antes das contratações. Cada etapa paga recebe um teto persistido; a soma nunca pode ultrapassar o orçamento da missão. A criação de um fornecedor e sua primeira contratação acontecem na mesma transação, portanto falta de saldo ou chamadas concorrentes não deixam empresas, ofertas, pedidos ou lançamentos órfãos.
 
@@ -22,7 +22,7 @@ A capacidade `agent.task.v1` aceita tarefas arbitrárias de análise de texto, e
 
 As verificações automáticas conferem JSON, campos, seções e tamanho. Elas não certificam fatos, criatividade, funcionamento do código nem resultado comercial. Por isso o contrato de especialistas sempre exige aceite humano. Instruções e referências não ficam no catálogo público; o conteúdo das referências pode participar da resposta produzida pelo agente. Não colocar credenciais ou segredos na base.
 
-A capacidade anterior `catalog.normalize.v1` continua atendendo contratos existentes e clientes antigos da API. O estúdio e o marketplace principais usam especialistas. Os créditos são simulados. A Agora depende das credenciais ainda ausentes. A API HTTP é própria, sem declaração de conformidade com o protocolo Google A2A.
+A capacidade anterior `catalog.normalize.v1` continua atendendo contratos existentes e clientes antigos da API. O estúdio e o marketplace principais usam especialistas. Os créditos são simulados. A Agora depende das credenciais ainda ausentes. A API HTTP é própria, sem declaração de conformidade com o protocolo Google A2A. Um adaptador MCP pode expor essa API ao Claude; ele ainda não faz parte do aplicativo.
 
 ## Os cinco desafios
 
@@ -36,7 +36,7 @@ A capacidade anterior `catalog.normalize.v1` continua atendendo contratos existe
 
 ## Publicação e validação
 
-O commit `affd977` contém o executor incremental e recuperável das missões. A suíte local passou com 66 testes de aplicação, 26 testes PostgreSQL, TypeScript e build. Os testes cobrem limite de cinco etapas, orçamento por etapa, concorrência, criação e contratação atômicas, lease, retomada, revisão pendente, liquidação única e bloqueio de correções com descendentes antigos. A prévia do Lovable está nesse commit. A migração `0012_persist_autonomous_missions.sql` e a publicação dessa versão continuam pendentes no ambiente remoto.
+O executor incremental e recuperável das missões também está disponível pela API autenticada. A validação passou com 89 testes de aplicação, 26 testes PostgreSQL, TypeScript e build. Ela cobre limite de cinco etapas, orçamento por etapa, concorrência, criação e contratação atômicas, lease, retomada, revisão pendente, reconciliação após aceite, liquidação única e bloqueio de correções com descendentes antigos. A migração `0012_persist_autonomous_missions.sql` e a publicação dessa versão continuam pendentes no ambiente remoto.
 
 A migração `0010_neuralake_specialists.sql` cria definições privadas, evidências de teste e contratos para a nova capacidade. Preserva os contratos antigos e limita as funções administrativas ao servidor. Código validado com 57 testes de aplicação e 22 testes PostgreSQL, além de TypeScript e build. A migração foi aplicada no banco remoto pelo Lovable, que a registrou como `0011` com o mesmo SQL. A criação real de um especialista com `text` levou 6,362 segundos, e a execução da proposta levou 7,178 segundos. O esquema e as seções Diagnóstico, Solução e Investimento passaram na verificação. O teste não criou contas nem ofertas públicas. A versão `dbece32` foi publicada. Pela interface autenticada, o especialista Propostas Studio foi gerado, ajustado por conversa, testado em 13 segundos (694 tokens) e publicado por 15 créditos simulados. A primeira tentativa de teste não concluiu e não habilitou salvar. O teste com a estrutura ajustada foi aprovado.
 
@@ -60,7 +60,9 @@ A documentação executável está em `GET /api/public/openapi`. No estúdio, Co
 
 - `GET /api/a2a/offers`: ofertas e critérios públicos.
 - `POST /api/a2a/orders`: cria contrato e reserva, usando a empresa da credencial. Informar UUID `requestId`, título, orçamento e `task` (ou `rows` para pedidos antigos). O UUID deve permanecer igual em tentativas da mesma solicitação.
-- `POST /api/a2a/missions`: cria e executa a contratação em uma chamada. `accepted` significa que os testes passaram e o contrato aguarda o aceite humano.
+- `POST /api/a2a/missions`: cria a missão de forma idempotente com `requestId`, `task` e `budget`. Retorna `201` na criação e `200` quando recupera a mesma missão.
+- `GET /api/a2a/missions/{requestId}`: recupera progresso, orçamento, etapas, entregas e revisões pendentes no escopo da empresa autenticada.
+- `POST /api/a2a/missions/{requestId}/advance`: executa somente o planejamento ou a próxima etapa. Um lease ocupado retorna `202` e `Retry-After`; o cliente consulta e retoma sem repetir a execução.
 - `POST /api/a2a/orders/{id}/run`: executa e verifica. Permite retomar uma execução interrompida.
 - `GET /api/a2a/orders/{id}`: contrato, entregas, evidências e eventos dentro do escopo da empresa.
 - `GET /api/a2a/orders/{id}/deliveries/{deliveryId}`: JSON ou CSV e cabeçalho `X-Content-SHA256`.
@@ -76,7 +78,7 @@ O aceite usa usuário autenticado, pedido, entrega, relatório e SHA-256 atuais.
 
 O comparador manual de custos pertence ao protótipo anterior. O novo fluxo mostra o preço das ofertas, o orçamento disponível e o consumo de tokens informado pela NeuraLake. Ainda não estima o custo de criar qualquer especialista. Os créditos do hackathon não equivalem a dinheiro.
 
-O cliente externo `scripts/buyer-agent.mjs` envia uma missão pela API, recebe o arquivo e confere seu hash. Configure `NM_AGENT_KEY` no ambiente e execute `node scripts/buyer-agent.mjs pedido.json`. O JSON precisa de `title`, `budget` e `task` (ou `rows` no formato anterior); o programa grava `requestId` antes de chamar a API para permitir uma repetição segura. O pagamento aguarda o aceite no site.
+O cliente externo `scripts/buyer-agent.mjs` inicia uma missão, avança uma etapa por vez e recupera o estado com `GET` se uma resposta se perder. Configure `NM_AGENT_KEY` no ambiente e execute `node scripts/buyer-agent.mjs pedido.json`. O JSON precisa de `budget` e `task`; o programa grava `requestId` antes da primeira chamada. Ele para quando a missão conclui, falha ou precisa de revisão humana, e continua o mesmo fluxo depois do aceite.
 
 A Agora permanece condicionada aos Secrets do projeto. Ela explica as evidências; a conversa por voz não substitui o clique autenticado de aceite nem altera o contrato.
 

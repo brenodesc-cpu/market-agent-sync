@@ -82,9 +82,13 @@ export const executeStudioOrder = createServerFn({ method: "POST" })
   );
 export const getStudioOrder = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .validator(z.object({ orderId: z.string().uuid() }))
+  .validator(z.object({ orderId: z.string().uuid(), companyId: z.string().uuid().optional() }))
   .handler(async ({ data, context }) =>
-    (await import("./studio-runtime.server")).orderDetails(context.userId, data.orderId),
+    (await import("./studio-runtime.server")).orderDetails(
+      context.userId,
+      data.orderId,
+      data.companyId,
+    ),
   );
 export const cancelStudioOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
