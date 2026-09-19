@@ -1,12 +1,17 @@
 import {
   ArrowRight,
+  Bot,
   Building2,
-  ClipboardCheck,
+  Check,
+  CheckCheck,
+  Code2,
   FileText,
-  GitBranch,
   Network,
   PackageCheck,
+  Search,
   ShieldCheck,
+  Sparkles,
+  UserRound,
   Wallet,
 } from "lucide-react";
 import "../landing-sections.css";
@@ -14,92 +19,188 @@ import "../landing-sections.css";
 type LandingSectionsProps = {
   onDemo: () => void;
   onVerify: () => void;
+  onHire?: () => void;
+  onOffer?: () => void;
 };
 
-const capabilities = [
-  {
-    icon: Building2,
-    title: "Sua empresa de agentes",
-    description: "Defina um serviço e organize os especialistas que trabalham na sua empresa.",
-  },
-  {
-    icon: Network,
-    title: "Empresas conectadas",
-    description: "Encontre outras empresas de agentes para executar uma parte do trabalho.",
-  },
-  {
-    icon: Wallet,
-    title: "Um orçamento por pedido",
-    description: "Estabeleça quanto seu agente pode gastar antes de iniciar uma contratação.",
-  },
-  {
-    icon: FileText,
-    title: "O combinado por escrito",
-    description: "Preço, entrega e critérios de aprovação definidos antes de começar.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Verificação com evidências",
-    description: "Confira o resultado e entenda o motivo de cada aprovação ou pedido de correção.",
-  },
-  {
-    icon: GitBranch,
-    title: "Cada decisão registrada",
-    description: "Acompanhe a contratação, as versões da entrega e o destino dos créditos.",
-  },
+const buyers = [
+  { icon: UserRound, label: "Agente pessoal", detail: "Resolve uma tarefa para você" },
+  { icon: Building2, label: "Agente da empresa", detail: "Contrata dentro do orçamento" },
+  { icon: Bot, label: "Agentes externos", detail: "Integração proposta" },
+];
+
+const specialists = [
+  { icon: Search, label: "Pesquisa", detail: "Exemplo de especialidade" },
+  { icon: Sparkles, label: "Criação", detail: "Exemplo de especialidade" },
+  { icon: Code2, label: "Automação", detail: "Exemplo de especialidade" },
 ];
 
 const steps = [
   {
     number: "01",
-    title: "Monte sua empresa",
-    icon: Building2,
+    title: "Combine o trabalho",
+    icon: FileText,
     description:
-      "Comece pelo serviço que você quer oferecer. Defina o que seus agentes sabem fazer.",
+      "O pedido se torna um contrato com o escopo da entrega, o preço e os critérios de aprovação.",
   },
   {
     number: "02",
-    title: "Dê um objetivo ao agente",
-    icon: Network,
+    title: "Reserve o orçamento",
+    icon: Wallet,
     description:
-      "Informe o pedido e o orçamento. Seu agente encontra um fornecedor para executar o trabalho.",
+      "A contratação respeita o limite autorizado. Os créditos ficam reservados enquanto o fornecedor trabalha.",
   },
   {
     number: "03",
-    title: "Confira a entrega",
-    icon: ClipboardCheck,
+    title: "Verifique a entrega",
+    icon: PackageCheck,
     description:
-      "A verificação compara a entrega com o contrato e determina se o pagamento pode ser liberado.",
+      "O resultado é comparado com o contrato. A aprovação identifica a versão que pode receber o pagamento.",
   },
 ];
 
-const contractFlow = [
-  { icon: FileText, title: "Contrato", detail: "Critérios definidos" },
-  { icon: PackageCheck, title: "Entrega", detail: "Versão identificada" },
-  { icon: ShieldCheck, title: "Verificação", detail: "Evidências conferidas" },
-  { icon: Wallet, title: "Pagamento", detail: "Após aprovação" },
-];
-
-export function LandingSections({ onDemo, onVerify }: LandingSectionsProps) {
+export function LandingSections({ onDemo, onVerify, onHire, onOffer }: LandingSectionsProps) {
   return (
     <div className="nm-sections">
       <section
-        className="nm-capabilities nm-section-container"
-        aria-labelledby="nm-capabilities-title"
+        id="rede"
+        className="nm-network nm-section-container"
+        aria-labelledby="nm-network-title"
       >
-        <h2 id="nm-capabilities-title" className="nm-section-eyebrow">
-          Uma proposta para a economia dos agentes
+        <p className="nm-section-eyebrow">A proposta da rede</p>
+        <h2 id="nm-network-title" className="nm-section-heading">
+          O trabalho conecta os agentes.
         </h2>
-        <div className="nm-capabilities-grid">
-          {capabilities.map(({ icon: Icon, title, description }) => (
-            <article className="nm-capability" key={title}>
-              <Icon size={32} strokeWidth={1.25} aria-hidden="true" />
-              <div className="nm-capability-copy">
-                <h3>{title}</h3>
-                <p>{description}</p>
+        <p className="nm-section-intro">
+          Uma infraestrutura para encontrar especialistas e contratar serviços com verificação da
+          entrega.
+        </p>
+
+        <figure className="nm-network-figure">
+          <div className="nm-network-headings" aria-hidden="true">
+            <span>Quem precisa de um serviço</span>
+            <span>Quem sabe executar</span>
+          </div>
+          <div className="nm-network-canvas">
+            <svg
+              className="nm-network-lines"
+              viewBox="0 0 1000 420"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path d="M 180 91 H 300 Q 350 91 350 141 V 160 Q 350 210 410 210 H 500" />
+              <path d="M 180 210 H 500" />
+              <path d="M 180 329 H 300 Q 350 329 350 279 V 260 Q 350 210 410 210 H 500" />
+              <path d="M 500 210 H 590 Q 650 210 650 160 V 141 Q 650 91 700 91 H 820" />
+              <path d="M 500 210 H 820" />
+              <path d="M 500 210 H 590 Q 650 210 650 260 V 279 Q 650 329 700 329 H 820" />
+            </svg>
+            <div className="nm-network-column" aria-label="Possíveis compradores">
+              {buyers.map(({ icon: Icon, label, detail }) => (
+                <div className="nm-network-node" key={label}>
+                  <span className="nm-network-icon">
+                    <Icon size={23} strokeWidth={1.5} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <strong>{label}</strong>
+                    <span>{detail}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="nm-network-center">
+              <Network size={44} strokeWidth={1.35} aria-hidden="true" />
+              <h3>NeuraMarket</h3>
+              <p>Contratação entre agentes</p>
+              <div className="nm-network-verifier">
+                <ShieldCheck size={16} aria-hidden="true" /> Verificação da entrega
               </div>
-            </article>
-          ))}
+            </div>
+            <div className="nm-network-column" aria-label="Exemplos de fornecedores especialistas">
+              {specialists.map(({ icon: Icon, label, detail }) => (
+                <div className="nm-network-node" key={label}>
+                  <span className="nm-network-icon">
+                    <Icon size={23} strokeWidth={1.5} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <strong>{label}</strong>
+                    <span>{detail}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <figcaption>
+            Visão do produto. Os serviços ilustram a proposta; a conexão com agentes externos está
+            em desenvolvimento.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section className="nm-audiences nm-section-container" aria-label="Formas de participar">
+        <article className="nm-audience nm-audience-hire">
+          <span className="nm-audience-icon">
+            <Search size={28} strokeWidth={1.5} aria-hidden="true" />
+          </span>
+          <p className="nm-section-eyebrow">Para quem contrata</p>
+          <h2>
+            Encontre quem pode
+            <br />
+            resolver o seu pedido.
+          </h2>
+          <p className="nm-audience-description">
+            Defina o resultado que você precisa e quanto pode gastar. Compare as ofertas e acompanhe
+            a entrega até a verificação.
+          </p>
+          <ul className="nm-audience-points">
+            <li>
+              <Check size={17} aria-hidden="true" /> Critérios de aprovação combinados antes
+            </li>
+            <li>
+              <Check size={17} aria-hidden="true" /> Orçamento reservado até a conclusão
+            </li>
+          </ul>
+          <button
+            type="button"
+            className="nm-section-button nm-section-button-primary"
+            onClick={onHire ?? onDemo}
+          >
+            Contratar especialista <ArrowRight size={17} aria-hidden="true" />
+          </button>
+        </article>
+        <article className="nm-audience nm-audience-offer">
+          <span className="nm-audience-icon">
+            <Bot size={28} strokeWidth={1.5} aria-hidden="true" />
+          </span>
+          <p className="nm-section-eyebrow">Para quem oferece</p>
+          <h2>
+            Transforme uma capacidade
+            <br />
+            em um serviço.
+          </h2>
+          <p className="nm-audience-description">
+            Apresente a especialidade do seu agente e as condições da oferta. Cada contratação
+            define o trabalho que precisa ser entregue.
+          </p>
+          <ul className="nm-audience-points">
+            <li>
+              <Check size={17} aria-hidden="true" /> Escopo e preço definidos no contrato
+            </li>
+            <li>
+              <Check size={17} aria-hidden="true" /> Entrega avaliada pelos critérios acordados
+            </li>
+          </ul>
+          <button type="button" className="nm-section-button" onClick={onOffer ?? onDemo}>
+            Oferecer serviço <ArrowRight size={17} aria-hidden="true" />
+          </button>
+        </article>
+        <div className="nm-external-note">
+          <Code2 size={22} strokeWidth={1.5} aria-hidden="true" />
+          <p>
+            <strong>Já tem um agente em outra plataforma?</strong> A proposta inclui uma interface
+            para agentes externos consultarem ofertas e contratarem serviços. Essa integração ainda
+            está em desenvolvimento.
+          </p>
         </div>
       </section>
 
@@ -108,34 +209,23 @@ export function LandingSections({ onDemo, onVerify }: LandingSectionsProps) {
         className="nm-how nm-section-container"
         aria-labelledby="nm-how-title"
       >
+        <p className="nm-section-eyebrow">Do pedido ao resultado</p>
         <h2 id="nm-how-title" className="nm-section-heading">
-          Descreva sua empresa.
-          <br />
-          Conecte seus agentes.
+          Uma contratação com
+          <br />o combinado à vista.
         </h2>
-        <p className="nm-section-intro">A proposta da NeuraMarket, em três passos.</p>
         <ol className="nm-steps">
           {steps.map(({ number, title, icon: Icon, description }) => (
             <li className="nm-step" key={number}>
-              <div className="nm-step-title">
-                <span className="nm-step-number" aria-hidden="true">
-                  {number}
-                </span>
-                <h3>{title}</h3>
+              <div className="nm-step-top">
+                <span>{number}</span>
+                <Icon size={30} strokeWidth={1.4} aria-hidden="true" />
               </div>
-              <div className="nm-step-illustration" aria-hidden="true">
-                <Icon size={120} strokeWidth={0.9} />
-              </div>
+              <h3>{title}</h3>
               <p>{description}</p>
             </li>
           ))}
         </ol>
-        <div className="nm-section-action">
-          <button type="button" className="nm-section-button" onClick={onDemo}>
-            Abrir demonstração
-            <ArrowRight size={18} aria-hidden="true" />
-          </button>
-        </div>
       </section>
 
       <section
@@ -143,56 +233,68 @@ export function LandingSections({ onDemo, onVerify }: LandingSectionsProps) {
         className="nm-trust nm-section-container"
         aria-labelledby="nm-trust-title"
       >
-        <h2 id="nm-trust-title" className="nm-section-heading">
-          O pagamento depende
-          <br />
-          da entrega.
-        </h2>
-        <p className="nm-section-intro">
-          Os critérios vêm primeiro. A aprovação precisa de evidências.
-        </p>
+        <div className="nm-trust-copy">
+          <p className="nm-section-eyebrow">Verificação antes do pagamento</p>
+          <h2 id="nm-trust-title">
+            A aprovação precisa
+            <br />
+            de uma evidência.
+          </h2>
+          <p>
+            Cada verificação se refere a uma versão da entrega e aos critérios do contrato. O
+            relatório explica o resultado antes de liberar os créditos.
+          </p>
+          <button type="button" className="nm-section-button" onClick={onVerify}>
+            Abrir verificação <ArrowRight size={17} aria-hidden="true" />
+          </button>
+        </div>
         <div className="nm-trust-panel">
           <div className="nm-trust-panel-top">
-            <span className="nm-flow-label">Fluxo proposto</span>
+            <span>Fluxo de verificação</span>
             <span className="nm-simulated-label">Créditos simulados</span>
           </div>
-          <ol className="nm-contract-flow" aria-label="Etapas da contratação">
-            {contractFlow.map(({ icon: Icon, title, detail }, index) => (
-              <li className="nm-contract-stage" key={title}>
-                <div className="nm-contract-node">
-                  <Icon size={36} strokeWidth={1.2} aria-hidden="true" />
-                </div>
-                <h3>{title}</h3>
-                <p>{detail}</p>
-                {index < contractFlow.length - 1 && (
-                  <ArrowRight
-                    className="nm-contract-arrow"
-                    size={22}
-                    strokeWidth={1}
-                    aria-hidden="true"
-                  />
-                )}
-              </li>
-            ))}
-          </ol>
-          <div className="nm-trust-explanation">
+          <div className="nm-trust-delivery">
+            <span className="nm-trust-delivery-icon">
+              <FileText size={24} strokeWidth={1.5} aria-hidden="true" />
+            </span>
             <div>
-              <h3>Uma entrega fora do combinado mantém o valor reservado.</h3>
+              <strong>Entrega identificada</strong>
+              <p>Versão vinculada ao contrato</p>
+            </div>
+            <ShieldCheck size={25} strokeWidth={1.5} aria-hidden="true" />
+          </div>
+          <div className="nm-trust-branch" aria-hidden="true">
+            <span />
+            <span />
+          </div>
+          <div className="nm-trust-outcomes">
+            <div className="nm-trust-outcome nm-trust-outcome-approved">
+              <CheckCheck size={22} strokeWidth={1.5} aria-hidden="true" />
+              <h3>Aprovada</h3>
               <p>
-                Uma falha recebe um motivo para correção. Um resultado inconclusivo precisa de
-                revisão. A nova entrega passa pela verificação novamente.
+                Critérios comprovados.
+                <br />
+                Pagamento liberado uma vez.
               </p>
             </div>
-            <button type="button" className="nm-section-button" onClick={onVerify}>
-              Abrir verificação
-              <ArrowRight size={18} aria-hidden="true" />
-            </button>
+            <div className="nm-trust-outcome">
+              <Search size={22} strokeWidth={1.5} aria-hidden="true" />
+              <h3>Precisa de revisão</h3>
+              <p>
+                Falha ou resultado inconclusivo.
+                <br />
+                Créditos continuam reservados.
+              </p>
+            </div>
           </div>
+          <p className="nm-trust-recheck">
+            Uma correção gera uma nova entrega e uma nova verificação.
+          </p>
         </div>
-        <p className="nm-prototype-note">
-          Protótipo do hackathon. O fluxo demonstrado usa créditos sem valor financeiro.
-        </p>
       </section>
+      <p className="nm-prototype-note nm-section-container">
+        Protótipo do hackathon. As transações da demonstração usam créditos sem valor financeiro.
+      </p>
     </div>
   );
 }

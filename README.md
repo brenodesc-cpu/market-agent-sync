@@ -1,27 +1,20 @@
-# Agente Marketplace
+# NeuraMarket
 
-Construa uma aplicação funcional para um hackathon de 24 horas. O nome da empresa é NeuraMarket.
+Uma rede onde empresas de agentes oferecem serviços e contratam especialistas, com o pagamento condicionado à verificação da entrega.
 
-Nome provisório: Empresas de Agentes.
-Idioma da interface: português do Brasil.
+Idioma da interface: português do Brasil. Projeto conectado ao Lovable para o hackathon da NeuraLake.
 
-Precisamos de um produto completo, com interface, backend, banco de dados, agentes executando tarefas e uma demonstração verificável.
-
-Este documento contém o escopo integral. Implemente em etapas, mantendo um fluxo funcional desde o início.
+**Direção atual:** [Estratégia](docs/strategy.md). **Estado de implementação:** [Roadmap](roadmap.md). Os requisitos abaixo descrevem o produto a construir. O catálogo atual contém dados de demonstração; cadastro externo, execução completa pela API e revisão por voz ainda dependem das tarefas abertas no roadmap.
 
 1. O PRODUTO
 
-Uma plataforma para criar empresas operadas por agentes de IA que oferecem serviços e contratam outras empresas.
+O agente comprador recebe um objetivo e um orçamento, encontra uma oferta compatível e contrata. Um fornecedor pode operar uma empresa criada na plataforma ou conectar um agente que já executa na sua própria infraestrutura.
 
-O usuário descreve o serviço que quer oferecer. A plataforma configura a empresa, seu agente responsável, as capacidades disponíveis e suas ofertas.
+A entrada apresenta duas ações: “Contratar um especialista” e “Oferecer um serviço”. O fornecedor descreve capacidade, entrada, saída, preço, prazo e critérios de aceite. A oferta só pode receber pedidos depois que seu executor for conectado e validado.
 
-Quando uma empresa recebe um pedido e precisa de uma capacidade externa, seu agente consulta o marketplace, escolhe um fornecedor e contrata dentro do orçamento autorizado.
+A entrega é verificada conforme os critérios fixados antes da contratação. A aprovação da versão atual permite liberar o pagamento simulado uma única vez. O desafio de confiança e verificação continua sendo a primeira entrega obrigatória.
 
-A entrega é verificada conforme os critérios acordados antes da contratação. O pagamento depende desse aceite.
-
-A monetização da plataforma será uma comissão por contratação concluída.
-
-A demonstração principal será uma agência de marketing contratando uma produtora para entregar um vídeo real.
+A hipótese de monetização é uma taxa por contratação concluída, com percentual comercial a validar. A primeira demonstração a implementar será a padronização de um catálogo de produtos em JSON, com evidências de formato e preservação dos dados. A demonstração de vídeo existente permanece como registro de teste; vídeo é uma opção futura condicionada às integrações necessárias.
 
 2. OS CINCO DESAFIOS OBRIGATÓRIOS
 
@@ -44,52 +37,13 @@ O desafio 05 é obrigatório e deve ser a primeira parte funcionando de ponta a 
 
 3. IDENTIDADE VISUAL
 
-Referência principal:
-https://agentplace.io/
+Referência atual: https://olas.network/
 
-Reproduza com fidelidade a linguagem visual dessa referência, adaptada ao nosso produto.
+Use a organização visual para explicar a participação na rede: fundo claro, gradientes suaves, títulos amplos e um diagrama que conecta comprador, marketplace e fornecedores. As duas ações principais são “Contratar um especialista” e “Oferecer um serviço”. O acesso à demonstração permanece visível.
 
-Características observadas:
-- Abertura com fundo azul intenso.
-- Uma grande forma circular ou cúpula verde-amarelada, ocupando o fundo.
-- Transições suaves entre azul e verde, com textura granulada discreta.
-- Título central grande, branco, em caixa alta.
-- Navegação simples e espaçada.
-- Botões transparentes com contorno branco fino e cantos arredondados.
-- Seções seguintes em cinza muito claro.
-- Texto quase preto.
-- Grades organizadas por divisórias finas.
-- Ícones simples e bastante espaço entre os elementos.
+Adapte o desenho à marca NeuraMarket e ao seu fluxo de verificação. A referência anterior Agentplace faz parte do histórico visual. Logotipos de clientes, números de uso, parcerias e resultados das referências não pertencem à NeuraMarket.
 
-Paleta inicial aproximada:
-- Azul principal: #2941BE.
-- Verde de destaque: #B3D876.
-- Fundo claro: #F3F3F3.
-- Superfície: #FFFFFF.
-- Texto principal: #1D1C1B.
-- Texto secundário: #656565.
-- Divisórias: #DCDCDC.
-
-Tipografia:
-- Poppins 700 no título principal da abertura.
-- Funnel Display nos títulos secundários e na navegação.
-- Inter para tabelas, formulários e informações operacionais.
-- Título principal próximo de 72 px no desktop, com ajuste responsivo.
-- Corpo entre 14 e 16 px.
-- Botões com raio próximo de 12 px.
-
-Use o nome e os textos do nosso produto. Crie os elementos decorativos com CSS ou SVG. Os logotipos de clientes, veículos e parceiros presentes na referência não fazem parte da nossa interface.
-
-A abertura deve apresentar:
-Título: “CRIE SUA EMPRESA DE AGENTES”
-Subtítulo: “Ofereça serviços, contrate especialistas e acompanhe cada entrega com critérios de verificação.”
-Ações: “Criar empresa” e “Abrir demonstração”.
-
-Nas telas de operação, preserve o fundo claro, as divisórias discretas, a tipografia e o azul como destaque.
-
-Reserve a composição com a cúpula para a entrada e o onboarding. As telas de pedidos precisam dar prioridade ao vídeo, às evidências e aos valores.
-
-Use estados de carregamento, vazio, erro e sucesso. Todos os botões devem executar uma ação ou explicar uma dependência real.
+Nas telas operacionais, priorize o contrato, a entrega, as evidências e os saldos. Use estados de carregamento, vazio, erro e sucesso. Os botões precisam executar uma ação ou explicar uma dependência real. Um formulário que apenas gera um rascunho deve informar que a oferta ainda não foi publicada nem conectada.
 
 4. ARQUITETURA
 
@@ -188,7 +142,9 @@ Trate erros e limite novas tentativas. Inferência ilimitada durante o evento n�
 
 Os créditos da NeuraLake são separados dos créditos financeiros simulados das empresas.
 
-6. CRIAÇÃO DE EMPRESAS
+6. EMPRESAS E SERVIÇOS EXTERNOS
+
+Criar uma empresa na plataforma é opcional. Um serviço externo deve ter identidade do dono, executor autenticado e as mesmas condições de contrato. O cadastro precisa validar sua integração antes da publicação.
 
 O usuário descreve:
 - o serviço que quer vender;
@@ -257,42 +213,31 @@ Implemente a autorização conforme o papel:
 
 Use as mesmas operações no aplicativo e nas chamadas dos agentes. O fluxo precisa funcionar sem depender de cliques de uma pessoa em cada etapa.
 
-8. DEMONSTRAÇÃO PRINCIPAL
+8. DEMONSTRAÇÃO PRINCIPAL A IMPLEMENTAR
 
-Prepare dados iniciais claramente identificados como demonstração:
-- uma agência compradora;
-- duas produtoras com ofertas e preços diferentes;
-- um verificador;
-- 100 créditos financeiros simulados para a agência.
+Prepare uma empresa compradora, dois fornecedores com ofertas diferentes e um verificador com permissões separadas. Identifique os dados de demonstração e o saldo como créditos simulados.
 
-O usuário informa:
-- nome do produto;
-- imagem ou material do produto;
-- público;
-- objetivo do vídeo;
-- requisitos da entrega;
-- teto de gastos.
+O pedido contém um catálogo de produtos, os campos esperados e o teto de gastos. O fornecedor usa a NeuraLake para padronizar os registros em JSON. O verificador lê a saída e confere o formato, os campos obrigatórios, os identificadores, a quantidade de registros e a preservação dos preços contra a fonte.
 
 O fluxo:
-1. O gerente interpreta o pedido.
-2. Consulta as ofertas disponíveis.
-3. Escolhe uma produtora dentro do orçamento.
-4. O backend valida a contratação e reserva o valor.
-5. O fornecedor prepara a produção com a NeuraLake.
-6. O gerador de vídeo conectado produz um arquivo.
-7. A entrega é armazenada como uma versão imutável.
-8. O verificador analisa o arquivo.
-9. Uma reprovação gera evidências e um pedido de correção.
-10. Uma nova versão passa por nova verificação.
-11. O aceite permite liquidar o pagamento e a comissão.
-12. A agência recebe o vídeo aprovado.
+1. O comprador interpreta o pedido e consulta as ofertas atuais.
+2. Seleciona um fornecedor compatível com o orçamento.
+3. O backend fixa o contrato e reserva o valor.
+4. O executor fornecedor produz e armazena uma entrega versionada.
+5. O verificador compara o conteúdo recebido com os critérios.
+6. Uma falha demonstra a evidência e mantém o pagamento bloqueado.
+7. A correção produz uma nova versão e passa pelas mesmas verificações.
+8. A aprovação permite o pagamento simulado e o registro da comissão.
+9. Repetir a solicitação de liquidação demonstra que o pagamento ocorreu uma vez.
+10. O comprador consome o JSON aprovado pela API para continuar seu trabalho.
 
-O roteiro é uma etapa de produção. A entrega final da demo é um vídeo real.
+A falha deliberada é identificada como cenário de teste. Também execute um pedido sem falha introduzida. A aprovação comprova os critérios contratados; avaliações semânticas adicionais devem explicitar seus limites.
 
-9. GERAÇÃO E PROCESSAMENTO DE VÍDEO
+O catálogo e os relatórios de vídeo atuais são dados de teste persistidos. A nova demonstração só pode ser declarada funcional depois que o executor, o verificador e a contratação completa estiverem conectados.
 
-A NeuraLake fornece a inferência dos agentes.
-A geração do vídeo depende de uma integração específica.
+9. VÍDEO COMO EXTENSÃO OPCIONAL
+
+Esta seção se aplica caso a equipe acrescente vídeo depois da primeira contratação completa. A NeuraLake fornece a inferência dos agentes. A geração do vídeo depende de uma integração específica.
 
 Crie um adaptador para conectar o gerador existente da equipe.
 Solicite sua documentação, endpoint e credencial pelo mecanismo apropriado. Não invente uma API nem escolha um serviço pago sem configuração.
@@ -333,7 +278,9 @@ Fixe o contrato antes de iniciar a produção:
 
 Editar uma oferta depois não pode alterar contratos existentes.
 
-Exemplo de critérios para uma oferta de vídeo:
+Para o primeiro serviço, conferir o esquema do JSON e os dados preservados contra a entrada. O verificador deve ler o conteúdo recebido, calcular sua identificação e registrar os valores observados.
+
+Se uma oferta de vídeo for conectada, os critérios podem incluir:
 - contêiner MP4;
 - proporção vertical 9:16;
 - resolução mínima de 720 × 1280;
@@ -342,7 +289,7 @@ Exemplo de critérios para uma oferta de vídeo:
 
 As condições devem corresponder às capacidades reais do fornecedor. Elas ficam visíveis antes da contratação.
 
-Verifique o arquivo recebido no backend:
+Na extensão de vídeo, verifique o arquivo recebido no backend:
 - leia os bytes;
 - identifique formato, resolução e duração;
 - execute uma verificação de decodificação;
@@ -394,7 +341,7 @@ O preço precisa caber no saldo disponível e no teto autorizado para o pedido.
 
 Reserve o valor antes da execução.
 
-Na demo, use uma comissão configurável de 10%, identificada como exemplo. O fornecedor recebe o preço contratado menos a comissão.
+O fornecedor recebe o preço contratado menos a taxa acordada. A comissão de 10% dos dados e funções iniciais é um exemplo da demonstração. Tornar a taxa configurável exige uma implementação; o percentual comercial ainda será validado. Separar valor total transacionado, repasse e receita da plataforma nos indicadores.
 
 Uma transação do banco deve registrar conjuntamente:
 - consumo da reserva;
@@ -438,10 +385,10 @@ Animações podem acompanhar eventos, mas não podem simular progresso inexisten
 13. TELAS
 
 Entrada:
-A identidade visual azul e verde da referência, com acesso à criação e à demonstração.
+A composição inspirada na Olas apresenta a rede e as entradas para contratar e oferecer. A demonstração está identificada como protótipo.
 
-Criar empresa:
-Descrição em linguagem natural à esquerda e configuração proposta à direita. Mostrar oferta, capacidades e integrações necessárias antes da publicação.
+Oferecer serviço:
+Permitir descrever a capacidade de uma empresa própria ou de um agente externo. Mostrar entrada, saída, preço, critérios e integrações necessárias antes da publicação. Rascunhos locais precisam ser identificados como preparatórios.
 
 Empresas:
 Lista das empresas, serviços publicados e situação operacional.
@@ -456,19 +403,19 @@ Detalhe do pedido:
 - estado e linha do tempo;
 - oferta escolhida e justificativa;
 - contrato;
-- vídeo entregue;
+- entrega estruturada e sua versão;
 - relatório de verificação;
 - histórico das correções;
 - movimentações financeiras.
 
 Verificação:
-Vídeo e evidências lado a lado. Cada critério mostra esperado, observado e resultado.
+Entrega e evidências lado a lado. Cada critério mostra esperado, observado e resultado. O tipo de visualização acompanha o formato da saída.
 
 Financeiro:
 Saldos, reservas, pagamentos e comissões simulados.
 
 Integrações:
-Situação da NeuraLake, do gerador e do processamento de mídia, com testes de conexão. Valores secretos não são exibidos.
+Situação da NeuraLake, dos executores e da revisão por voz com a Agora. A integração de vídeo aparece somente quando fizer parte da oferta. Testes de conexão não exibem valores secretos.
 
 No mobile, reorganize as colunas sem esconder contrato, resultado ou saldo.
 
@@ -484,7 +431,7 @@ Prepare um cenário de teste reproduzível:
 
 A falha introduzida para a demonstração deve ser identificada como cenário de teste.
 
-Use arquivos reais. Não force uma aprovação ou reprovação por um botão que ignore o verificador.
+Use conteúdo real recebido do executor. Não force uma aprovação ou reprovação por um botão que ignore o verificador.
 
 Inclua também um fluxo normal, sem falha introduzida.
 
@@ -493,11 +440,11 @@ Inclua também um fluxo normal, sem falha introduzida.
 Verifique:
 - chamada real à NeuraLake;
 - separação do contexto dos agentes;
-- criação e publicação de uma nova empresa;
+- cadastro de um serviço externo, validação do executor e publicação de sua oferta;
 - descoberta dinâmica de sua oferta pelo comprador;
 - bloqueio de contratação acima do orçamento;
-- reprovação de um vídeo fora das condições;
-- detecção de arquivo corrompido;
+- reprovação de saída com campos ausentes, preços alterados ou registros incompatíveis;
+- detecção de conteúdo inválido ou corrompido;
 - bloqueio quando a verificação falha;
 - nova verificação após uma correção;
 - rejeição de aprovação referente a uma versão antiga;
@@ -513,7 +460,7 @@ Teste o fluxo também pela API, sem depender da interface.
 
 Primeiro:
 Configure o backend, os segredos e a chamada real à NeuraLake.
-Em paralelo, confirme o gerador de vídeo e o executor de mídia.
+Defina o contrato de padronização do catálogo e implemente seu executor.
 
 Depois:
 Implemente contrato, entrega versionada, verificação e liquidação simulada. Use arquivos de teste identificados para validar esse núcleo.
@@ -522,19 +469,19 @@ Em seguida:
 Conecte os agentes, o catálogo e a execução real do fornecedor.
 
 Depois:
-Conecte a criação de empresas ao mesmo fluxo e demonstre a entrada de um novo fornecedor.
+Conecte o cadastro de serviços externos ao mesmo fluxo e demonstre a entrada de um novo fornecedor. A criação de uma empresa própria usa as mesmas operações.
 
 Por fim:
 Aplique a identidade visual às telas completas, execute os testes e prepare a demonstração.
 
-O resultado precisa incluir:
+Entregas previstas:
 - aplicação funcional;
 - banco e regras de acesso;
 - integrações configuráveis;
 - documentação da API;
 - dados iniciais de demonstração;
 - testes dos fluxos críticos;
-- instruções para executar o processador de mídia;
+- instruções para conectar e testar um executor externo;
 - lista objetiva das dependências ainda pendentes.
 
 Comece a implementação. Resolva decisões técnicas rotineiras e solicite apenas credenciais ou informações de integração que sejam realmente necessárias.
@@ -555,7 +502,7 @@ Continue developing this project in the [Lovable editor](https://lovable.dev/pro
 
 ## Development
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Para desenvolver localmente, instale Node.js e npm com o [nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
 ```sh
 git clone <this-repository-url>
