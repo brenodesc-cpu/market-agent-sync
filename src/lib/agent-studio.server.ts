@@ -13,6 +13,7 @@ import { neuralakeJson } from "./neuralake-json.server";
 import { runtimeDb, ownedCompany, rpc, catalogueOffers } from "./studio-runtime.server";
 import type { OrderRequest } from "./a2a-contract";
 import type { StudioDetails } from "./studio.types";
+import { resolveMissionRoute } from "./mission-router";
 
 export const definitionHash = (spec: AgentDefinition) =>
   createHash("sha256").update(executionIdentity(spec)).digest("hex");
@@ -238,11 +239,13 @@ export async function runAutonomousMission(
             )
           ).value,
         );
-      if (route.mode === "network" && offers.some((offer) => offer.id === route.offerVersionId)) {
-        mode = "network";
-        offerVersionId = route.offerVersionId!;
-      } else if (route.mode === "internal" && own) mode = "internal";
-      else mode = "created";
+      const resolved = resolveMissionRoute(
+        route,
+        Boolean(own),
+        offers.map((offer) => offer.id),
+      );
+      mode = resolved.mode;
+      offerVersionId = resolved.offerVersionId;
       reason = route.reason;
     } catch {
       reason = "O roteador não concluiu a comparação; uma capacidade dedicada será criada.";

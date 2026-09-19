@@ -10,6 +10,7 @@ import {
 } from "../src/lib/agent-definition.ts";
 import { orderRequestSchema } from "../src/lib/a2a-contract.ts";
 import { extractJson, neuralakeJson } from "../src/lib/neuralake-json.server.ts";
+import { resolveMissionRoute } from "../src/lib/mission-router.ts";
 const spec = agentDefinitionSchema.parse({
   name: "Propostas",
   description: "Escreve propostas comerciais completas.",
@@ -170,4 +171,25 @@ test("provider output is normalized before strict verification", () => {
     spec.sections,
   );
   assert.deepEqual(parsed.artifacts, []);
+});
+
+test("mission manager uses, hires or creates without accepting invented suppliers", () => {
+  const offer = crypto.randomUUID();
+  assert.deepEqual(resolveMissionRoute({ mode: "internal", offerVersionId: null }, true, [offer]), {
+    mode: "internal",
+  });
+  assert.deepEqual(resolveMissionRoute({ mode: "network", offerVersionId: offer }, true, [offer]), {
+    mode: "network",
+    offerVersionId: offer,
+  });
+  assert.deepEqual(
+    resolveMissionRoute({ mode: "network", offerVersionId: crypto.randomUUID() }, true, [offer]),
+    { mode: "created" },
+  );
+  assert.deepEqual(resolveMissionRoute({ mode: "internal", offerVersionId: null }, false, []), {
+    mode: "created",
+  });
+  assert.deepEqual(resolveMissionRoute({ mode: "create", offerVersionId: null }, true, [offer]), {
+    mode: "created",
+  });
 });
