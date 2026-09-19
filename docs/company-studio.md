@@ -30,7 +30,11 @@ A capacidade anterior `catalog.normalize.v1` continua atendendo contratos existe
 
 ## Publicação e validação
 
-A migração `0010_neuralake_specialists.sql` cria definições privadas, evidências de teste e contratos para a nova capacidade. Preserva os contratos antigos e limita as funções administrativas ao servidor. Código validado com 55 testes de aplicação e 22 testes PostgreSQL, além de TypeScript e build. Aplicação remota e inferência real dos novos especialistas serão registradas após a confirmação do ambiente.
+A migração `0010_neuralake_specialists.sql` cria definições privadas, evidências de teste e contratos para a nova capacidade. Preserva os contratos antigos e limita as funções administrativas ao servidor. Código validado com 57 testes de aplicação e 22 testes PostgreSQL, além de TypeScript e build. A migração foi aplicada no banco remoto pelo Lovable, que a registrou como `0011` com o mesmo SQL. A criação real de um especialista com `text` levou 6,362 segundos, e a execução da proposta levou 7,178 segundos. O esquema e as seções Diagnóstico, Solução e Investimento passaram na verificação. O teste não criou contas nem ofertas públicas. A versão `dbece32` foi publicada. Pela interface autenticada, o especialista Propostas Studio foi gerado, ajustado por conversa, testado em 13 segundos (694 tokens) e publicado por 15 créditos simulados. A primeira tentativa de teste não concluiu e não habilitou salvar. O teste com a estrutura ajustada foi aprovado.
+
+O fluxo autenticado foi concluído no site público: Jarvis escolheu automaticamente Propostas Studio em 6,7 segundos, reservou 15 créditos e recebeu a proposta em 9,4 segundos. A revisão humana rejeitou datas e exclusões não combinadas. A correção levou 8,5 segundos, preservou as quatro seções e deixou os detalhes adicionais a confirmar. O aceite da versão 2 liquidou uma única vez, e repetir a execução manteve os saldos: comprador com 85 disponíveis, fornecedor com 114, nenhuma reserva restante. A comissão foi de 1 crédito, conforme o arredondamento do contrato. O pedido aparece com prefixo `184c4e19` no histórico.
+
+São duas empresas diferentes administradas pela mesma conta nesta demonstração. Não houve teste entre dois donos independentes nem consumo externo da nova tarefa por um cliente autenticado separado. A autorização por usuário e as credenciais por empresa têm cobertura nos testes PostgreSQL.
 
 ## Histórico técnico anterior
 

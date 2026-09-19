@@ -804,7 +804,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                                 onClick={() => void execute()}
                               >
                                 {order.order.status === "revision_requested"
-                                  ? "Solicitar correção"
+                                  ? "Executar correção"
                                   : order.order.status === "settled"
                                     ? "Conferir pagamento único"
                                     : "Continuar execução"}
