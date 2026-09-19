@@ -2343,6 +2343,46 @@
 .autonomous-result > .studio-primary {
   margin: 18px 0 4px;
 }
+.chain-steps {
+  display: grid;
+  gap: 16px;
+  margin: 24px 0;
+}
+.chain-steps article {
+  padding: 20px;
+  border: 1px solid #e8e0ee;
+  border-radius: 12px;
+  background: #fcfafd;
+}
+.chain-steps article > header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chain-steps article > header > span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #eee4f5;
+  color: #7132a8;
+  font-weight: 700;
+}
+.chain-steps article header strong,
+.chain-steps article header small {
+  display: block;
+}
+.chain-steps article header small {
+  color: #8b7e92;
+  font-size: 10px;
+  margin-top: 2px;
+}
+.chain-steps article > p {
+  color: #817487;
+  font-size: 12px;
+  line-height: 1.6;
+}
 @media (max-width: 1150px) {
   .agent-publish {
     align-items: stretch;

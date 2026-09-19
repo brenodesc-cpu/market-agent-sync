@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, ArrowRight, Sparkles, Search, LoaderCircle, ShieldCheck } from "lucide-react";
 import { AGENT_CAPABILITY, type AgentResult } from "@/lib/agent-definition";
-import { runAutonomousStudioMission, runStudioAgent } from "@/lib/agent-studio.functions";
+import { runAutonomousStudioChain, runStudioAgent } from "@/lib/agent-studio.functions";
 import {
   placeStudioOrder,
   executeStudioOrder,
@@ -38,12 +38,9 @@ export function AgentMarket({
     [busy, setBusy] = useState(""),
     [error, setError] = useState("");
   const [result, setResult] = useState<AgentResult | null>(null);
-  const [mission, setMission] = useState<{
-    mode: "internal" | "network" | "created";
-    reason: string;
-    trace: string[];
-    order: StudioDetails | null;
-  } | null>(null);
+  const [chain, setChain] = useState<Awaited<ReturnType<typeof runAutonomousStudioChain>> | null>(
+    null,
+  );
   const request = useRef({ key: "", id: "", orderId: "" });
   const selected = workspace.companies.find((c) => c.id === company);
   const offers = workspace.offers.filter((o) => o.capability === AGENT_CAPABILITY);
@@ -70,16 +67,10 @@ export function AgentMarket({
       request.current = { key, id: crypto.randomUUID(), orderId: "" };
     try {
       if (kind === "autonomous") {
-        const value = await runAutonomousStudioMission({
+        const value = await runAutonomousStudioChain({
           data: { companyId: company, requestId: request.current.id, task, budget },
         });
-        setResult(value.result);
-        setMission({
-          mode: value.mode,
-          reason: value.reason,
-          trace: value.trace,
-          order: value.order,
-        });
+        setChain(value);
       } else if (kind === "personal") {
         const value = await runStudioAgent({
           data: { companyId: company, requestId: request.current.id, task },
@@ -289,33 +280,51 @@ export function AgentMarket({
           </button>
         </section>
         <section>
-          {mission ? (
+          {chain ? (
             <div className="autonomous-result">
-              <span className="studio-eyebrow">EXECUÇÃO AUTÔNOMA</span>
-              <h2>
-                {mission.mode === "internal"
-                  ? "Executado pelo próprio agente"
-                  : mission.mode === "created"
-                    ? "Novo agente criado e testado"
-                    : "Especialista contratado"}
-              </h2>
-              <p>{mission.reason}</p>
-              <ol>
-                {mission.trace.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
-              {result && <AgentOutput value={result} />}
-              {mission.order && (
-                <button className="studio-primary" onClick={() => onOrder(mission.order!)}>
-                  Revisar entrega e pagamento <ArrowRight size={16} />
-                </button>
+              <span className="studio-eyebrow">CADEIA CONCLUÍDA</span>
+              <h2>{chain.summary}</h2>
+              <p>
+                {chain.initialBudget - chain.remainingBudget} créditos reservados na rede.{" "}
+                {chain.remainingBudget} disponíveis nesta missão.
+              </p>
+              {chain.blockedTools.length > 0 && (
+                <div className="agent-error">
+                  <strong>Integrações necessárias</strong>
+                  <br />
+                  {chain.blockedTools.join(" · ")}
+                </div>
               )}
+              <div className="chain-steps">
+                {chain.steps.map((step, index) => (
+                  <article key={`${step.role}:${index}`}>
+                    <header>
+                      <span>{index + 1}</span>
+                      <div>
+                        <strong>{step.role}</strong>
+                        <small>
+                          {step.source === "network"
+                            ? `Contratado: ${step.provider}`
+                            : step.source === "created"
+                              ? `Criado: ${step.provider}`
+                              : `Interno: ${step.provider}`}
+                        </small>
+                      </div>
+                    </header>
+                    <p>{step.reason}</p>
+                    <AgentOutput value={step.result} />
+                    {step.order && (
+                      <button className="studio-secondary" onClick={() => onOrder(step.order!)}>
+                        Revisar contratação <ArrowRight size={15} />
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
               <button
                 className="studio-text-button"
                 onClick={() => {
-                  setMission(null);
-                  setResult(null);
+                  setChain(null);
                   request.current = { key: "", id: "", orderId: "" };
                 }}
               >

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { z } from "zod";
 import {
   agentDefinitionSchema,
   agentResultSchema,
@@ -8,12 +9,38 @@ import {
   normalizeAgentResult,
   parseGeneratedDefinition,
 } from "./agent-definition";
-import type { AgentDefinition } from "./agent-definition";
+import type { AgentDefinition, AgentResult } from "./agent-definition";
 import { neuralakeJson } from "./neuralake-json.server";
 import { runtimeDb, ownedCompany, rpc, catalogueOffers } from "./studio-runtime.server";
 import type { OrderRequest } from "./a2a-contract";
 import type { StudioDetails } from "./studio.types";
 import { resolveMissionRoute } from "./mission-router";
+
+const missionPlanSchema = z.object({
+  summary: z.string().trim().min(10).max(500),
+  blockedTools: z.array(z.string().trim().min(2).max(100)).max(5).default([]),
+  steps: z
+    .array(
+      z.object({
+        role: z.string().trim().min(2).max(70),
+        objective: z.string().trim().min(10).max(1200),
+        category: agentDefinitionSchema.shape.category,
+        instructions: z.string().trim().min(30).max(2000),
+        sections: agentDefinitionSchema.shape.sections,
+        model: agentDefinitionSchema.shape.model,
+        action: z.enum(["internal", "network", "create"]),
+        offerVersionId: z.string().uuid().nullable(),
+        reason: z.string().trim().min(3).max(500),
+      }),
+    )
+    .min(1)
+    .max(3),
+});
+
+function derivedRequestId(requestId: string, step: number, purpose: string) {
+  const hex = createHash("sha256").update(`${requestId}:${step}:${purpose}`).digest("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
 
 export const definitionHash = (spec: AgentDefinition) =>
   createHash("sha256").update(executionIdentity(spec)).digest("hex");
@@ -317,6 +344,183 @@ export async function runAutonomousMission(
       "Entrega executada e verificada",
       "Pagamento aguardando aceite",
     ],
+  };
+}
+
+export async function runAutonomousChain(
+  userId: string,
+  companyId: string,
+  requestId: string,
+  task: string,
+  budget: number,
+) {
+  await ownedCompany(userId, companyId);
+  const db = await runtimeDb();
+  const definitionRecord = await db
+    .from("agent_definitions")
+    .select("definition")
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (definitionRecord.error) throw new Error("Não foi possível ler as capacidades internas.");
+  const own = definitionRecord.data
+    ? agentDefinitionSchema.parse(definitionRecord.data.definition)
+    : null;
+  const offers = (await catalogueOffers(db)).filter(
+    (offer) => offer.capability === AGENT_CAPABILITY && offer.companyId !== companyId,
+  );
+  const planningSystem =
+    "Você planeja uma missão para uma rede de agentes. Divida a solicitação em 1 a 3 etapas sequenciais, cada uma com uma entrega útil para a próxima. Para cada etapa decida entre internal, network ou create. Use network somente com um offerVersionId exato e dentro do orçamento. Use internal somente se a capacidade interna for diretamente compatível. Use create quando faltar capacidade. As únicas capacidades nativas são ler dados fornecidos, analisar, escrever, planejar e gerar arquivos de texto, código ou HTML. Liste em blockedTools qualquer ação externa necessária, como navegar, editar vídeo, enviar mensagens ou publicar em redes sociais. Planeje o trabalho preparatório possível e nunca afirme que uma ferramenta ausente será executada. Retorne somente JSON com summary, blockedTools e steps. Cada step deve conter role, objective, category, instructions, sections, model, action, offerVersionId e reason.";
+  let plan: z.infer<typeof missionPlanSchema> | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const planned = await neuralakeJson(
+        attempt
+          ? `${planningSystem} Esta é uma nova tentativa. Entregue um único JSON completo.`
+          : planningSystem,
+        {
+          mission: task,
+          budget,
+          internal: own
+            ? {
+                name: own.name,
+                description: own.description,
+                serviceTitle: own.serviceTitle,
+                category: own.category,
+              }
+            : null,
+          offers: offers.map((offer) => ({
+            id: offer.id,
+            company: offer.companyName,
+            title: offer.title,
+            description: offer.description,
+            category: offer.category,
+            price: offer.price,
+          })),
+        },
+        "reasoning",
+        fetch,
+        3000,
+      );
+      plan = missionPlanSchema.parse(planned.value);
+      break;
+    } catch {
+      plan = null;
+    }
+  }
+  if (!plan)
+    throw new Error("O gestor não conseguiu montar uma cadeia válida após duas tentativas.");
+
+  let remainingBudget = budget;
+  const completed: Array<{
+    role: string;
+    source: "internal" | "network" | "created";
+    provider: string;
+    reason: string;
+    result: AgentResult;
+    order: StudioDetails | null;
+  }> = [];
+  for (const [index, step] of plan.steps.entries()) {
+    const candidate = offers.find(
+      (offer) => offer.id === step.offerVersionId && offer.price <= remainingBudget,
+    );
+    const route = resolveMissionRoute(
+      {
+        mode: step.action,
+        offerVersionId: candidate?.id ?? step.offerVersionId,
+      },
+      Boolean(own),
+      candidate ? [candidate.id] : [],
+    );
+    const priorContext = JSON.stringify(
+      completed.map((entry) => ({ role: entry.role, result: entry.result })),
+    ).slice(-7500);
+    const scopedTask = [
+      `Missão: ${task.slice(0, 3500)}`,
+      `Etapa atual: ${step.objective}`,
+      priorContext ? `Entregas anteriores: ${priorContext}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n")
+      .slice(0, 12000);
+    const stepRequest = derivedRequestId(requestId, index, route.mode);
+
+    if (route.mode === "internal" && own) {
+      const execution = await runPersonalAgent(userId, companyId, stepRequest, scopedTask);
+      completed.push({
+        role: step.role,
+        source: "internal",
+        provider: own.name,
+        reason: step.reason,
+        result: execution.result,
+        order: null,
+      });
+      continue;
+    }
+
+    if (route.mode === "network" && candidate) {
+      const created = await createAgentOrder(userId, {
+        buyerCompanyId: companyId,
+        title: `${step.role}: ${step.objective}`.slice(0, 120),
+        task: scopedTask,
+        budget: remainingBudget,
+        offerVersionId: candidate.id,
+        testFailure: false,
+        autoCorrect: true,
+        humanReview: true,
+        requestId: stepRequest,
+      });
+      const { runOrder } = await import("./studio-runtime.server");
+      const order = await runOrder(userId, created.orderId);
+      const delivery = order.deliveries.find(
+        (item) => item.version === order.order.current_delivery_version,
+      );
+      if (!delivery?.artifact_content)
+        throw new Error(`O agente ${candidate.companyName} não entregou um resultado utilizável.`);
+      const result = agentResultSchema.parse(JSON.parse(delivery.artifact_content));
+      remainingBudget -= candidate.price;
+      completed.push({
+        role: step.role,
+        source: "network",
+        provider: candidate.companyName,
+        reason: step.reason,
+        result,
+        order,
+      });
+      continue;
+    }
+
+    const newDefinition = agentDefinitionSchema.parse({
+      name: step.role,
+      description: `Especialista criado para ${step.objective}`.slice(0, 1000),
+      serviceTitle: step.objective.slice(0, 100),
+      category: step.category,
+      instructions: step.instructions,
+      knowledge: "",
+      sections: step.sections,
+      exampleTask: scopedTask.slice(0, 3000),
+      model: step.model,
+      price: 15,
+      visibility: "private",
+      capability: AGENT_CAPABILITY,
+    });
+    const trial = await trialAgent(userId, newDefinition, scopedTask);
+    await createSpecialist(userId, stepRequest, newDefinition, trial.trialId);
+    completed.push({
+      role: step.role,
+      source: "created",
+      provider: newDefinition.name,
+      reason: step.reason,
+      result: trial.result,
+      order: null,
+    });
+  }
+
+  return {
+    summary: plan.summary,
+    blockedTools: plan.blockedTools,
+    initialBudget: budget,
+    remainingBudget,
+    steps: completed,
   };
 }
 export async function createAgentOrder(userId: string, request: OrderRequest) {

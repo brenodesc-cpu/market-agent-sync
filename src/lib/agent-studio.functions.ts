@@ -76,3 +76,23 @@ export const runAutonomousStudioMission = createServerFn({ method: "POST" })
       data.budget,
     ),
   );
+
+export const runAutonomousStudioChain = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(
+    z.object({
+      companyId: z.string().uuid(),
+      requestId: z.string().uuid(),
+      task: z.string().trim().min(10).max(6000),
+      budget: z.number().int().min(1).max(10000),
+    }),
+  )
+  .handler(async ({ data, context }) =>
+    (await import("./agent-studio.server")).runAutonomousChain(
+      context.userId,
+      data.companyId,
+      data.requestId,
+      data.task,
+      data.budget,
+    ),
+  );
