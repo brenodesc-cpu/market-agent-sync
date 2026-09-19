@@ -97,7 +97,7 @@
 }
 .nm-state-success {
   border-inline-start: 4px solid var(--primary);
-  background: color-mix(in oklch, var(--lime) 15%, var(--card));
+  background: color-mix(in oklab, var(--lime) 15%, var(--card));
 }
 .nm-number {
   font-variant-numeric: tabular-nums;
@@ -192,3 +192,8 @@
     }
   }
 }
+
+/* Mixing happens in oklab, not oklch. Every mix here pairs a chromatic colour with an
+   achromatic one (white, transparent, or --card at chroma 0), and an achromatic colour has no
+   hue to interpolate: in oklch the result drifted to hue 18, turning the success panel pink.
+   oklab has no hue channel, so the same intent lands on the colour that was meant. */

@@ -458,7 +458,7 @@
   color: var(--primary);
 }
 .nm-node-supplier {
-  background: color-mix(in oklch, var(--lime) 24%, white);
+  background: color-mix(in oklab, var(--lime) 24%, white);
 }
 .nm-company-node small {
   font-size: 10px;

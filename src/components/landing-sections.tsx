@@ -157,8 +157,7 @@ export function LandingSections({ onDemo, onVerify, onHire, onOffer }: LandingSe
           </span>
           <p className="nm-section-eyebrow">Para quem contrata</p>
           <h2>
-            Encontre quem pode
-            <br />
+            Encontre quem pode <br />
             resolver o seu pedido.
           </h2>
           <p className="nm-audience-description">
@@ -194,8 +193,7 @@ export function LandingSections({ onDemo, onVerify, onHire, onOffer }: LandingSe
           </span>
           <p className="nm-section-eyebrow">Para quem oferece</p>
           <h2>
-            Transforme uma capacidade
-            <br />
+            Transforme uma capacidade <br />
             em um serviço.
           </h2>
           <p className="nm-audience-description">

@@ -145,7 +145,7 @@
   border: 1px solid var(--primary);
   border-radius: 24px;
   background: var(--primary);
-  box-shadow: 0 15px 46px color-mix(in oklch, var(--primary) 14%, transparent);
+  box-shadow: 0 15px 46px color-mix(in oklab, var(--primary) 14%, transparent);
   color: #fff;
   text-align: center;
 }
@@ -628,7 +628,7 @@
   border-color: #dde2f4;
 }
 .nm-audience-offer .nm-audience-icon {
-  background: color-mix(in oklch, var(--lime) 22%, white);
+  background: color-mix(in oklab, var(--lime) 22%, white);
   border-color: #dbe5c1;
 }
 .nm-journey-steps {
@@ -700,7 +700,7 @@
   font-size: 12px;
 }
 .nm-trust-outcome-approved {
-  background: color-mix(in oklch, var(--lime) 16%, white);
+  background: color-mix(in oklab, var(--lime) 16%, white);
   border-color: #d8e5b5;
 }
 .nm-prototype-note {
@@ -716,7 +716,10 @@
   background: #ffffffc9;
   text-align: center;
 }
-.nm-illustration svg {
+/* Scoped to the diagram only. As a descendant selector this also matched the icon inside the
+   replay button, forcing it to 560px: the icon filled the figure, the button collapsed to one
+   character per line, and the body scrolled horizontally. */
+.nm-illustration .nm-scroll-region > svg {
   display: block;
   width: 100%;
   min-width: 560px;
@@ -769,13 +772,21 @@
 }
 .nm-illustration-replay {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 6px;
+  min-height: 44px;
   padding: 8px;
   background: transparent;
   border: 0;
   color: var(--primary);
   font-size: 11px !important;
+  white-space: nowrap;
+}
+.nm-illustration-replay svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
 }
 @media (min-width: 480px) {
   .nm-section-container {
