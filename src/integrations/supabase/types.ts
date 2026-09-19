@@ -853,6 +853,18 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      reserve_demo_order: {
+        Args: {
+          _idempotency_key: string
+          _offer_version_id: string
+          _order_id: string
+        }
+        Returns: Json
+      }
+      settle_verified_order: {
+        Args: { _idempotency_key: string; _order_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       company_role: "owner" | "buyer" | "supplier" | "verifier" | "finance"
