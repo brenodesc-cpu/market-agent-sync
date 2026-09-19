@@ -108,8 +108,8 @@ export async function workspace(userId: string): Promise<StudioWorkspace> {
   const ids = (companies.data ?? []).map((c) => c.id as string);
   const offers = await catalogueOffers(db);
   if (!ids.length)
-    return { companies: [], accounts: [], orders: [], offers, ledger: [], credentials: [] };
-  const [accounts, orders, ledger, credentials] = await Promise.all([
+    return { companies: [], agents: [], accounts: [], orders: [], offers, ledger: [], credentials: [] };
+  const [accounts, orders, ledger, credentials, agents] = await Promise.all([
     db
       .from("accounts")
       .select("company_id,available_units,reserved_units,paid_units,received_units")
@@ -133,10 +133,12 @@ export async function workspace(userId: string): Promise<StudioWorkspace> {
       .select("id,company_id,prefix,created_at,revoked_at")
       .in("company_id", ids)
       .order("created_at", { ascending: false }),
+    db.from("agents").select("id,company_id,name,agent_type,model,instructions,active").in("company_id", ids).order("created_at"),
   ]);
-  for (const result of [accounts, orders, ledger, credentials]) check(result.error);
+  for (const result of [accounts, orders, ledger, credentials, agents]) check(result.error);
   return {
     companies: companies.data as StudioCompany[],
+    agents: agents.data ?? [],
     accounts: accounts.data ?? [],
     orders: orders.data as StudioOrder[],
     offers,

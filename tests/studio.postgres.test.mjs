@@ -121,6 +121,11 @@ test("company publication is atomic and idempotent, and registers a real offer",
   const repeated = company(c.user, c.request);
   assert.equal(repeated.companyId, c.companyId);
   assert.equal(balance(c), "100,0,0");
+  const agents = JSON.parse(sql(`SELECT json_agg(a ORDER BY a.agent_type) FROM (SELECT agent_type,model,active FROM agents WHERE company_id='${c.companyId}') a`));
+  assert.deepEqual(agents, [
+    { agent_type: "buyer", model: "reasoning", active: true },
+    { agent_type: "supplier", model: "deterministic", active: true },
+  ]);
   assert.equal(
     sql(`SELECT count(*) FROM offers WHERE company_id='${c.companyId}' AND published`),
     "1",

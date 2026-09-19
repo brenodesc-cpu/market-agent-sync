@@ -70,6 +70,7 @@ export type StudioDetails = {
 };
 export type StudioWorkspace = {
   companies: StudioCompany[];
+  agents: { id: string; company_id: string; name: string; agent_type: string; model: string; instructions: string; active: boolean }[];
   accounts: StudioAccount[];
   orders: StudioOrder[];
   offers: AgentOffer[];

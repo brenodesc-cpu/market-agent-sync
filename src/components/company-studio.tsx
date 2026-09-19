@@ -51,6 +51,7 @@ import {
   revokeAgentKey,
   addReviewClarification,
 } from "@/lib/studio.functions";
+import { withStudioAccess, StudioAccessError, confirmThenRefresh } from "@/lib/studio-access";
 import { ReviewAssistant } from "./review-assistant";
 import "@/studio.css";
 
@@ -68,6 +69,7 @@ const navigation = [
 ] as const;
 const EMPTY_WORKSPACE: StudioWorkspace = {
   companies: [],
+  agents: [],
   accounts: [],
   orders: [],
   offers: [],
@@ -122,12 +124,14 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
   const [sidebar, setSidebar] = useState(false);
   const [user, setUser] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [connectionReady, setConnectionReady] = useState(false);
   const [login, setLogin] = useState(false);
   const [email, setEmail] = useState("");
   const [loginMessage, setLoginMessage] = useState("");
   const [bootstrap, setBootstrap] = useState<Bootstrap>({
     offers: [],
     setupMessage: null,
+    backendConfigured: false,
     neuralakeConfigured: false,
     agoraConfigured: false,
   });
@@ -179,6 +183,8 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
         setDraft(companyDraftSchema.parse(JSON.parse(saved)));
         setStarted(true);
       }
+      const pending = localStorage.getItem("neuramarket:pending-prompt");
+      if (pending) setPrompt(pending);
       const initial = sessionStorage.getItem("neuramarket:initial-prompt");
       if (initial) {
         setPrompt(initial);
@@ -191,17 +197,26 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
       .then((data) => {
         if (alive.current) setBootstrap(data);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (alive.current) setError("Não conseguimos verificar a conexão do estúdio. Recarregue a página antes de continuar.");
+      })
+      .finally(() => { if (alive.current) setConnectionReady(true); });
     void supabase.auth.getSession().then(({ data }) => {
       if (alive.current) {
         setUser(data.session?.user.id ?? null);
         setAuthReady(true);
       }
+    }).catch(() => {
+      if (alive.current) { setAuthReady(true); setError("Não foi possível verificar sua sessão. Entre novamente."); }
     });
     const listener = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user.id ?? null);
       setAuthReady(true);
-      if (session) setLogin(false);
+      if (session) {
+        setLogin(false);
+        setLoginMessage("");
+        setNotice("Você entrou. Envie sua descrição ou publique o rascunho para continuar.");
+      }
     });
     return () => {
       alive.current = false;
@@ -219,6 +234,10 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
   useEffect(() => {
     if (started) localStorage.setItem("neuramarket:company-draft", JSON.stringify(draft));
   }, [draft, started]);
+  useEffect(() => {
+    if (authReady) localStorage.setItem("neuramarket:pending-prompt", prompt);
+  }, [prompt, authReady]);
+  const readiness = { checked: connectionReady && authReady, backendConfigured: bootstrap.backendConfigured, neuralakeConfigured: bootstrap.neuralakeConfigured };
   function navigate(next: View) {
     setView(next);
     setSidebar(false);
@@ -236,62 +255,48 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
     try {
       await work();
     } catch (e) {
+      if (e instanceof StudioAccessError && e.reason === "login") setLogin(true);
       setError(friendlyError(e));
     } finally {
       setBusy("");
     }
   }
   async function buildCompany() {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || busy) return;
     const request = prompt.trim();
-    setPrompt("");
-    setStarted(true);
-    setMessages((current) => [...current, { role: "user", text: request }]);
     await action("draft", async () => {
-      if (user && bootstrap.neuralakeConfigured) {
-        const proposal = await generateCompanyDraft({ data: { prompt: request, current: draft } });
-        setDraft(proposal);
-        publishId.current = "";
-        setMessages((current) => [
-          ...current,
-          {
-            role: "assistant",
-            text: "Preparei a configuração com a NeuraLake. Revise a oferta e o preço na prévia. O serviço de catálogo já possui um executor e critérios de verificação.",
-          },
-        ]);
-      } else {
-        updateDraft({
-          description: request.length >= 10 ? request.slice(0, 1000) : STARTER_DRAFT.description,
-        });
-        setMessages((current) => [
-          ...current,
-          {
-            role: "assistant",
-            text: "O editor está pronto para você configurar sua empresa. Escolha o nome e o preço na prévia. Você pode testar o serviço agora; entre na conta para usar a NeuraLake e publicar.",
-          },
-        ]);
-      }
+      const proposal = await withStudioAccess("draft", readiness, user, () =>
+        generateCompanyDraft({ data: { prompt: request, current: draft } }),
+      );
+      setDraft(proposal);
+      setStarted(true);
+      setPrompt("");
+      publishId.current = "";
+      setMessages((current) => [
+        ...current,
+        { role: "user", text: request },
+        { role: "assistant", text: "A NeuraLake preparou este rascunho. Revise o nome, o serviço e o preço. Ao publicar, criaremos no banco o gerente e o especialista em catálogo da empresa." },
+      ]);
     });
   }
   async function publish() {
-    if (!user) {
-      setLogin(true);
-      return;
-    }
+    if (busy) return;
     await action("publish", async () => {
-      const checked = companyDraftSchema.parse(draft);
-      if (!publishId.current) publishId.current = crypto.randomUUID();
-      const result = await publishCompany({
-        data: { requestId: publishId.current, draft: checked },
+      await withStudioAccess("publish", readiness, user, async () => {
+        const checked = companyDraftSchema.parse(draft);
+        if (!publishId.current) publishId.current = crypto.randomUUID();
+        const { result, refreshFailed } = await confirmThenRefresh(
+          () => publishCompany({ data: { requestId: publishId.current, draft: checked } }),
+          refresh,
+        );
+        setBuyer(result.companyId);
+        setApiCompany(result.companyId);
+        setView("companies");
+        setNotice(refreshFailed
+          ? "Empresa e agentes publicados. A lista não carregou; use Atualizar empresas. A publicação já foi concluída."
+          : "Empresa publicada com seu gerente e seu especialista em catálogo. A oferta já pode receber pedidos e você tem 100 créditos simulados.");
+        localStorage.removeItem("neuramarket:company-draft");
       });
-      await refresh();
-      setBuyer(result.companyId);
-      setApiCompany(result.companyId);
-      setView("companies");
-      setNotice(
-        "Empresa publicada. Seu serviço já pode receber contratações e seu saldo inicial é de 100 créditos simulados.",
-      );
-      localStorage.removeItem("neuramarket:company-draft");
     });
   }
   async function testService(fail: boolean) {
@@ -436,7 +441,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             {view === "builder" ? (
               <button
                 className="studio-primary"
-                disabled={!started || Boolean(busy)}
+                disabled={!started || Boolean(busy) || !readiness.checked}
                 onClick={() => void publish()}
               >
                 {busy === "publish" ? (
@@ -444,7 +449,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                 ) : (
                   <Globe size={16} />
                 )}
-                Publicar empresa
+                {user ? "Publicar empresa" : "Entrar para publicar"}
               </button>
             ) : (
               <button
@@ -484,6 +489,18 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
           </div>
         )}
 
+        {connectionReady && (!bootstrap.backendConfigured || !bootstrap.neuralakeConfigured) && (
+          <div className="studio-connection-notice" role="status">
+            <strong>{!bootstrap.backendConfigured ? "Este endereço permite apenas editar e testar rascunhos" : "A criação com IA está indisponível neste ambiente"}</strong>
+            <p>{!bootstrap.backendConfigured
+              ? "A criação dos agentes e a publicação precisam do servidor conectado. Seu rascunho permanece neste navegador."
+              : "Você pode editar e publicar manualmente. Sua descrição será preservada até a conexão com a NeuraLake estar disponível."}</p>
+            {origin && new URL(origin).hostname !== "market-agent-sync.lovable.app" && (
+              <a className="studio-secondary" href="https://market-agent-sync.lovable.app/studio">Abrir versão online <ArrowRight size={15} /></a>
+            )}
+          </div>
+        )}
+
         {view === "builder" && !started && (
           <div className="studio-welcome">
             <div className="studio-orbit">
@@ -494,7 +511,8 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             <p>
               Descreva o que você quer oferecer.
               <br />
-              Configure seus agentes e publique seu primeiro serviço.
+              Revise a configuração e publique para criar seus agentes.
+              O serviço disponível nesta versão é a organização de catálogos em CSV.
             </p>
             <form
               className="studio-composer welcome-composer"
@@ -515,9 +533,9 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                   <Sparkles size={14} />{" "}
                   {user && bootstrap.neuralakeConfigured
                     ? "NeuraLake"
-                    : "Comece sem configurar nada"}
+                    : !bootstrap.neuralakeConfigured ? "IA indisponível neste ambiente" : "Entre para criar com IA"}
                 </span>
-                <button aria-label="Criar configuração da empresa" disabled={!prompt.trim()}>
+                <button aria-label="Criar configuração da empresa" disabled={!prompt.trim() || Boolean(busy) || !readiness.checked}>
                   <ArrowUp size={20} />
                 </button>
               </div>
@@ -573,8 +591,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               <div className="studio-chat-messages">
                 {messages.length === 0 && (
                   <div className="studio-chat-message assistant">
-                    Seu rascunho foi restaurado. Continue editando ou teste a oferta antes de
-                    publicar.
+                    Seu rascunho foi restaurado. Os agentes serão criados quando você publicar a empresa.
                   </div>
                 )}
                 {messages.map((message, i) => (
@@ -590,7 +607,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                   </div>
                 )}
                 <div className="studio-chat-plan">
-                  <span>O que sua empresa poderá fazer</span>
+                  <span>Depois da publicação</span>
                   <p>
                     <Check size={15} /> Receber pedidos de outros agentes
                   </p>
@@ -685,17 +702,17 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                     <div className="studio-agent-grid">
                       <div>
                         <Bot />
-                        <strong>Gerente</strong>
+                        <strong>Gerente (ao publicar)</strong>
                         <p>Escolhe fornecedores dentro do orçamento.</p>
                       </div>
                       <div>
                         <FileCheck2 />
-                        <strong>Especialista</strong>
+                        <strong>Especialista (ao publicar)</strong>
                         <p>Prepara o catálogo contratado.</p>
                       </div>
                       <div>
                         <ShieldCheck />
-                        <strong>Verificador</strong>
+                        <strong>Verificação da plataforma</strong>
                         <p>Confere a entrega antes do pagamento.</p>
                       </div>
                     </div>
@@ -828,8 +845,9 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             <PageTitle
               eyebrow="SEU ESPAÇO"
               title="Suas empresas"
-              description="Cada empresa tem agentes, uma oferta e seu próprio saldo."
+              description="Veja as empresas publicadas e os agentes registrados no banco."
             />
+            {user && <button className="studio-secondary" disabled={Boolean(busy)} onClick={() => void action("refresh", refresh)}>Atualizar empresas</button>}
             {!user ? (
               <Empty
                 title="Entre para publicar sua primeira empresa"
@@ -858,6 +876,17 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                       </div>
                       <h2>{company.name}</h2>
                       <p>{company.description}</p>
+                      <div className="studio-registered-agents">
+                        <strong>Agentes criados</strong>
+                        {workspace.agents.filter((agent) => agent.company_id === company.id).map((agent) => (
+                          <details key={agent.id}>
+                            <summary>{agent.name} · {agent.active ? "Ativo" : "Inativo"}</summary>
+                            <p>{agent.instructions}</p>
+                            <small>{agent.model === "deterministic" ? "Executor de catálogo" : "NeuraLake · " + agent.model}</small>
+                          </details>
+                        ))}
+                        {!workspace.agents.some((agent) => agent.company_id === company.id) && <p>Nenhum agente registrado para esta empresa.</p>}
+                      </div>
                       <div className="studio-card-balance">
                         <strong>
                           {balance?.available_units ?? 0} <small>créditos</small>
@@ -1479,6 +1508,11 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               description="Veja o que já está disponível e o que precisa ser configurado."
             />
             <div className="studio-integration-card">
+              <span className="studio-agent-icon"><Building2 /></span>
+              <div><h3>Servidor de publicação</h3><p>Cria a empresa e os agentes, salva a oferta e administra os pedidos.</p></div>
+              <span className="studio-tag">{bootstrap.backendConfigured ? "Credenciais configuradas" : "Indisponível neste ambiente"}</span>
+            </div>
+            <div className="studio-integration-card">
               <span className="studio-agent-icon">
                 <FileCheck2 />
               </span>
@@ -1551,7 +1585,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
               disabled={Boolean(busy)}
               onClick={() =>
                 void action("login", async () => {
-                  const result = await lovable.auth.signInWithOAuth("google");
+                  const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/studio" });
                   if (result.error) throw result.error;
                 })
               }

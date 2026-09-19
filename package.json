@@ -4,7 +4,7 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types --test tests/review-*.test.ts tests/review-*.test.mjs tests/a2a-contract.test.ts tests/agora-provider.test.ts",
+    "test": "node --experimental-strip-types --test tests/review-*.test.ts tests/review-*.test.mjs tests/a2a-contract.test.ts tests/agora-provider.test.ts tests/studio-access.test.ts",
     "test:finance": "node --test tests/finance.postgres.test.mjs",
     "dev": "vite dev",
     "build": "vite build",

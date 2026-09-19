@@ -1627,3 +1627,11 @@
     padding: 19px;
   }
 }
+
+.studio-connection-notice { margin: 1rem 1.5rem; padding: 1rem 1.25rem; border: 1px solid #e5d7af; border-radius: 14px; background: #fffbef; color: #55461f; }
+.studio-connection-notice p { margin: .45rem 0 .8rem; font-size: .9rem; line-height: 1.5; }
+.studio-connection-notice a { display: inline-flex; text-decoration: none; }
+.studio-registered-agents { margin: 1rem 0; padding: 1rem; border: 1px solid #e8e5ee; border-radius: 12px; }
+.studio-registered-agents details { padding-top: .7rem; }
+.studio-registered-agents summary { cursor: pointer; font-size: .88rem; }
+.studio-registered-agents small { color: #777080; }
