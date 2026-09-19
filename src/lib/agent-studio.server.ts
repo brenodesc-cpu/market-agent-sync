@@ -15,8 +15,11 @@ export const definitionHash = (spec: AgentDefinition) =>
   createHash("sha256").update(executionIdentity(spec)).digest("hex");
 export async function buildAgent(prompt: string, current?: AgentDefinition) {
   const generated = await neuralakeJson(
-    `Você cria e edita agentes especialistas executáveis por IA na NeuraMarket. Retorne apenas JSON com name, description, serviceTitle, category (Marketing,Vendas,Operações,Conteúdo,Desenvolvimento,Análise,Outro), instructions (instruções completas do especialista), knowledge (conteúdo fornecido pelo dono, nunca inventar), sections (1 a 8 títulos para estruturar a entrega), exampleTask, model (text,reasoning,code), price (1 a 1000), capability="agent.task.v1". Atenda à especialidade solicitada. Ao editar, preserve o que não foi pedido para mudar. As capacidades disponíveis são ler texto fornecido, analisar, escrever, planejar e gerar código/HTML como arquivos. Não há acesso à internet, Instagram, WhatsApp, pagamento real nem publicação de sites pelo agente. Para pedidos que dependem disso, configure a parte de produção do material e declare a dependência na description. Nunca afirme ter conectado uma ferramenta. Não exponha knowledge na descrição pública.`,
+    `Você cria e edita agentes especialistas executáveis por IA na NeuraMarket. Retorne apenas JSON com name, description, serviceTitle, category (Marketing,Vendas,Operações,Conteúdo,Desenvolvimento,Análise,Outro), instructions (instruções completas e objetivas, até 1500 caracteres), knowledge (conteúdo fornecido pelo dono, nunca inventar), sections (1 a 8 títulos para estruturar a entrega), exampleTask, model (use text para escrita e análise simples, code para programação, reasoning apenas para lógica complexa), price (1 a 1000), capability="agent.task.v1". Atenda à especialidade solicitada. Ao editar, preserve o que não foi pedido para mudar. As capacidades disponíveis são ler texto fornecido, analisar, escrever, planejar e gerar código/HTML como arquivos. Não há acesso à internet, Instagram, WhatsApp, pagamento real nem publicação de sites pelo agente. Para pedidos que dependem disso, configure a parte de produção do material e declare a dependência na description. Nunca afirme ter conectado uma ferramenta. Não exponha knowledge na descrição pública.`,
     { prompt, current },
+    "text",
+    fetch,
+    1800,
   );
   return agentDefinitionSchema.parse({
     ...(generated.value as object),
@@ -117,31 +120,27 @@ export async function runPersonalAgent(
     };
   }
   const output = await executeDefinition(spec, task);
-  const saved = await db
-    .from("private_runs")
-    .insert({
-      company_id: companyId,
-      requested_by: userId,
-      request_id: requestId,
-      input_hash: hash,
-      artifact_content: output.content,
-      sha256: output.sha256,
-      report: output.report,
-      duration_ms: output.durationMs,
-    });
+  const saved = await db.from("private_runs").insert({
+    company_id: companyId,
+    requested_by: userId,
+    request_id: requestId,
+    input_hash: hash,
+    artifact_content: output.content,
+    sha256: output.sha256,
+    report: output.report,
+    duration_ms: output.durationMs,
+  });
   if (saved.error && saved.error.code !== "23505")
     throw new Error("Não foi possível guardar a execução.");
   if (saved.error?.code === "23505") return runPersonalAgent(userId, companyId, requestId, task);
-  await db
-    .from("inference_runs")
-    .insert({
-      company_id: companyId,
-      task_type: "private_execution",
-      model_requested: spec.model,
-      status: "completed",
-      duration_ms: output.durationMs,
-      usage_data: output.usage,
-    });
+  await db.from("inference_runs").insert({
+    company_id: companyId,
+    task_type: "private_execution",
+    model_requested: spec.model,
+    status: "completed",
+    duration_ms: output.durationMs,
+    usage_data: output.usage,
+  });
   return { result: output.result, report: output.report, sha256: output.sha256 };
 }
 export async function createAgentOrder(userId: string, request: OrderRequest) {
@@ -191,16 +190,14 @@ export async function createAgentOrder(userId: string, request: OrderRequest) {
       throw new Error(
         "Nenhum especialista da rede atende a esse pedido. Você pode criar um agente para essa capacidade.",
       );
-    await db
-      .from("inference_runs")
-      .insert({
-        company_id: request.buyerCompanyId,
-        task_type: "supplier_selection",
-        model_requested: "reasoning",
-        status: "completed",
-        duration_ms: selection.durationMs,
-        usage_data: selection.usage,
-      });
+    await db.from("inference_runs").insert({
+      company_id: request.buyerCompanyId,
+      task_type: "supplier_selection",
+      model_requested: "reasoning",
+      status: "completed",
+      duration_ms: selection.durationMs,
+      usage_data: selection.usage,
+    });
   }
   return rpc("studio_place_agent_order", {
     _user: userId,
@@ -246,17 +243,15 @@ export async function executeAgentClaim(
       _content: output.content,
       _report: output.report,
     });
-    await db
-      .from("inference_runs")
-      .insert({
-        company_id: entry.data.company_id,
-        order_id: orderId,
-        task_type: "supplier_execution",
-        model_requested: spec.model,
-        status: "completed",
-        duration_ms: output.durationMs,
-        usage_data: output.usage,
-      });
+    await db.from("inference_runs").insert({
+      company_id: entry.data.company_id,
+      order_id: orderId,
+      task_type: "supplier_execution",
+      model_requested: spec.model,
+      status: "completed",
+      duration_ms: output.durationMs,
+      usage_data: output.usage,
+    });
   } catch (error) {
     await rpc("studio_release_execution", { _user: userId, _order: orderId, _token: claim.token });
     throw error;

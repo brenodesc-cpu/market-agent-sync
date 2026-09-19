@@ -92,6 +92,13 @@ test("provider errors never turn into fabricated successful work", async () => {
   process.env.NEURALAKE_API_KEY = "test-only";
   try {
     await assert.rejects(
+      () =>
+        neuralakeJson("s", {}, "reasoning", async () => {
+          throw new Error("timeout");
+        }),
+      /demorou para responder/,
+    );
+    await assert.rejects(
       () => neuralakeJson("s", {}, "reasoning", async () => new Response("", { status: 502 })),
       /não concluiu/,
     );

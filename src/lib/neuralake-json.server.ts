@@ -34,25 +34,33 @@ export async function neuralakeJson(
   input: unknown,
   model = "reasoning",
   fetchImpl: typeof fetch = fetch,
+  maxTokens = 3500,
 ) {
   const key = process.env["NEURALAKE_API_KEY"];
   if (!key) throw new Error("A NeuraLake ainda precisa ser configurada no servidor.");
   const started = Date.now();
-  const response = await fetchImpl("https://api.neuralake.cloud/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(55000),
-    body: JSON.stringify({
-      model,
-      stream: false,
-      max_tokens: 5000,
-      temperature: 0.3,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: JSON.stringify(input) },
-      ],
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetchImpl("https://api.neuralake.cloud/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(55000),
+      body: JSON.stringify({
+        model,
+        stream: false,
+        max_tokens: maxTokens,
+        temperature: 0.3,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: JSON.stringify(input) },
+        ],
+      }),
+    });
+  } catch {
+    throw new Error(
+      "A NeuraLake demorou para responder ou a conexão foi interrompida. Tente novamente.",
+    );
+  }
   if (!response.ok)
     throw new Error("A NeuraLake não concluiu a execução. Você pode tentar novamente.");
   const payload = await response.json();
