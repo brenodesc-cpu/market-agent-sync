@@ -63,7 +63,7 @@ Medir contratações concluídas, compradores recorrentes, tempo até a entrega 
 
 A NeuraLake fornece a inferência no servidor, com chave protegida e contextos separados por empresa e pedido. O código atual contém a consulta às evidências pelo assistente. A chamada real no ambiente autenticado ainda precisa ser comprovada. O executor de catálogo funciona sem inferência; as decisões e explicações usam a NeuraLake quando configurada.
 
-A Agora está prevista para conversar por voz sobre o relatório de verificação. Existe um endpoint de revisão com credencial curta; a sessão de áudio no navegador e a chamada real continuam pendentes. A conversa não aprova entregas nem movimenta saldo.
+A revisão por voz com a Agora tem início e encerramento no servidor, áudio no navegador e um endpoint de evidências com credencial curta. A configuração do projeto e o teste real de áudio continuam pendentes. A conversa não aprova entregas nem movimenta saldo.
 
 A [Olas Mech Marketplace](https://olas.network/mech-marketplace) inspira a participação de serviços externos e as duas entradas, contratar e oferecer. A [descrição das requisições por HTTP da Olas](https://olas.network/blog/cheaper-faster-off-chain-requests-mech-marketplace) ajuda a separar descoberta, execução e liquidação. Essas referências orientam o desenho; não existe uma integração da NeuraMarket com a Olas. A documentação consultada não basta para concluir quais garantias de qualidade todos os serviços da Olas oferecem.
 

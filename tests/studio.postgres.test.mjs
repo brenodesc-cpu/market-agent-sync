@@ -1,6 +1,6 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { randomUUID, createHash } from "node:crypto";
 import {
@@ -242,4 +242,33 @@ test("retry keeps the original order even when an AI would select another suppli
   );
   assert.equal(again.orderId, o.orderId);
   assert.equal(balance(o), "88,12,0");
+});
+
+test("a concurrent cancellation and settlement cannot refund and pay the same reservation", async () => {
+  const o = order();
+  record(o, claim(o));
+  const concurrentSql = (statement) =>
+    new Promise((resolve, reject) => {
+      const process = spawn("psql", args, { stdio: ["pipe", "pipe", "pipe"] });
+      let output = "",
+        error = "";
+      process.stdout.on("data", (v) => (output += v));
+      process.stderr.on("data", (v) => (error += v));
+      process.on("error", reject);
+      process.on("close", (code) => (code === 0 ? resolve(output) : reject(new Error(error))));
+      process.stdin.end(statement);
+    });
+  const results = await Promise.allSettled([
+    concurrentSql(`SELECT studio_cancel_order('${o.user}','${o.orderId}');`),
+    concurrentSql(`SELECT settle_verified_order('${o.orderId}','racing-call');`),
+  ]);
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  const status = sql(`SELECT status FROM orders WHERE id='${o.orderId}'`);
+  assert.equal(balance(o), status === "settled" ? "88,0,12" : "100,0,0");
+  assert.equal(
+    sql(
+      `SELECT count(*) FROM ledger_entries WHERE order_id='${o.orderId}' AND entry_type IN ('payment','refund')`,
+    ),
+    "1",
+  );
 });
