@@ -84,6 +84,34 @@ export const agentResultSchema = z
   })
   .strict();
 export type AgentResult = z.infer<typeof agentResultSchema>;
+
+export function normalizeAgentResult(value: unknown, expectedSections: string[]) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const source = value as Record<string, unknown>;
+  const rawSections = Array.isArray(source.sections) ? source.sections : [];
+  const sections = rawSections.map((entry, index) => {
+    if (typeof entry === "string")
+      return { heading: expectedSections[index] ?? `Parte ${index + 1}`, content: entry };
+    if (!entry || typeof entry !== "object") return entry;
+    const section = entry as Record<string, unknown>;
+    return {
+      heading:
+        expectedSections[index] ??
+        (typeof section.heading === "string" ? section.heading : section.title),
+      content: typeof section.content === "string" ? section.content : section.text,
+    };
+  });
+  return {
+    title:
+      typeof source.title === "string"
+        ? source.title
+        : typeof source.name === "string"
+          ? source.name
+          : "Entrega do agente",
+    sections,
+    artifacts: Array.isArray(source.artifacts) ? source.artifacts : [],
+  };
+}
 export function agentCriteria(sections: string[]) {
   return [
     { criterion: "Formato da entrega", expected: "agent.result.v1" },

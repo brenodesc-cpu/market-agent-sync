@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   Bot,
@@ -55,12 +55,13 @@ type View =
   "mission" | "builder" | "companies" | "market" | "orders" | "wallet" | "api" | "integrations";
 type Bootstrap = Awaited<ReturnType<typeof getStudioBootstrap>>;
 const navigation = [
-  { id: "mission", label: "Meu agente", icon: Bot },
   { id: "builder", label: "Criar agente", icon: Plus },
   { id: "companies", label: "Meus agentes", icon: Building2 },
   { id: "market", label: "Marketplace", icon: Store },
   { id: "orders", label: "Pedidos", icon: FileCheck2 },
-  { id: "wallet", label: "Carteira", icon: Wallet },
+] as const;
+const accountNavigation = [
+  { id: "wallet", label: "Créditos", icon: Wallet },
   { id: "api", label: "Conectar agentes", icon: KeyRound },
   { id: "integrations", label: "Integrações", icon: Settings2 },
 ] as const;
@@ -117,7 +118,14 @@ function friendlyError(error: unknown) {
     ? message
     : "Não foi possível concluir. Seus dados permanecem disponíveis; tente novamente.";
 }
-export function CompanyStudio({ initialView = "builder" }: { initialView?: View }) {
+export function CompanyStudio({
+  initialView = "builder",
+  initialCompany,
+}: {
+  initialView?: View;
+  initialCompany?: string;
+}) {
+  const routeNavigate = useNavigate();
   const [view, setView] = useState<View>(initialView);
   const [sidebar, setSidebar] = useState(false);
   const [user, setUser] = useState<string | null>(null);
@@ -137,7 +145,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [buyer, setBuyer] = useState("");
+  const [buyer, setBuyer] = useState(initialCompany ?? "");
   const [order, setOrder] = useState<StudioDetails | null>(null);
   const [note, setNote] = useState("");
   const [credential, setCredential] = useState("");
@@ -147,13 +155,22 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
   const activeUser = useRef(user);
   activeUser.current = user;
 
+  useEffect(() => {
+    setView(initialView);
+    if (initialCompany) setBuyer(initialCompany);
+  }, [initialView, initialCompany]);
+
   async function refresh() {
     const requestedBy = activeUser.current;
     const data = await getStudioWorkspace();
     if (!alive.current || requestedBy !== activeUser.current) return;
     setWorkspace(data);
     setBuyer((current) =>
-      data.companies.some((c) => c.id === current) ? current : (data.companies[0]?.id ?? ""),
+      data.companies.some((c) => c.id === current)
+        ? current
+        : (data.companies.find((c) => c.kind === "ai-specialist")?.id ??
+          data.companies[0]?.id ??
+          ""),
     );
     setApiCompany((current) =>
       data.companies.some((c) => c.id === current) ? current : (data.companies[0]?.id ?? ""),
@@ -206,7 +223,6 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
       if (session) {
         setLogin(false);
         setLoginMessage("");
-        setNotice("Você entrou. Envie sua descrição ou publique o rascunho para continuar.");
       }
     });
     return () => {
@@ -227,8 +243,17 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
     backendConfigured: bootstrap.backendConfigured,
     neuralakeConfigured: bootstrap.neuralakeConfigured,
   };
-  function navigate(next: View) {
+  function navigate(next: View, companyId?: string) {
     setView(next);
+    if (companyId) setBuyer(companyId);
+    void routeNavigate({
+      to: "/studio",
+      search: {
+        view: next,
+        company:
+          next === "mission" || next === "market" ? companyId || buyer || undefined : undefined,
+      },
+    });
     setSidebar(false);
     setError("");
     setNotice("");
@@ -249,7 +274,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
   async function loadOrder(id: string) {
     await action("load-order", async () => {
       setOrder(await getStudioOrder({ data: { orderId: id } }));
-      setView("orders");
+      navigate("orders");
     });
   }
   async function execute() {
@@ -301,11 +326,12 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             </small>
           </div>
         </div>
-        <nav>
+        <nav aria-label="Navegação principal">
           {navigation.map((item) => (
             <button
               key={item.id}
               className={view === item.id ? "active" : ""}
+              aria-current={view === item.id ? "page" : undefined}
               onClick={() => navigate(item.id)}
             >
               <item.icon size={17} />
@@ -316,7 +342,42 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             </button>
           ))}
         </nav>
+        {workspace.companies.length > 0 && (
+          <div className="studio-recent">
+            <span>SEUS AGENTES</span>
+            {workspace.companies.slice(0, 5).map((company) => (
+              <button
+                key={company.id}
+                className={view === "mission" && buyer === company.id ? "active" : ""}
+                onClick={() => navigate("mission", company.id)}
+              >
+                <span>{company.name[0]}</span>
+                <strong>{company.name}</strong>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="studio-sidebar-bottom">
+          <details
+            className="studio-account-settings"
+            open={accountNavigation.some((item) => item.id === view) || undefined}
+          >
+            <summary>
+              <Settings2 size={16} /> Configurações
+            </summary>
+            <nav aria-label="Configurações">
+              {accountNavigation.map((item) => (
+                <button
+                  key={item.id}
+                  className={view === item.id ? "active" : ""}
+                  onClick={() => navigate(item.id)}
+                >
+                  <item.icon size={16} />
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          </details>
           <div className="studio-credit-note">
             <ShieldCheck size={17} />
             <div>
@@ -341,13 +402,21 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             </button>
             <span>Meu espaço</span>
             <ChevronRight size={14} />
-            <strong>{navigation.find((item) => item.id === view)?.label}</strong>
+            <strong>
+              {view === "mission"
+                ? workspace.companies.find((c) => c.id === buyer)?.name || "Usar agente"
+                : [...navigation, ...accountNavigation].find((item) => item.id === view)?.label}
+            </strong>
           </div>
           <div className="studio-header-actions">
-            <button className="studio-secondary" onClick={() => navigate("builder")}>
-              <Plus size={16} />
-              Criar agente
-            </button>
+            {view === "builder" ? (
+              <span className="studio-header-hint">Descreva uma ideia para começar</span>
+            ) : (
+              <button className="studio-secondary" onClick={() => navigate("builder")}>
+                <Plus size={16} />
+                Criar agente
+              </button>
+            )}
           </div>
         </header>
         {(error || notice) && (
@@ -399,11 +468,11 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             onSaved={async (id, published) => {
               setBuyer(id);
               setApiCompany(id);
-              setView("companies");
+              navigate("mission", id);
               setNotice(
                 published
                   ? "Agente publicado. Ele já pode receber pedidos no marketplace."
-                  : "Agente salvo. Use Meu agente para executar tarefas ou contratar especialistas.",
+                  : "Agente salvo. Escreva uma tarefa para começar a usar.",
               );
               try {
                 await refresh();
@@ -459,53 +528,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                         </span>
                       </div>
                       <h2>{company.name}</h2>
-                      <button
-                        className="studio-text-button"
-                        onClick={() => {
-                          setBuyer(company.id);
-                          navigate("mission");
-                        }}
-                      >
-                        Usar meu agente
-                      </button>
-                      {company.visibility === "commercial" && (
-                        <button
-                          className="studio-text-button"
-                          disabled={!!busy}
-                          onClick={() =>
-                            void action("visibility", async () => {
-                              await setCompanyCommercial({
-                                data: { companyId: company.id, enabled: false },
-                              });
-                              await refresh();
-                            })
-                          }
-                        >
-                          Retirar oferta do marketplace
-                        </button>
-                      )}
                       <p>{company.description}</p>
-                      <div className="studio-registered-agents">
-                        <strong>Agentes criados</strong>
-                        {workspace.agents
-                          .filter((agent) => agent.company_id === company.id)
-                          .map((agent) => (
-                            <details key={agent.id}>
-                              <summary>
-                                {agent.name} · {agent.active ? "Ativo" : "Inativo"}
-                              </summary>
-                              <p>{agent.instructions}</p>
-                              <small>
-                                {agent.model === "deterministic"
-                                  ? "Executor de catálogo"
-                                  : "NeuraLake · " + agent.model}
-                              </small>
-                            </details>
-                          ))}
-                        {!workspace.agents.some((agent) => agent.company_id === company.id) && (
-                          <p>Nenhum agente registrado para esta empresa.</p>
-                        )}
-                      </div>
                       <div className="studio-card-balance">
                         <strong>
                           {balance?.available_units ?? 0} <small>créditos</small>
@@ -514,13 +537,29 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                       </div>
                       <button
                         className="studio-primary"
-                        onClick={() => {
-                          setBuyer(company.id);
-                          navigate("market");
-                        }}
+                        onClick={() => navigate("mission", company.id)}
                       >
-                        Contratar um serviço <ArrowRight size={16} />
+                        Abrir agente <ArrowRight size={16} />
                       </button>
+                      {company.visibility === "commercial" && (
+                        <details className="studio-agent-options">
+                          <summary>Gerenciar publicação</summary>
+                          <button
+                            className="studio-text-button"
+                            disabled={!!busy}
+                            onClick={() =>
+                              void action("visibility", async () => {
+                                await setCompanyCommercial({
+                                  data: { companyId: company.id, enabled: false },
+                                });
+                                await refresh();
+                              })
+                            }
+                          >
+                            Retirar do marketplace
+                          </button>
+                        </details>
+                      )}
                     </article>
                   );
                 })}
@@ -531,7 +570,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
 
         {(view === "mission" || view === "market") && (
           <AgentMarket
-            key={`${view}:${user ?? "visitor"}`}
+            key={`${view}:${user ?? "visitor"}:${buyer}`}
             mode={view}
             initialCompany={buyer}
             workspace={{ ...workspace, offers }}
@@ -541,7 +580,7 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
             onRefresh={refresh}
             onOrder={(detail) => {
               setOrder(detail);
-              setView("orders");
+              navigate("orders");
             }}
           />
         )}

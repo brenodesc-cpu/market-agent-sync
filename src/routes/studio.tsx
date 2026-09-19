@@ -3,6 +3,7 @@ import { z } from "zod";
 import { CompanyStudio } from "@/components/company-studio";
 export const Route = createFileRoute("/studio")({
   validateSearch: z.object({
+    company: z.string().optional(),
     view: z
       .enum([
         "mission",
@@ -18,7 +19,7 @@ export const Route = createFileRoute("/studio")({
   }),
   head: () => ({ meta: [{ title: "Estúdio de agentes | NeuraMarket" }] }),
   component: () => {
-    const { view } = Route.useSearch();
-    return <CompanyStudio key={view ?? "builder"} initialView={view ?? "builder"} />;
+    const { view, company } = Route.useSearch();
+    return <CompanyStudio initialView={view ?? "builder"} initialCompany={company} />;
   },
 });

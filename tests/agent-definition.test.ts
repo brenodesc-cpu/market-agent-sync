@@ -6,6 +6,7 @@ import {
   verifyAgentResult,
   agentResultSchema,
   parseGeneratedDefinition,
+  normalizeAgentResult,
 } from "../src/lib/agent-definition.ts";
 import { orderRequestSchema } from "../src/lib/a2a-contract.ts";
 import { extractJson, neuralakeJson } from "../src/lib/neuralake-json.server.ts";
@@ -151,4 +152,22 @@ test("a short but nonempty section passes presence verification while whitespace
     ).decision,
     "rejected",
   );
+});
+
+test("provider output is normalized before strict verification", () => {
+  const normalized = normalizeAgentResult(
+    {
+      name: "Resposta útil",
+      sections: [{ title: "ignored", text: "Primeira parte" }, "Segunda parte"],
+      commentary: "ignored",
+    },
+    spec.sections,
+  );
+  const parsed = agentResultSchema.parse(normalized);
+  assert.equal(parsed.title, "Resposta útil");
+  assert.deepEqual(
+    parsed.sections.map((section) => section.heading),
+    spec.sections,
+  );
+  assert.deepEqual(parsed.artifacts, []);
 });

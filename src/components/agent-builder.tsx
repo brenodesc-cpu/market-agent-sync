@@ -167,6 +167,17 @@ export function AgentBuilder({
             Use seu agente ou publique para receber contratações.
           </p>
           {composer}
+          <div className="agent-steps" aria-label="Como criar um agente">
+            <span>
+              <b>1</b> Descreva
+            </span>
+            <span>
+              <b>2</b> Teste
+            </span>
+            <span>
+              <b>3</b> Salve ou publique
+            </span>
+          </div>
           <div className="agent-examples">
             {AGENT_EXAMPLES.map((text, i) => (
               <button key={text} disabled={!!busy} onClick={() => setPrompt(text)}>
@@ -201,6 +212,10 @@ export function AgentBuilder({
                 <small>Construa por conversa</small>
               </div>
             </header>
+            <p className="agent-conversation-help">
+              Use esta conversa para ajustar como o agente trabalha. Para pedir um trabalho, use a
+              prévia ao lado.
+            </p>
             <div className="agent-messages">
               {messages.map((m, i) => (
                 <div key={i} className={`agent-message ${m.role}`}>
