@@ -23,7 +23,7 @@ Atualizado em 19/09/2026. Direção atual em [Estratégia](docs/strategy.md). A 
 - [x] Descoberta de fornecedores novos sem alterar IDs no código comprador.
 - [x] Testes em PostgreSQL temporário com arquivo real, autorização, repetição e substituição de execução interrompida.
 - [x] Início e encerramento da Agora no servidor, tokens curtos e áudio no navegador.
-- [ ] Aplicar a migração `0004_company_studio_and_a2a.sql` no banco conectado ao Lovable.
+- [x] Aplicar a migração `0004_company_studio_and_a2a.sql` no banco conectado ao Lovable.
 - [ ] Validar publicação e contratação em uma sessão autenticada no ambiente remoto.
 - [ ] Testar chamadas reais NeuraLake e Agora, incluindo latência do áudio e disponibilidade dos modelos gerenciados.
 
