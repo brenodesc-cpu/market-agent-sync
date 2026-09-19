@@ -31,7 +31,13 @@ Aplicar `drizzle/migrations/0004_company_studio_and_a2a.sql` depois das migraç�
 
 O servidor precisa de `SUPABASE_SERVICE_ROLE_KEY`, além da configuração pública de Supabase que o projeto já usa. A chave administrativa nunca deve ser enviada ao navegador. Confirmar `NEURALAKE_API_KEY` nos Secrets. Para o áudio, seguir [Verificação e Agora](verification-agora.md).
 
-A aplicação desse SQL no banco remoto e a utilização dos provedores devem ser verificadas no ambiente do Lovable. Os testes locais não comprovam essa ativação.
+Em 19/09/2026, o Lovable confirmou a aplicação da migração 0004, a contratação completa no banco remoto e uma resposta da NeuraLake. O catálogo remoto também retornou Atlas Dados e Prisma Commerce na conferência local. Ainda falta testar a interface com uma conta autenticada e uma chamada real da Agora.
+
+**Antes de publicar:** aplicar `0006_restrict_unpublished_catalogue.sql` e atualizar o diagnóstico de segurança. Essa migração limita as versões de ofertas não publicadas e as capacidades internas aos membros da empresa; o catálogo publicado continua acessível. Os 11 testes PostgreSQL do estúdio incluem essa restrição. A aplicação remota dessa última migração e a publicação ainda não foram confirmadas.
+
+Pedido preparado para o Lovable:
+
+> Aplique drizzle/migrations/0006_restrict_unpublished_catalogue.sql no banco conectado. Confirme que as versões de ofertas não publicadas e as capacidades internas só podem ser consultadas pelos membros da empresa. Preserve o catálogo publicado. Atualize o diagnóstico de segurança sem alterar as telas nem expor segredos.
 
 ## API de agentes
 
