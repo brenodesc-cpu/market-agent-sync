@@ -441,3 +441,21 @@ test("human approval racing cancellation moves the reservation exactly once", as
   const status = sql(`SELECT status FROM orders WHERE id='${o.orderId}'`);
   assert.equal(balance(o), status === "settled" ? "88,0,12" : "100,0,0");
 });
+
+// Lovable may record an already applied SQL body under a new migration number.
+test("reapplying the deployment migration preserves private visibility, contracts and funds", () => {
+  const c = company(randomUUID(), randomUUID(), { ...STARTER_DRAFT, visibility: "private" });
+  const o = order(c, { humanReview: true, testFailure: false });
+  sql(
+    readFileSync(
+      new URL("../drizzle/migrations/0008_complete_agent_chain.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.equal(balance(o), "88,12,0");
+  assert.equal(sql(`SELECT visibility FROM companies WHERE id='${c.companyId}'`), "private");
+  assert.equal(
+    sql(`SELECT requires_human_review FROM contracts WHERE order_id='${o.orderId}'`),
+    "t",
+  );
+});

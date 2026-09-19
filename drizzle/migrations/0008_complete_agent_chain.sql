@@ -1,20 +1,22 @@
 -- Complete the human checkpoint and separate private companies from published services.
-ALTER TABLE public.companies ADD COLUMN visibility text NOT NULL DEFAULT 'commercial' CHECK(visibility IN ('private','commercial'));
-ALTER TABLE public.contracts ADD COLUMN requires_human_review boolean NOT NULL DEFAULT false;
-CREATE TABLE public.human_reviews (
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'commercial' CHECK(visibility IN ('private','commercial'));
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS requires_human_review boolean NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS public.human_reviews (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id uuid NOT NULL REFERENCES public.orders(id),
  delivery_id uuid NOT NULL REFERENCES public.deliveries(id), report_id uuid NOT NULL REFERENCES public.verification_reports(id),
  sha256 text NOT NULL, reviewed_by uuid NOT NULL, decision text NOT NULL CHECK(decision IN ('approved','rejected')),
  note text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(delivery_id)
 );
 ALTER TABLE public.human_reviews ENABLE ROW LEVEL SECURITY;
+DROP TRIGGER IF EXISTS human_reviews_immutable ON public.human_reviews;
 CREATE TRIGGER human_reviews_immutable BEFORE UPDATE OR DELETE ON public.human_reviews FOR EACH ROW EXECUTE FUNCTION public.prevent_immutable_changes();
 GRANT ALL ON public.human_reviews TO service_role;
+DROP POLICY IF EXISTS human_reviews_members ON public.human_reviews;
 CREATE POLICY human_reviews_members ON public.human_reviews FOR SELECT TO authenticated USING(EXISTS(
  SELECT 1 FROM public.orders o WHERE o.id=order_id AND (public.is_company_member(o.buyer_company_id,auth.uid()) OR public.is_company_member(o.supplier_company_id,auth.uid()))
 ));
 GRANT SELECT ON public.human_reviews TO authenticated;
-CREATE TABLE public.private_runs (
+CREATE TABLE IF NOT EXISTS public.private_runs (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid NOT NULL REFERENCES public.companies(id),
  requested_by uuid NOT NULL, request_id uuid NOT NULL, input_hash text NOT NULL, artifact_content text NOT NULL,
  sha256 text NOT NULL, report jsonb NOT NULL, duration_ms integer NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
@@ -23,6 +25,7 @@ CREATE TABLE public.private_runs (
 ALTER TABLE public.private_runs ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON public.private_runs TO service_role;
 GRANT SELECT ON public.private_runs TO authenticated;
+DROP POLICY IF EXISTS private_runs_owner ON public.private_runs;
 CREATE POLICY private_runs_owner ON public.private_runs FOR SELECT TO authenticated USING(requested_by=auth.uid());
 
 CREATE OR REPLACE FUNCTION public.studio_create_company(_user uuid,_request uuid,_config jsonb)

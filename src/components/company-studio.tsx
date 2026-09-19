@@ -1326,8 +1326,11 @@ export function CompanyStudio({ initialView = "builder" }: { initialView?: View 
                       <div className="studio-section-card">
                         <h3>Seu aceite libera o pagamento</h3>
                         <p>
-                          Confira o arquivo e as evidências. Você pode conversar com a Agora abaixo
-                          antes de decidir. O aceite vale apenas para esta versão.
+                          Confira o arquivo e as evidências.{" "}
+                          {bootstrap?.agoraConfigured
+                            ? "Você pode conversar por voz antes de decidir."
+                            : "O assistente de texto pode explicar as evidências."}{" "}
+                          O aceite vale apenas para esta versão.
                         </p>
                         {order.humanReviews
                           ?.filter((r) => r.delivery_id === currentDelivery.id)
