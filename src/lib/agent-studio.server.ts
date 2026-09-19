@@ -12,6 +12,7 @@ import type { AgentDefinition } from "./agent-definition";
 import { neuralakeJson } from "./neuralake-json.server";
 import { runtimeDb, ownedCompany, rpc, catalogueOffers } from "./studio-runtime.server";
 import type { OrderRequest } from "./a2a-contract";
+import type { StudioDetails } from "./studio.types";
 
 export const definitionHash = (spec: AgentDefinition) =>
   createHash("sha256").update(executionIdentity(spec)).digest("hex");
@@ -163,6 +164,128 @@ export async function runPersonalAgent(
     usage_data: output.usage,
   });
   return { result: output.result, report: output.report, sha256: output.sha256 };
+}
+
+export async function runAutonomousMission(
+  userId: string,
+  companyId: string,
+  requestId: string,
+  task: string,
+  budget: number,
+) {
+  const company = await ownedCompany(userId, companyId);
+  const db = await runtimeDb();
+  const definition = await db
+    .from("agent_definitions")
+    .select("definition")
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (definition.error) throw new Error("Não foi possível ler as capacidades do seu agente.");
+  const own = definition.data ? agentDefinitionSchema.parse(definition.data.definition) : null;
+  const offers = (await catalogueOffers(db)).filter(
+    (offer) =>
+      offer.capability === AGENT_CAPABILITY &&
+      offer.companyId !== companyId &&
+      offer.price <= budget,
+  );
+  if (!own && !offers.length)
+    throw new Error(
+      "Ainda não há uma capacidade interna ou um especialista publicado para esta missão.",
+    );
+
+  let mode: "internal" | "network" = own ? "internal" : "network";
+  let offerVersionId = offers[0]?.id;
+  let reason = own
+    ? `${company.name} possui uma capacidade interna compatível para tentar a missão.`
+    : "A missão exige uma contratação na rede.";
+  if (own && offers.length) {
+    try {
+      const route = z
+        .object({
+          mode: z.enum(["internal", "network"]),
+          offerVersionId: z.string().uuid().nullable(),
+          reason: z.string().trim().min(3).max(700),
+        })
+        .parse(
+          (
+            await neuralakeJson(
+              'Você é o gestor de uma empresa de agentes. Decida se a capacidade interna consegue executar a missão ou se deve contratar uma oferta externa. Considere especialidade, preço e orçamento. Retorne apenas JSON {"mode":"internal|network","offerVersionId":"UUID ou null","reason":"motivo breve"}. Escolha somente IDs fornecidos.',
+              {
+                task,
+                budget,
+                internal: {
+                  name: own.name,
+                  description: own.description,
+                  serviceTitle: own.serviceTitle,
+                  category: own.category,
+                },
+                offers: offers.map((offer) => ({
+                  id: offer.id,
+                  company: offer.companyName,
+                  title: offer.title,
+                  description: offer.description,
+                  category: offer.category,
+                  price: offer.price,
+                })),
+              },
+              "text",
+              fetch,
+              700,
+            )
+          ).value,
+        );
+      if (route.mode === "network" && offers.some((offer) => offer.id === route.offerVersionId)) {
+        mode = "network";
+        offerVersionId = route.offerVersionId!;
+      } else mode = "internal";
+      reason = route.reason;
+    } catch {
+      reason += " O roteador não concluiu a comparação; foi usada a capacidade interna.";
+    }
+  }
+
+  if (mode === "internal") {
+    const execution = await runPersonalAgent(userId, companyId, requestId, task);
+    return {
+      mode,
+      reason,
+      result: execution.result,
+      order: null as StudioDetails | null,
+      trace: [
+        "Meta recebida",
+        "Capacidades internas e ofertas comparadas",
+        "Execução atribuída ao agente interno",
+        "Entrega verificada",
+      ],
+    };
+  }
+
+  const created = await createAgentOrder(userId, {
+    buyerCompanyId: companyId,
+    title: task.trim().slice(0, 120),
+    task,
+    budget,
+    offerVersionId,
+    testFailure: false,
+    autoCorrect: true,
+    humanReview: true,
+    requestId,
+  });
+  const { runOrder } = await import("./studio-runtime.server");
+  const order = await runOrder(userId, created.orderId);
+  return {
+    mode,
+    reason,
+    result: null,
+    order,
+    trace: [
+      "Meta recebida",
+      "Capacidades internas e ofertas comparadas",
+      "Especialista contratado dentro do orçamento",
+      "Entrega executada e verificada",
+      "Pagamento aguardando aceite",
+    ],
+  };
 }
 export async function createAgentOrder(userId: string, request: OrderRequest) {
   await ownedCompany(userId, request.buyerCompanyId);

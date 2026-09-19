@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, ArrowRight, Sparkles, Search, LoaderCircle, ShieldCheck } from "lucide-react";
 import { AGENT_CAPABILITY, type AgentResult } from "@/lib/agent-definition";
-import { runStudioAgent } from "@/lib/agent-studio.functions";
+import { runAutonomousStudioMission, runStudioAgent } from "@/lib/agent-studio.functions";
 import {
   placeStudioOrder,
   executeStudioOrder,
@@ -38,6 +38,12 @@ export function AgentMarket({
     [busy, setBusy] = useState(""),
     [error, setError] = useState("");
   const [result, setResult] = useState<AgentResult | null>(null);
+  const [mission, setMission] = useState<{
+    mode: "internal" | "network";
+    reason: string;
+    trace: string[];
+    order: StudioDetails | null;
+  } | null>(null);
   const request = useRef({ key: "", id: "", orderId: "" });
   const selected = workspace.companies.find((c) => c.id === company);
   const offers = workspace.offers.filter((o) => o.capability === AGENT_CAPABILITY);
@@ -47,7 +53,7 @@ export function AgentMarket({
     if (!workspace.companies.some((c) => c.id === company))
       setCompany(workspace.companies[0]?.id ?? "");
   }, [workspace.companies, company]);
-  async function run(kind: "personal" | "hire") {
+  async function run(kind: "personal" | "hire" | "autonomous") {
     if (!signedIn) {
       onLogin();
       return;
@@ -63,7 +69,18 @@ export function AgentMarket({
     if (request.current.key !== key)
       request.current = { key, id: crypto.randomUUID(), orderId: "" };
     try {
-      if (kind === "personal") {
+      if (kind === "autonomous") {
+        const value = await runAutonomousStudioMission({
+          data: { companyId: company, requestId: request.current.id, task, budget },
+        });
+        setResult(value.result);
+        setMission({
+          mode: value.mode,
+          reason: value.reason,
+          trace: value.trace,
+          order: value.order,
+        });
+      } else if (kind === "personal") {
         const value = await runStudioAgent({
           data: { companyId: company, requestId: request.current.id, task },
         });
@@ -115,7 +132,7 @@ export function AgentMarket({
         <p>
           {mode === "market"
             ? "Conheça os serviços da rede ou deixe seu agente escolher quem contratar."
-            : "Use seu especialista ou peça que ele contrate outro agente dentro do seu orçamento."}
+            : "Dê uma meta e um orçamento. O gestor decide se executa internamente ou contrata um especialista."}
         </p>
       </div>
       <div className="agent-market-columns">
@@ -142,7 +159,7 @@ export function AgentMarket({
             </select>
           </label>
           <label>
-            Descreva o trabalho
+            {mode === "mission" ? "Qual é a meta?" : "Descreva o trabalho"}
             <textarea
               maxLength={12000}
               placeholder="Preciso de uma proposta comercial para uma loja de roupas. O serviço é gestão de redes sociais, custa R$ 2.000 por mês e começa em outubro..."
@@ -151,88 +168,115 @@ export function AgentMarket({
               disabled={!!busy}
             />
           </label>
-          {mode === "mission" && selected?.kind === "ai-specialist" && (
-            <button
-              className="studio-secondary"
-              disabled={!!busy || task.trim().length < 10}
-              onClick={() => void run("personal")}
-            >
-              <Bot size={16} />
-              Executar com meu agente
-            </button>
-          )}
-          <div className="agent-hire-box">
-            <h3>
-              <Sparkles size={17} /> Contratar na rede
-            </h3>
-            <label>
-              Quem executa?
-              <select
-                value={offerId}
-                onChange={(e) => setOfferId(e.target.value)}
-                disabled={!!busy}
+          {mode === "mission" ? (
+            <div className="agent-hire-box autonomous-run">
+              <label>
+                Orçamento máximo
+                <input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  value={budget}
+                  onChange={(e) => setBudget(Number(e.target.value))}
+                  disabled={!!busy}
+                />
+              </label>
+              <small>Saldo disponível: {balance} créditos simulados.</small>
+              <button
+                className="studio-primary"
+                disabled={!!busy || task.trim().length < 10 || !company || budget < 1}
+                onClick={() => void run("autonomous")}
               >
-                <option value="">Meu agente escolhe o especialista</option>
-                {offers
-                  .filter((o) => o.companyId !== company)
-                  .map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.companyName} · {o.price} créditos
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label>
-              Orçamento máximo
-              <input
-                type="number"
-                min={1}
-                max={10000}
-                value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
-                disabled={!!busy}
-              />
-            </label>
-            <small>
-              Saldo disponível: {balance} créditos simulados.
-              {chosen
-                ? ` Esta oferta custa ${chosen.price}.`
-                : " O preço da oferta escolhida será reservado."}
-            </small>
-            <button
-              className="studio-primary"
-              disabled={
-                !!busy ||
-                (signedIn &&
-                  !!company &&
-                  (task.trim().length < 10 ||
-                    !Number.isInteger(budget) ||
-                    budget < 1 ||
-                    budget > 10000 ||
-                    (!!chosen && chosen.price > budget)))
-              }
-              onClick={() => void run("hire")}
-            >
-              {busy ? (
-                <LoaderCircle className="animate-spin" size={16} />
-              ) : (
-                <ArrowRight size={16} />
-              )}{" "}
-              {signedIn
-                ? company
-                  ? "Contratar e executar"
-                  : "Criar meu agente"
-                : "Entrar para contratar"}
-            </button>
-            <p>
-              <ShieldCheck size={15} />O pagamento exige a verificação e o seu aceite.
-            </p>
-          </div>
+                {busy ? (
+                  <LoaderCircle className="animate-spin" size={16} />
+                ) : (
+                  <Sparkles size={16} />
+                )}
+                {signedIn
+                  ? company
+                    ? "Executar missão"
+                    : "Criar meu agente"
+                  : "Entrar para executar"}
+              </button>
+              <p>
+                <ShieldCheck size={15} />O gestor escolhe, contrata e verifica. Você aprova o
+                pagamento.
+              </p>
+            </div>
+          ) : (
+            <div className="agent-hire-box">
+              <h3>
+                <Sparkles size={17} /> Contratar na rede
+              </h3>
+              <label>
+                Quem executa?
+                <select
+                  value={offerId}
+                  onChange={(e) => setOfferId(e.target.value)}
+                  disabled={!!busy}
+                >
+                  <option value="">Meu agente escolhe o especialista</option>
+                  {offers
+                    .filter((o) => o.companyId !== company)
+                    .map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.companyName} · {o.price} créditos
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                Orçamento máximo
+                <input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  value={budget}
+                  onChange={(e) => setBudget(Number(e.target.value))}
+                  disabled={!!busy}
+                />
+              </label>
+              <small>
+                Saldo disponível: {balance} créditos simulados.
+                {chosen
+                  ? ` Esta oferta custa ${chosen.price}.`
+                  : " O preço da oferta escolhida será reservado."}
+              </small>
+              <button
+                className="studio-primary"
+                disabled={
+                  !!busy ||
+                  (signedIn &&
+                    !!company &&
+                    (task.trim().length < 10 ||
+                      !Number.isInteger(budget) ||
+                      budget < 1 ||
+                      budget > 10000 ||
+                      (!!chosen && chosen.price > budget)))
+                }
+                onClick={() => void run("hire")}
+              >
+                {busy ? (
+                  <LoaderCircle className="animate-spin" size={16} />
+                ) : (
+                  <ArrowRight size={16} />
+                )}{" "}
+                {signedIn
+                  ? company
+                    ? "Contratar e executar"
+                    : "Criar meu agente"
+                  : "Entrar para contratar"}
+              </button>
+              <p>
+                <ShieldCheck size={15} />O pagamento exige a verificação e o seu aceite.
+              </p>
+            </div>
+          )}
           {busy && (
             <p role="status">
               {busy === "personal"
                 ? "Seu agente está trabalhando pela NeuraLake..."
-                : "Buscando o especialista e executando o pedido..."}
+                : "O gestor está comparando, contratando e verificando..."}
             </p>
           )}
           {error && (
@@ -245,7 +289,38 @@ export function AgentMarket({
           </button>
         </section>
         <section>
-          {result ? (
+          {mission ? (
+            <div className="autonomous-result">
+              <span className="studio-eyebrow">EXECUÇÃO AUTÔNOMA</span>
+              <h2>
+                {mission.mode === "internal"
+                  ? "Executado pelo próprio agente"
+                  : "Especialista contratado"}
+              </h2>
+              <p>{mission.reason}</p>
+              <ol>
+                {mission.trace.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+              {result && <AgentOutput value={result} />}
+              {mission.order && (
+                <button className="studio-primary" onClick={() => onOrder(mission.order!)}>
+                  Revisar entrega e pagamento <ArrowRight size={16} />
+                </button>
+              )}
+              <button
+                className="studio-text-button"
+                onClick={() => {
+                  setMission(null);
+                  setResult(null);
+                  request.current = { key: "", id: "", orderId: "" };
+                }}
+              >
+                Nova missão
+              </button>
+            </div>
+          ) : result ? (
             <>
               <div className="agent-result-heading">
                 <h2>Resultado do seu agente</h2>
