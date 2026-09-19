@@ -134,3 +134,21 @@ test("provider knowledge lists become text without accepting arbitrary objects o
   assert.equal(parseGeneratedDefinition({ ...spec, knowledge: null }).knowledge, "");
   assert.throws(() => parseGeneratedDefinition({ ...spec, knowledge: [{ secret: "object" }] }));
 });
+
+test("a short but nonempty section passes presence verification while whitespace does not", () => {
+  const content = JSON.stringify({
+    ...output,
+    sections: output.sections.map((s) => ({ ...s, content: "R$ 2.000" })),
+  });
+  assert.equal(verifyAgentResult(spec.sections, content).decision, "approved");
+  assert.equal(
+    verifyAgentResult(
+      spec.sections,
+      JSON.stringify({
+        ...output,
+        sections: output.sections.map((s) => ({ ...s, content: "   " })),
+      }),
+    ).decision,
+    "rejected",
+  );
+});

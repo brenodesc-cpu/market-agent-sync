@@ -16,7 +16,7 @@ export const definitionHash = (spec: AgentDefinition) =>
   createHash("sha256").update(executionIdentity(spec)).digest("hex");
 export async function buildAgent(prompt: string, current?: AgentDefinition) {
   const generated = await neuralakeJson(
-    `Você cria e edita agentes especialistas executáveis por IA na NeuraMarket. Retorne apenas JSON com name, description, serviceTitle, category (Marketing,Vendas,Operações,Conteúdo,Desenvolvimento,Análise,Outro), instructions (instruções completas e objetivas, até 1500 caracteres), knowledge (string com conteúdo fornecido pelo dono, nunca inventar; use a string vazia se não houver), sections (1 a 8 títulos para estruturar a entrega), exampleTask, model (use text para escrita e análise simples, code para programação, reasoning apenas para lógica complexa), price (1 a 1000), capability="agent.task.v1". Atenda à especialidade solicitada. Ao editar, preserve o que não foi pedido para mudar. As capacidades disponíveis são ler texto fornecido, analisar, escrever, planejar e gerar código/HTML como arquivos. Não há acesso à internet, Instagram, WhatsApp, pagamento real nem publicação de sites pelo agente. Para pedidos que dependem disso, configure a parte de produção do material e declare a dependência na description. Nunca afirme ter conectado uma ferramenta. Não exponha knowledge na descrição pública.`,
+    `Você cria e edita agentes especialistas executáveis por IA na NeuraMarket. Retorne apenas JSON com name, description, serviceTitle, category (Marketing,Vendas,Operações,Conteúdo,Desenvolvimento,Análise,Outro), instructions (instruções completas e objetivas, até 1500 caracteres), knowledge (string com conteúdo fornecido pelo dono, nunca inventar; use a string vazia se não houver), sections (1 a 8 títulos para estruturar a entrega), exampleTask, model (use text para escrita e análise simples, code para programação, reasoning apenas para lógica complexa), price (15 créditos simulados por padrão; só altere se solicitado, entre 1 e 1000), capability="agent.task.v1". Atenda à especialidade solicitada. Ao editar, preserve o que não foi pedido para mudar. As capacidades disponíveis são ler texto fornecido, analisar, escrever, planejar e gerar código/HTML como arquivos. Não há acesso à internet, Instagram, WhatsApp, pagamento real nem publicação de sites pelo agente. Para pedidos que dependem disso, configure a parte de produção do material e declare a dependência na description. Nunca afirme ter conectado uma ferramenta. Não exponha knowledge na descrição pública.`,
     { prompt, current },
     "text",
     fetch,
@@ -30,10 +30,20 @@ export async function executeDefinition(spec: AgentDefinition, task: string, fee
     { task, sections: spec.sections, correctionRequested: feedback },
     spec.model,
   );
-  const content = JSON.stringify(agentResultSchema.parse(output.value));
+  const checked = agentResultSchema.safeParse(output.value);
+  if (!checked.success) {
+    console.warn(
+      "specialist_output_invalid",
+      checked.error.issues.map((issue) => ({ path: issue.path.join("."), code: issue.code })),
+    );
+    throw new Error(
+      "A IA devolveu uma entrega incompleta. Tente novamente ou peça uma tarefa menor.",
+    );
+  }
+  const content = JSON.stringify(checked.data);
   return {
     content,
-    result: agentResultSchema.parse(output.value),
+    result: checked.data,
     report: verifyAgentResult(spec.sections, content),
     sha256: createHash("sha256").update(content).digest("hex"),
     durationMs: output.durationMs,
@@ -177,6 +187,9 @@ export async function createAgentOrder(userId: string, request: OrderRequest) {
     const selection = await neuralakeJson(
       'Escolha um especialista que consiga atender ao pedido, usando apenas a descrição pública das ofertas. Retorne JSON {"offerVersionId":"UUID da oferta ou null se nenhuma for compatível","reason":"motivo breve"}. Não escolha um fornecedor de outra especialidade só por ser barato. Não invente capacidades nem IDs.',
       { task: request.task, budget: request.budget, offers },
+      "text",
+      fetch,
+      700,
     );
     const choice = selection.value as { offerVersionId?: string; reason?: string };
     selected = offers.find((o) => o.id === choice.offerVersionId);
@@ -191,7 +204,7 @@ export async function createAgentOrder(userId: string, request: OrderRequest) {
     await db.from("inference_runs").insert({
       company_id: request.buyerCompanyId,
       task_type: "supplier_selection",
-      model_requested: "reasoning",
+      model_requested: "text",
       status: "completed",
       duration_ms: selection.durationMs,
       usage_data: selection.usage,

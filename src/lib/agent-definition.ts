@@ -63,7 +63,7 @@ export const agentResultSchema = z
         z
           .object({
             heading: z.string().trim().min(2).max(90),
-            content: z.string().trim().min(10).max(30000),
+            content: z.string().trim().min(1).max(30000),
           })
           .strict(),
       )
