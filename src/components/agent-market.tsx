@@ -903,10 +903,17 @@ export function AgentMarket({
                   <>
                     <button
                       className="studio-primary"
-                      disabled={!!busy || !firstOrderAwaitingReview}
-                      onClick={() => firstOrderAwaitingReview && onOrder(firstOrderAwaitingReview)}
+                      disabled={!!busy}
+                      onClick={() =>
+                        firstOrderAwaitingReview
+                          ? onOrder(firstOrderAwaitingReview)
+                          : void refreshAfterReview()
+                      }
                     >
-                      Revisar primeira entrega <ArrowRight size={15} />
+                      {firstOrderAwaitingReview
+                        ? "Revisar entrega pendente"
+                        : "Continuar missão"}{" "}
+                      <ArrowRight size={15} />
                     </button>
                     <button
                       className="studio-secondary"

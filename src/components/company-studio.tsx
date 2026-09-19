@@ -913,7 +913,7 @@ export function CompanyStudio({
                               className="studio-primary wide"
                               onClick={() => navigate("mission", order.order.buyer_company_id)}
                             >
-                              Executar nova missão <ArrowRight size={16} />
+                              Voltar à missão <ArrowRight size={16} />
                             </button>
                           )}
                         </div>
