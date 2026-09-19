@@ -50,4 +50,31 @@ O código e os testes locais estão descritos em [Estúdio e A2A](docs/company-s
 - [ ] Configurar o projeto Agora e testar a implementação de início, fim e áudio; medir latência e falhas reais.
 - [ ] Conferir desktop, celular, estados de erro e navegação das novas telas operacionais.
 
-A apresentação da landing descreve a proposta e distingue o protótipo das integrações pendentes. A revisão por voz é complementar e não altera a decisão do verificador. Vídeo depende de um executor conectado e pode ser acrescentado depois da primeira contratação completa. Token e blockchain ficam fora deste escopo.
+A apresentação da landing descreve a proposta e distingue o protótipo das integrações pendentes. A revisão por voz é complementar e não altera a decisão do verificador. Vídeo depende de um executor conectado e pode ser acrescentado depois da primeira contratação completa. Token e blockchain deixaram de estar fora do escopo: a seção 4 descreve a proposta em revisão.
+
+## 4. Registro assinado NMK (proposta em revisão)
+
+Camada desenvolvida na branch `feat/guima-nmk-blockchain-ux`. Contrato técnico em
+[NMK](docs/nmk-chain.md). O ledger de créditos continua sendo a fonte de verdade financeira; a
+cadeia acrescenta prova assinada, conferência independente e um registro público.
+
+- [x] Identidade criptográfica própria: secp256k1 nativo, endereço com checksum, sem dependência nova.
+- [x] Transação com forma canônica determinística, identificação por SHA-256 e assinatura ECDSA.
+- [x] Bloco com encadeamento de hash, raiz de Merkle e prova de inclusão conferível sem banco.
+- [x] Validação da cadeia inteira desde a gênese, falhando fechado em cada violação.
+- [x] Explorador público com blocos, transações, prova de inclusão e conferência sob demanda.
+- [x] Reserva, registro da entrega, registro do relatório, repasse, taxa e devolução emitidos no fluxo real do pedido.
+- [x] Liquidação e cancelamento atômicos com o registro, por invólucros que não alteram as funções existentes.
+- [x] Custódia da chave cifrada no servidor, com a carteira rotulada como custodial na interface.
+- [x] Reconciliação entre os saldos derivados da cadeia e a tabela `accounts`, com divergência visível.
+- [ ] Aplicar a migration `0008_nmk_chain.sql` no banco conectado ao Lovable.
+- [ ] Configurar `NMK_WALLET_SECRET` nos Secrets e confirmar a criação de carteira no ambiente remoto.
+- [ ] Executar uma contratação completa no ambiente autenticado e conferir o registro resultante.
+- [ ] Âncora em rede pública: escolher o driver, decidir a dependência de keccak-256 e RLP, e configurar as credenciais.
+
+**Concluído quando:** uma contratação real produz um registro conferível de ponta a ponta no
+ambiente remoto, e a reconciliação com o ledger fecha sem divergência.
+
+Enquanto a migration não estiver aplicada, a interface mostra o registro como pendência e a
+liquidação continua pelo caminho original. Nenhuma tela declara publicação em rede pública
+enquanto `chain_anchors.status` não for `confirmed`.

@@ -4,7 +4,7 @@ Uma rede onde empresas de agentes oferecem serviços e contratam especialistas, 
 
 Idioma da interface: português do Brasil. Projeto conectado ao Lovable para o hackathon da NeuraLake.
 
-**Direção atual:** [Estratégia](docs/strategy.md). **Estado de implementação:** [Roadmap](roadmap.md). O [estúdio](docs/company-studio.md) implementa criação de empresas, ofertas de catálogo, execução, verificação e liquidação simulada. A API aceita compradores externos. A migração do banco e as chamadas reais aos provedores precisam ser confirmadas no ambiente do Lovable. O cadastro de executores externos continua como próxima extensão.
+**Direção atual:** [Estratégia](docs/strategy.md). **Estado de implementação:** [Roadmap](roadmap.md). **Proposta em revisão:** [NMK](docs/nmk-chain.md), a moeda e o registro assinado da rede. O [estúdio](docs/company-studio.md) implementa criação de empresas, ofertas de catálogo, execução, verificação e liquidação simulada. A API aceita compradores externos. A migração do banco e as chamadas reais aos provedores precisam ser confirmadas no ambiente do Lovable. O cadastro de executores externos continua como próxima extensão.
 
 1. O PRODUTO
 
@@ -455,6 +455,52 @@ Verifique:
 - retomada do pedido depois de recarregar a página.
 
 Teste o fluxo também pela API, sem depender da interface.
+
+15.1. REGISTRO ASSINADO NMK (PROPOSTA EM REVISÃO)
+
+Esta seção descreve a camada desenvolvida na branch `feat/guima-nmk-blockchain-ux`. O contrato
+técnico completo está em [NMK](docs/nmk-chain.md). A adoção é decisão do PR.
+
+A NMK é a moeda desta rede e a cadeia é o registro assinado de cada etapa de uma contratação.
+A camada é aditiva: o ledger de créditos (`accounts`, `ledger_entries`, `reserve_demo_order`,
+`settle_verified_order`) continua sendo a fonte de verdade financeira e não foi alterado. A
+cadeia guarda a prova, não a decisão.
+
+Por contratação, a cadeia registra: a reserva do valor, o SHA-256 do conteúdo entregue, o
+SHA-256 do relatório de verificação, o repasse ao fornecedor, a taxa da plataforma, e a
+devolução em caso de cancelamento. Cada transação é assinada com secp256k1, identificada por
+SHA-256 da sua forma canônica, e selada em um bloco com raiz de Merkle e encadeamento de hash.
+
+A liquidação e o cancelamento passam por invólucros SQL que executam a função original e
+registram a transação na mesma transação do banco, então pagamento e registro commitam juntos.
+Quando a camada está ausente, o caminho original é usado: um comprador tem direito à devolução
+e um fornecedor ao pagamento independentemente de o registro poder ser escrito.
+
+O que a cadeia comprova e o que ela não comprova:
+
+- Comprova que aquele conteúdo exato existia quando a transação foi registrada.
+- Comprova que a movimentação foi autorizada pela chave daquele endereço.
+- Comprova que o registro não foi alterado depois, porque qualquer alteração quebra o hash.
+- Não diz nada sobre a qualidade do conteúdo. Isso é papel do relatório de verificação.
+- Não é uma rede descentralizada. A cadeia é mantida por um validador único, e a interface
+  precisa dizer isso com essa palavra.
+
+A carteira é custodial: a chave privada é cifrada com AES-256-GCM sob `NMK_WALLET_SECRET`,
+lida somente no servidor. A custódia existe porque o fluxo agente-para-agente precisa liquidar
+sem uma pessoa clicando. A interface precisa rotular a carteira como custodial.
+
+A âncora em rede pública não está implementada. Sem `NMK_ANCHOR_RPC_URL` e `NMK_ANCHOR_ACCOUNT`
+o estado é `unavailable` e aparece como pendência de configuração. Não declare publicação em
+rede pública enquanto `chain_anchors.status` não for `confirmed`.
+
+Verifique também:
+- endereço rejeitado quando um caractere do checksum é alterado;
+- assinatura de outra chave rejeitada, e transação com um byte alterado rejeitada;
+- prova de inclusão forjada rejeitada;
+- adulteração de `prev_hash`, de `merkle_root`, de um valor e de um nonce detectada;
+- nonce repetido rejeitado e saldo insuficiente rejeitado;
+- liquidação repetida não duplicando a transação, pela chave de idempotência;
+- saldos derivados da cadeia batendo com `accounts`, e divergência aparecendo como erro.
 
 16. ORDEM DE IMPLEMENTAÇÃO E ENTREGA
 

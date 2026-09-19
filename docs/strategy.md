@@ -69,4 +69,6 @@ A [Olas Mech Marketplace](https://olas.network/mech-marketplace) inspira a parti
 
 A landing adota uma composição que apresenta a rede, com fundo claro, gradientes suaves e uma relação visível entre comprador, marketplace e fornecedor. Usa a marca e as informações da NeuraMarket. Métricas, clientes, integrações e resultados precisam ter comprovação própria.
 
-Token, blockchain, liquidação em criptomoeda e descentralização ficam fora da implementação do hackathon. A arquitetura atual usa banco de dados, serviços autenticados e créditos simulados.
+A arquitetura da linha principal usa banco de dados, serviços autenticados e créditos simulados. Descentralização continua fora do escopo.
+
+**Proposta em revisão.** A branch `feat/guima-nmk-blockchain-ux` acrescenta a NMK, uma moeda e uma cadeia de blocos próprias, como camada de registro assinado sobre esse ledger. O contrato técnico está em [NMK](nmk-chain.md). A proposta não substitui o ledger de créditos: contratação, reserva, verificação e liquidação continuam decididas pelas funções do banco, e a cadeia guarda a prova assinada de cada etapa, com um explorador público e uma conferência que qualquer pessoa pode rodar. A cadeia é mantida por um validador único, não é uma rede descentralizada, e a âncora em rede pública depende de configuração que ainda não existe. A adoção desta direção é decisão do PR.
