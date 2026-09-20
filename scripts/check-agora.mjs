@@ -1,23 +1,69 @@
 // Verificação ao vivo da Agora: confirma credenciais, Conversational AI habilitado e latência do join.
-// Uso: AGORA_APP_ID=... AGORA_APP_CERTIFICATE=... node scripts/check-agora.mjs
+// Uso: npm run check:agora   (lê o .env da raiz do projeto)
 // Nenhuma credencial é gravada em disco. Nada é persistido no banco.
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import AgoraToken from "agora-token";
 
 const { RtcTokenBuilder, RtcRole } = AgoraToken;
-const env = process.env;
-const appId = env.AGORA_APP_ID;
-const certificate = env.AGORA_APP_CERTIFICATE;
 
 const fail = (message) => {
   console.error(`\n  FALHOU: ${message}\n`);
   process.exit(1);
 };
 
+// Carrega o .env da raiz sem sobrescrever o que já veio do ambiente.
+const env = { ...process.env };
+try {
+  const file = readFileSync(new URL("../.env", import.meta.url), "utf8");
+  for (const line of file.split(/\r?\n/)) {
+    if (line.trimStart().startsWith("#")) continue;
+    const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
+    if (!match || env[match[1]] !== undefined) continue;
+    let value = match[2].trim();
+    const quote = value[0];
+    if (value.length > 1 && (quote === '"' || quote === "'") && value.at(-1) === quote)
+      value = value.slice(1, -1);
+    env[match[1]] = value;
+  }
+} catch (error) {
+  if (error.code !== "ENOENT") fail(`Não consegui ler o .env: ${error.message}`);
+  console.log("  Nenhum .env encontrado; usando apenas as variáveis do ambiente.");
+}
+
+const appId = env.AGORA_APP_ID;
+const certificate = env.AGORA_APP_CERTIFICATE;
+
 if (!appId || !certificate)
-  fail("Defina AGORA_APP_ID e AGORA_APP_CERTIFICATE no ambiente desta execução.");
+  fail("Defina AGORA_APP_ID e AGORA_APP_CERTIFICATE no .env ou no ambiente.");
 if (!/^[a-f0-9]{32}$/i.test(appId) || !/^[a-f0-9]{32}$/i.test(certificate))
   fail("App ID e App Certificate devem ter 32 caracteres hexadecimais.");
+
+// A conectividade precisa só do par acima. As demais variáveis são exigidas por
+// agoraConfiguration() para a sessão de voz real da tela de Verificação.
+const appMissing = [
+  ["AGORA_REVIEW_SECRET", "ao menos 32 caracteres aleatórios: openssl rand -hex 32"],
+  ["AGORA_TTS_VOICE_ID", "ID de uma voz MiniMax do projeto, de preferência pt-BR"],
+  ["PUBLIC_APP_URL", "origem HTTPS pública do app, sem caminho"],
+  ["NEURALAKE_API_KEY", "chave de inferência da NeuraLake"],
+].filter(([key]) => !env[key]);
+
+if (env.AGORA_REVIEW_SECRET && env.AGORA_REVIEW_SECRET.length < 32)
+  fail("AGORA_REVIEW_SECRET precisa ter ao menos 32 caracteres.");
+if (env.PUBLIC_APP_URL) {
+  try {
+    const origin = new URL(env.PUBLIC_APP_URL);
+    if (origin.protocol !== "https:" || origin.pathname !== "/")
+      fail("PUBLIC_APP_URL deve ser uma origem HTTPS sem caminho, como https://exemplo.app");
+  } catch {
+    fail(`PUBLIC_APP_URL não é uma URL válida: ${env.PUBLIC_APP_URL}`);
+  }
+}
+
+if (!env.AGORA_TTS_VOICE_ID)
+  fail(
+    "A API Conversational AI exige um bloco tts. Defina AGORA_TTS_VOICE_ID no .env com o ID de uma voz MiniMax do seu projeto (Console da Agora, secao Conversational AI).",
+  );
 
 const agentUid = "1001";
 const userUid = 1002;
@@ -63,22 +109,17 @@ const body = {
       max_history: 1,
       params: { model: "text" },
     },
-    tts: env.AGORA_TTS_VOICE_ID
-      ? {
-          credential_mode: "managed",
-          vendor: "minimax",
-          params: {
-            url: "wss://api.minimax.io/ws/v1/t2a_v2",
-            model: "speech-2.6-turbo",
-            voice_setting: { voice_id: env.AGORA_TTS_VOICE_ID },
-          },
-        }
-      : undefined,
+    tts: {
+      credential_mode: "managed",
+      vendor: "minimax",
+      params: {
+        url: "wss://api.minimax.io/ws/v1/t2a_v2",
+        model: "speech-2.6-turbo",
+        voice_setting: { voice_id: env.AGORA_TTS_VOICE_ID },
+      },
+    },
   },
 };
-
-if (!env.AGORA_TTS_VOICE_ID)
-  console.log("  AGORA_TTS_VOICE_ID ausente: a voz MiniMax não será exercitada nesta execução.");
 
 const authorization = `agora token=${token}`;
 const base = `https://api.agora.io/api/conversational-ai-agent/v2/projects/${appId}`;
@@ -105,7 +146,11 @@ if (!response.ok) {
     fail("Credenciais recusadas. Confira o App Certificate e se ele está habilitado no projeto.");
   if (response.status === 404)
     fail("Projeto não encontrado nesta API. Habilite Conversational AI para este App ID.");
-  fail("A Agora recusou o início da sessão.");
+  if (/addon not found/i.test(text))
+    fail(
+      "O projeto respondeu, mas um dos modelos gerenciados nao esta habilitado (Deepgram para ASR, MiniMax para TTS). Habilite-os no Console da Agora, em Conversational AI.",
+    );
+  fail("A Agora recusou o inicio da sessao.");
 }
 
 let data;
@@ -139,3 +184,11 @@ console.log(`
   Esta execução NÃO prova latência de áudio nem a voz MiniMax — isso exige
   uma sessão real com microfone pela tela de Verificação.
 `);
+
+if (appMissing.length) {
+  console.log("  Ainda falta para a sessão de voz real funcionar:");
+  for (const [key, hint] of appMissing) console.log(`    - ${key}: ${hint}`);
+  console.log("");
+} else {
+  console.log("  Todas as variáveis exigidas por agoraConfiguration() estão presentes.\n");
+}
