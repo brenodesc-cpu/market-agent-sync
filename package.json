@@ -16,7 +16,8 @@
     "mcp": "node scripts/neuramarket-mcp.mjs",
     "browser:worker": "node scripts/browser-worker.mjs",
     "demo:mcp": "node scripts/run-browser-demo-mcp.mjs",
-    "test:fx": "node --experimental-strip-types --test tests/fx.postgres.test.mjs"
+    "test:fx": "node --experimental-strip-types --test tests/fx.postgres.test.mjs",
+    "check:agora": "node scripts/check-agora.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
