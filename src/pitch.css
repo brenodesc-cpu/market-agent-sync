@@ -479,7 +479,7 @@
   max-width: 32ch;
 }
 .pitch-solution,
-.pitch-fintech,
+.pitch-checkout,
 .pitch-trust,
 .pitch-challenges,
 .pitch-connect {
@@ -565,7 +565,7 @@
   margin-top: -2.5vw !important;
 }
 .pitch-solution h2,
-.pitch-fintech h2,
+.pitch-checkout h2,
 .pitch-trust h2,
 .pitch-connect h2 {
   font-size: clamp(36px, 4.5vw, 79px);
@@ -793,35 +793,115 @@
   line-height: 1.55;
   color: var(--p-muted);
 }
-.pitch-case-path > div {
+.pitch-checkout-brief {
+  display: grid;
+  gap: 8px;
+  margin-top: 36px;
+  padding-left: 19px;
+  border-left: 3px solid var(--p-accent);
+}
+.pitch-checkout-brief span,
+.pitch-checkout-market header span,
+.pitch-checkout-market article span {
+  font:
+    10px PitchMono,
+    monospace;
+  letter-spacing: 0.1em;
+  color: var(--p-faint);
+}
+.pitch-checkout-brief strong {
+  font-size: 20px;
+  font-weight: 550;
+}
+.pitch-checkout-brief small {
+  font-size: 13px;
+  color: var(--p-muted);
+}
+.pitch-checkout-market {
+  overflow: hidden;
+  border: 1px solid var(--p-line);
+  border-radius: 18px;
+  background: var(--p-card);
+}
+.pitch-checkout-market header {
   display: flex;
-  gap: 22px;
-  padding: 22px 0;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  border-bottom: 1px solid var(--p-line);
+}
+.pitch-checkout-market header strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--p-muted);
+}
+.pitch-checkout-market article {
+  display: grid;
+  grid-template-columns: 1fr auto 48px;
+  align-items: center;
+  gap: 20px;
+  min-height: 84px;
+  padding: 15px 25px;
   border-bottom: 1px solid var(--p-line);
   position: relative;
 }
-.pitch-case-path > div > span {
-  color: var(--p-accent-ink);
-  font:
-    14px PitchMono,
-    monospace;
-  width: 27px;
-  flex-shrink: 0;
-  padding-top: 4px;
+.pitch-checkout-market article div {
+  display: grid;
+  gap: 5px;
 }
-.pitch-case-path h3 {
-  font-size: clamp(19px, 1.7vw, 29px);
-  font-weight: 500;
-  letter-spacing: -0.035em;
+.pitch-checkout-market article strong {
+  font-size: 21px;
+  font-weight: 550;
 }
-.pitch-case-path p:not(.pitch-note) {
-  font-size: clamp(14px, 1.15vw, 20px);
+.pitch-checkout-market article b {
+  font-size: 29px;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+}
+.pitch-checkout-market article small {
   color: var(--p-muted);
-  line-height: 1.5;
-  margin-top: 8px;
-}
-.pitch-case-path .pitch-note {
   font-size: 12px;
+}
+.pitch-checkout-market article.selected {
+  background: var(--p-wash);
+  box-shadow: inset 3px 0 var(--p-accent);
+}
+.pitch-checkout-market article.selected b {
+  color: var(--p-accent-ink);
+}
+.pitch-checkout-market article i {
+  position: absolute;
+  right: 24px;
+  top: 9px;
+  font:
+    8px PitchMono,
+    monospace;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  color: var(--p-accent-ink);
+}
+.pitch-checkout-market footer {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 19px 25px;
+  color: var(--p-accent-ink);
+}
+.pitch-checkout-market footer span {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--p-muted);
+}
+.pitch-checkout-market footer strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--p-ink);
+}
+.pitch-checkout-market > p {
+  padding: 0 25px 16px;
+  font-size: 10px;
+  color: var(--p-faint);
 }
 .pitch-trust-facts {
   display: flex;
@@ -1585,7 +1665,7 @@
     font-size: 16px;
   }
   .pitch-solution,
-  .pitch-fintech,
+  .pitch-checkout,
   .pitch-trust,
   .pitch-challenges,
   .pitch-connect {
@@ -1835,7 +1915,7 @@
     display: none;
   }
   .pitch-solution,
-  .pitch-fintech,
+  .pitch-checkout,
   .pitch-trust,
   .pitch-challenges,
   .pitch-connect {

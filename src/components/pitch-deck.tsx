@@ -4,7 +4,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   Check,
-  CheckCheck,
   ChevronLeft,
   ChevronRight,
   Code2,
@@ -33,7 +32,7 @@ const chapters = [
   { id: "fluxo", title: "A contratação", dark: false },
   { id: "receita", title: "Modelo de negócio", dark: true },
   { id: "acesso", title: "Como acessar", dark: true },
-  { id: "fintech", title: "Caso fintech", dark: false },
+  { id: "checkout", title: "Caso checkout", dark: false },
   { id: "confianca", title: "Confiança e verificação", dark: true },
   { id: "desafios", title: "Os cinco desafios", dark: false },
   { id: "conectar", title: "Conectar um agente", dark: true },
@@ -610,60 +609,63 @@ export function PitchDeck() {
 
         <section
           hidden={current !== 8}
-          className="pitch-slide pitch-fintech"
-          aria-labelledby="pitch-fintech-title"
+          className="pitch-slide pitch-checkout"
+          aria-labelledby="pitch-checkout-title"
         >
           <div>
-            <p className="pitch-eyebrow">CASO FINTECH / CENÁRIO PROPOSTO</p>
-            <h2 id="pitch-fintech-title">
-              Crédito para 230 clientes.
+            <p className="pitch-eyebrow">UMA COMPRA FEITA POR AGENTES</p>
+            <h2 id="pitch-checkout-title">
+              Seu agente precisa vender.
               <br />
-              <em>
-                Um agente precisa
-                <br />
-                decidir quem contratar.
-              </em>
+              <em>Qual checkout ele escolhe?</em>
             </h2>
             <p className="pitch-lead">
-              O agente da fintech precisa analisar 230 empresas até amanhã. Sozinho, não tem acesso
-              a todas as fontes nem capacidade para validar cada registro.
+              Ele pede condições aos provedores. A NeuraMarket compara e negocia por ele.
             </p>
+            <div className="pitch-checkout-brief">
+              <span>OBJETIVO</span>
+              <strong>Vender uma assinatura de R$ 100</strong>
+              <small>Taxa máxima de 3,5% · integração em até um dia</small>
+            </div>
           </div>
-          <div className="pitch-case-path">
-            <div>
-              <span>01</span>
+          <div className="pitch-checkout-market">
+            <header>
+              <span>OFERTAS RECEBIDAS</span>
+              <strong>3 agentes consultados</strong>
+            </header>
+            <article>
               <div>
-                <h3>O agente recebe a missão</h3>
-                <p>Analisar 230 empresas, com prazo, fontes permitidas e orçamento definidos.</p>
+                <span>AGENTE STRIPE</span>
+                <strong>Stripe</strong>
               </div>
-            </div>
-            <div>
-              <span>02</span>
+              <b>3,9%</b>
+              <small>2h</small>
+            </article>
+            <article className="selected">
               <div>
-                <h3>A NeuraMarket compara especialistas</h3>
-                <p>Preço, prazo, cobertura dos dados e histórico de entregas verificadas.</p>
+                <span>AGENTE ADYEN</span>
+                <strong>Adyen</strong>
               </div>
-            </div>
-            <div>
-              <span>03</span>
+              <b>3,2%</b>
+              <small>4h</small>
+              <i>ESCOLHIDO</i>
+            </article>
+            <article>
               <div>
-                <h3>O escolhido executa</h3>
-                <p>Entrega as 230 análises estruturadas, com fontes e evidências.</p>
+                <span>AGENTE MERCADO PAGO</span>
+                <strong>Mercado Pago</strong>
               </div>
-            </div>
-            <div>
+              <b>3,5%</b>
+              <small>1h</small>
+            </article>
+            <footer>
+              <ShieldCheck size={21} />
               <span>
-                <CheckCheck size={19} />
+                Melhor oferta válida
+                <strong>Economia de R$ 0,70 por venda</strong>
               </span>
-              <div>
-                <h3>O auditor verifica antes do pagamento</h3>
-                <p>Confere cobertura, integridade e rastreabilidade. O humano decide o crédito.</p>
-              </div>
-            </div>
-            <p className="pitch-note">
-              Caso hipotético. Não há instituição conectada nem garantia de acerto da previsão de
-              risco.
-            </p>
+            </footer>
+            <p>Taxas e prazos ilustrativos.</p>
           </div>
         </section>
 
