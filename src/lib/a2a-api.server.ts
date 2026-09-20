@@ -218,7 +218,7 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
           spendingPolicy: "Saldo da empresa e orçamento de cada contratação.",
           humanApprovalRequired: true,
           autonomousException:
-            "start_browser_mission: pagamento simulado automático somente com autorização explícita e critérios objetivos do contrato.",
+            "start_browser_mission, hire_browser_quote, start_fx_mission e hire_fx: liquidação simulada automática somente com autorização explícita e critérios objetivos do contrato.",
         });
       }
       if (path === "fx/wallet" && request.method === "GET") {

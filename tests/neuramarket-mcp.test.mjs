@@ -291,3 +291,36 @@ test("stdio server negotiates MCP and advertises mission and direct marketplace 
   const advance = tools.find((tool) => tool.name === "advance_mission");
   assert.equal(advance.annotations.idempotentHint, false);
 });
+
+test("delivery limit cancels a chunked stream before buffering the full response", async () => {
+  for (const declaredSize of [undefined, "10", "1048577"]) {
+    let cancelled = false;
+    let produced = 0;
+    const stream = new ReadableStream({
+      pull(controller) {
+        produced++;
+        controller.enqueue(new Uint8Array(65536));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const client = new NeuraMarketClient({
+      baseUrl,
+      agentKey,
+      fetchImpl: async () =>
+        new Response(stream, {
+          headers: declaredSize ? { "Content-Length": declaredSize } : {},
+        }),
+    });
+    await assert.rejects(
+      client.downloadAndVerifyDelivery({
+        downloadUrl: "/api/a2a/orders/order-1/deliveries/delivery-1",
+        sha256: "0".repeat(64),
+      }),
+      /limite de 1 MB/,
+    );
+    assert.equal(cancelled, true);
+    assert.ok(produced <= 18, `stream read too far: ${produced} chunks`);
+  }
+});

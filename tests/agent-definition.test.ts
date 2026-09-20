@@ -372,3 +372,56 @@ test("an ancestor correction stops before execution when any descendant has star
     requireUntouchedMissionDescendants([{ status: "pending", orderId: null, result: null }]),
   );
 });
+
+test("provider truncation, refusal and tool calls cannot become an accepted JSON delivery", async () => {
+  const previous = process.env.NEURALAKE_API_KEY;
+  process.env.NEURALAKE_API_KEY = "test-only";
+  try {
+    for (const extra of [
+      { finish_reason: "length" },
+      { finish_reason: "content_filter" },
+      { message: { content: JSON.stringify(output), tool_calls: [{ id: "unexpected" }] } },
+      { message: { content: JSON.stringify(output), refusal: "Refused" } },
+    ]) {
+      await assert.rejects(
+        neuralakeJson("s", {}, "text", async () =>
+          Response.json({
+            choices: [{ message: { content: JSON.stringify(output) }, ...extra }],
+          }),
+        ),
+        /incompleta ou incompatível/,
+      );
+    }
+    let cancelled = false;
+    const body = new ReadableStream({
+      pull(controller) {
+        controller.enqueue(new Uint8Array(65536));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    await assert.rejects(
+      neuralakeJson("s", {}, "text", async () => new Response(body)),
+      /response_too_large/,
+    );
+    assert.equal(cancelled, true);
+  } finally {
+    if (previous === undefined) delete process.env.NEURALAKE_API_KEY;
+    else process.env.NEURALAKE_API_KEY = previous;
+  }
+});
+
+test("retries share a deadline and never invoke the provider after it expires", async () => {
+  const { createInferenceBudget } = await import("../src/lib/neuralake-json.server.ts");
+  let calls = 0;
+  const bounded = createInferenceBudget(10, async (_url, init) => {
+    calls++;
+    assert.ok(init?.signal);
+    return Response.json({ ok: true });
+  });
+  await bounded("https://example.test");
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await assert.rejects(async () => bounded("https://example.test"), /timeout/i);
+  assert.equal(calls, 1);
+});

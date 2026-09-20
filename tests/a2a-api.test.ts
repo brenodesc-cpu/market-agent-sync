@@ -506,6 +506,8 @@ test("connection check returns only the authenticated company and does not spend
   assert.equal(data.companyId, actor.companyId);
   assert.equal(data.connected, true);
   assert.equal(data.humanApprovalRequired, true);
+  assert.match(data.autonomousException, /start_fx_mission/);
+  assert.match(data.autonomousException, /autorização explícita/);
   assert.equal(data.userId, undefined);
 });
 

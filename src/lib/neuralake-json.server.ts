@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readResponseBytes } from "./bounded-response.mjs";
 export function extractJson(content: string): unknown {
   const candidates: string[] = [];
   let start = -1,
@@ -25,9 +26,25 @@ export function extractJson(content: string): unknown {
   for (const value of candidates.reverse()) {
     try {
       return JSON.parse(value);
-    } catch {}
+    } catch {
+      // A reasoning preamble may contain a JSON-like object; try the prior candidate.
+    }
   }
   throw new Error("A IA não retornou uma entrega estruturada. Tente novamente.");
+}
+// All retries within one operation share the same deadline.
+export function createInferenceBudget(
+  timeoutMs = 22000,
+  fetchImpl: typeof fetch = fetch,
+): typeof fetch {
+  const deadline = AbortSignal.timeout(timeoutMs);
+  return (input, init) => {
+    deadline.throwIfAborted();
+    return fetchImpl(input, {
+      ...init,
+      signal: AbortSignal.any([deadline, ...(init?.signal ? [init.signal] : [])]),
+    });
+  };
 }
 export async function neuralakeJson(
   system: string,
@@ -65,7 +82,17 @@ export async function neuralakeJson(
   }
   if (!response.ok)
     throw new Error("A NeuraLake não concluiu a execução. Você pode tentar novamente.");
-  const payload = await response.json();
+  const bytes = await readResponseBytes(response, 1048576);
+  const payload = JSON.parse(new TextDecoder().decode(bytes));
+  const choice = payload?.choices?.[0];
+  if (
+    (choice?.finish_reason != null && choice.finish_reason !== "stop") ||
+    choice?.message?.tool_calls?.length ||
+    choice?.message?.refusal
+  )
+    throw new Error(
+      "A NeuraLake devolveu uma resposta incompleta ou incompatível. Tente novamente.",
+    );
   if (typeof payload?.choices?.[0]?.message?.content !== "string")
     throw new Error("A NeuraLake não devolveu conteúdo.");
   const usage = z

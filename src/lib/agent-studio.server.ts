@@ -10,7 +10,7 @@ import {
   parseGeneratedDefinition,
 } from "./agent-definition.ts";
 import type { AgentDefinition, AgentResult } from "./agent-definition.ts";
-import { neuralakeJson } from "./neuralake-json.server.ts";
+import { neuralakeJson, createInferenceBudget } from "./neuralake-json.server.ts";
 import {
   runtimeDb,
   ownedCompany,
@@ -336,13 +336,14 @@ export async function clarifyMissionBrief(
   const input = missionBriefInputSchema.parse(rawInput);
   const system = `Você é o Agente Zero, responsável por alinhar uma missão antes de qualquer execução ou gasto. Avalie se o objetivo, o público, a entrega esperada e as restrições necessárias estão claros. Faça somente perguntas que mudem materialmente a execução. Nunca pergunte algo já respondido. Retorne no máximo três perguntas curtas e objetivas por rodada. Na rodada ${MAX_BRIEF_ROUNDS}, não faça novas perguntas: consolide o melhor briefing possível e indique premissas no entendimento. Retorne apenas JSON: {"ready":boolean,"understanding":"o que você entendeu em linguagem simples","questions":["pergunta"],"consolidatedBrief":"brief completo quando ready; string vazia quando faltar contexto"}.`;
   let lastError: unknown;
+  const inferenceFetch = createInferenceBudget();
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const generated = await neuralakeJson(
         attempt ? `${system}\nNova tentativa: entregue um único JSON válido.` : system,
         input,
         "text",
-        fetch,
+        inferenceFetch,
         1200,
       );
       return resolveMissionBriefState(generated.value, input);
@@ -358,13 +359,14 @@ export async function clarifyMissionBrief(
 export async function buildAgent(prompt: string, current?: AgentDefinition) {
   const system = `Você cria e edita agentes especialistas executáveis por IA na NeuraMarket. Retorne apenas JSON com name, description, serviceTitle, category (Marketing,Vendas,Operações,Conteúdo,Desenvolvimento,Análise,Outro), instructions (instruções completas e objetivas, até 1500 caracteres), knowledge (string com conteúdo fornecido pelo dono, nunca inventar; use a string vazia se não houver), sections (1 a 8 títulos para estruturar a entrega), exampleTask, model (use text para escrita e análise simples, code para programação, reasoning apenas para lógica complexa), price (15 créditos simulados por padrão; só altere se solicitado, entre 1 e 1000), capability="agent.task.v1". Atenda à especialidade solicitada. Ao editar, preserve o que não foi pedido para mudar. As capacidades disponíveis são ler texto fornecido, analisar, escrever, planejar e gerar código/HTML como arquivos. Não há acesso à internet, Instagram, WhatsApp, pagamento real nem publicação de sites pelo agente. Para pedidos que dependem disso, configure a parte de produção do material e declare a dependência na description. Nunca afirme ter conectado uma ferramenta. Não exponha knowledge na descrição pública.`;
   let lastError: unknown;
+  const inferenceFetch = createInferenceBudget();
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const generated = await neuralakeJson(
         attempt ? `${system}\nEsta é uma nova tentativa. Entregue um único JSON completo.` : system,
         { prompt, current },
         "text",
-        fetch,
+        inferenceFetch,
         2400,
       );
       return parseGeneratedDefinition(generated.value, current?.visibility ?? "private");
@@ -381,6 +383,7 @@ export async function executeDefinition(spec: AgentDefinition, task: string, fee
   let checked: ReturnType<typeof agentResultSchema.safeParse> | null = null;
   const failures: string[] = [];
   const requiresHtml = missionCapability(task).webArtifact;
+  const inferenceFetch = createInferenceBudget();
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       output = await neuralakeJson(
@@ -389,7 +392,7 @@ export async function executeDefinition(spec: AgentDefinition, task: string, fee
           : system,
         input,
         spec.model,
-        fetch,
+        inferenceFetch,
         6000,
       );
       checked = agentResultSchema.safeParse(normalizeAgentResult(output.value, spec.sections));

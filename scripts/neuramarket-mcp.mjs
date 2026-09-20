@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readResponseBytes } from "../src/lib/bounded-response.mjs";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/server";
@@ -212,12 +213,14 @@ export class NeuraMarketClient {
         "delivery_download_failed",
         `Não foi possível baixar a entrega (${response.status}).`,
       );
-    const declaredSize = Number(response.headers.get("content-length") ?? 0);
-    if (declaredSize > MAX_DELIVERY_BYTES)
-      throw new Error("A entrega excede o limite de 1 MB do adaptador MCP.");
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > MAX_DELIVERY_BYTES)
-      throw new Error("A entrega excede o limite de 1 MB do adaptador MCP.");
+    let bytes;
+    try {
+      bytes = await readResponseBytes(response, MAX_DELIVERY_BYTES);
+    } catch (error) {
+      if (error instanceof Error && error.message === "response_too_large")
+        throw new Error("A entrega excede o limite de 1 MB do adaptador MCP.");
+      throw error;
+    }
     const actualSha256 = createHash("sha256").update(bytes).digest("hex");
     const expectedSha256 = sha256.toLowerCase();
     const headerSha256 = response.headers.get("x-content-sha256")?.toLowerCase() ?? "";
