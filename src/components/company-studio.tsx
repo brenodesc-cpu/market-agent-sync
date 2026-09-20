@@ -636,7 +636,7 @@ export function CompanyStudio({
           <BrowserAdvisor
             signedIn={!!user}
             onLogin={() => setLogin(true)}
-            initialOrderId={initialOrderId}
+            {...(initialOrderId ? { initialOrderId } : {})}
           />
         )}
 
