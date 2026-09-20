@@ -61,6 +61,8 @@ test("join sends only a scoped review credential to custom LLM; stop authenticat
   assert.equal(body.properties.remote_rtc_uids[0], String(session.uid));
   assert.match(body.properties.llm.url, /^https:\/\/market.example.com\/api\/reviews\//);
   assert.equal(body.properties.llm.tools, undefined);
+  assert.equal(body.properties.tts.params.url, "wss://api.minimax.io/ws/v1/t2a_v2");
+  assert.equal(body.properties.tts.params.audio_setting.sample_rate, 44100);
   assert.equal(JSON.stringify(session).includes(config.certificate), false);
   assert.match(session.rtcToken, /^007/);
   await stopAgoraVoice(config, "owner", session.control, fetcher);

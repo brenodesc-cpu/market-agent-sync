@@ -126,6 +126,7 @@ export function voiceJoinBody(
           url: "wss://api.minimax.io/ws/v1/t2a_v2",
           model: "speech-2.6-turbo",
           voice_setting: { voice_id: config.voiceId },
+          audio_setting: { sample_rate: 44100 },
         },
       },
     },
