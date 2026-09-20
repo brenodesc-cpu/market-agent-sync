@@ -231,6 +231,9 @@ export function PitchDeck() {
           </span>
         </a>
         <div className="pitch-header-actions">
+          <a href="/demo" className="pitch-site-link">
+            Demo financeira <ArrowUpRight size={15} />
+          </a>
           <a href="/" className="pitch-site-link">
             Abrir site <ArrowUpRight size={15} />
           </a>

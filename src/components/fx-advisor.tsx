@@ -178,6 +178,9 @@ export function FxAdvisor({
           Defina quanto precisa receber e o limite de gasto. A contratação segue até a conferência
           da operação.
         </p>
+        <a href="/demo" className="studio-secondary">
+          Ver a demonstração do pitch <ArrowRight size={15} />
+        </a>
       </header>
       <div className="fx-wallet">
         <span>
