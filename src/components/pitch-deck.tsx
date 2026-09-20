@@ -26,6 +26,7 @@ import "../pitch.css";
 
 const chapters = [
   { id: "futuro", title: "O novo cliente", dark: true },
+  { id: "mercado", title: "O novo mercado", dark: true },
   { id: "ideia", title: "A ideia", dark: true },
   { id: "problema", title: "O problema", dark: false },
   { id: "solucao", title: "A solução", dark: true },
@@ -299,19 +300,34 @@ export function PitchDeck() {
               também são agentes.
             </p>
           </div>
-          <div className="pitch-story-question">
-            <span>01 humano</span>
-            <i />
-            <span>99 agentes</span>
-            <h2>Como atender um novo trilhão de clientes?</h2>
-            <button className="pitch-text-button" onClick={() => go(1)}>
-              Conheça a infraestrutura <ArrowRight size={20} />
-            </button>
-          </div>
+          <button className="pitch-text-button" onClick={() => go(1)}>
+            Quem vai atendê-los? <ArrowRight size={20} />
+          </button>
         </section>
 
         <section
           hidden={current !== 1}
+          className="pitch-slide pitch-question-slide"
+          aria-labelledby="pitch-question-title"
+        >
+          <p className="pitch-eyebrow">UM NOVO MERCADO</p>
+          <div className="pitch-question-visual" aria-hidden="true">
+            <span>01 humano</span>
+            <i />
+            <span>99 agentes</span>
+          </div>
+          <h2 id="pitch-question-title">
+            Como atender um
+            <br />
+            <em>novo trilhão de clientes?</em>
+          </h2>
+          <button className="pitch-text-button" onClick={() => go(2)}>
+            Conheça a infraestrutura <ArrowRight size={20} />
+          </button>
+        </section>
+
+        <section
+          hidden={current !== 2}
           className="pitch-slide pitch-cover"
           aria-labelledby="pitch-cover-title"
         >
@@ -331,7 +347,7 @@ export function PitchDeck() {
               Descoberta, contratação, orçamento e verificação
               <br className="pitch-desktop-break" /> para agentes comprarem serviços de agentes.
             </p>
-            <button className="pitch-text-button" onClick={() => go(2)}>
+            <button className="pitch-text-button" onClick={() => go(3)}>
               Conheça a NeuraMarket <ArrowRight size={20} />
             </button>
           </div>
@@ -339,7 +355,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 2}
+          hidden={current !== 3}
           className="pitch-slide"
           aria-labelledby="pitch-problem-title"
         >
@@ -376,7 +392,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 3}
+          hidden={current !== 4}
           className="pitch-slide pitch-solution"
           aria-labelledby="pitch-solution-title"
         >
@@ -455,7 +471,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 4}
+          hidden={current !== 5}
           className="pitch-slide pitch-flow-slide"
           aria-labelledby="pitch-flow-title"
         >
@@ -497,7 +513,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 5}
+          hidden={current !== 6}
           className="pitch-slide pitch-business"
           aria-labelledby="pitch-business-title"
         >
@@ -541,7 +557,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 6}
+          hidden={current !== 7}
           className="pitch-slide pitch-access"
           aria-labelledby="pitch-access-title"
         >
@@ -593,7 +609,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 7}
+          hidden={current !== 8}
           className="pitch-slide pitch-fintech"
           aria-labelledby="pitch-fintech-title"
         >
@@ -652,7 +668,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 8}
+          hidden={current !== 9}
           className="pitch-slide pitch-trust"
           aria-labelledby="pitch-trust-title"
         >
@@ -687,7 +703,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 9}
+          hidden={current !== 10}
           className="pitch-slide pitch-challenges"
           aria-labelledby="pitch-challenges-title"
         >
@@ -727,7 +743,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 10}
+          hidden={current !== 11}
           className="pitch-slide pitch-connect"
           aria-labelledby="pitch-connect-title"
         >
@@ -779,6 +795,22 @@ export function PitchDeck() {
                 <p>Conector de voz. Sessão em validação.</p>
               </div>
             </div>
+            <a
+              className="pitch-qr"
+              href="https://market-agent-sync.lovable.app/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <img
+                src="/pitch-assets/neuramarket-qr.png"
+                alt="QR Code para acessar a NeuraMarket"
+              />
+              <span>
+                <small>ACESSE A PLATAFORMA</small>
+                <strong>Escaneie para abrir</strong>
+                <em>market-agent-sync.lovable.app</em>
+              </span>
+            </a>
             <a
               className="pitch-pdf-link"
               href="/pitch-assets/modelo-e-fluxo.pdf"
