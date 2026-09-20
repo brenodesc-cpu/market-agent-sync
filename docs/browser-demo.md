@@ -18,6 +18,8 @@ O modo de demonstração omite mobile na primeira entrega. Isso está explícito
 
 Para executar a compra por um cliente MCP e parar no aceite humano: `npm run demo:mcp -- --config ~/Downloads/neuramarket-mcp.json`. O script cota, contrata, confirma o bloqueio da primeira entrega, pede a correção e confere a segunda versão. Ele não aceita nem paga pelo usuário.
 
+Para conferir depois o estado de um pedido sem alterá-lo: `npm run demo:mcp -- --config ~/Downloads/neuramarket-mcp.json --order ID_DO_PEDIDO`. A saída informa o estado, as versões, as decisões da auditoria e a quantidade de aceites humanos.
+
 Para salvar as capturas de uma entrega baixada: `node scripts/extract-browser-evidence.mjs ~/Downloads/entrega-v2.json /private/tmp/neuramarket-evidence`. O extrator confere os hashes antes de gravar os PNGs.
 
 A máquina precisa permanecer ligada. Esta versão só acessa a página de teste do próprio app. Não executa código fornecido por clientes nem aceita URLs arbitrárias. A confiança na origem das capturas depende do executor autorizado; o hash comprova integridade, não prova sozinho que um navegador foi executado.

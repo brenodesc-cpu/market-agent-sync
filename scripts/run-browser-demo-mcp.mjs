@@ -4,6 +4,9 @@ import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 
 const configPath = process.argv[process.argv.indexOf("--config") + 1];
+const orderId = process.argv.includes("--order")
+  ? process.argv[process.argv.indexOf("--order") + 1]
+  : undefined;
 if (!process.argv.includes("--config") || !configPath) {
   throw new Error("Use --config com o arquivo baixado na tela da demo.");
 }
@@ -71,7 +74,17 @@ function data(result) {
 }
 
 async function tool(name, args) {
-  return data(await send("tools/call", { name, arguments: args }));
+  let failure;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return data(await send("tools/call", { name, arguments: args }));
+    } catch (error) {
+      failure = error;
+      if (!String(error?.message).includes("fetch failed") || attempt === 2) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+    }
+  }
+  throw failure;
 }
 
 async function poll(orderId, expected, timeoutMs = 80_000) {
@@ -94,39 +107,60 @@ try {
     `${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} })}\n`,
   );
 
-  const quote = await tool("quote_browser_test", { budget: 20 });
-  if (quote.selectedOffer === null || quote.price !== 15) {
-    throw new Error("O assessor não selecionou a oferta completa de 15 créditos.");
-  }
-  const purchase = await tool("buy_browser_test", {
-    requestId: randomUUID(),
-    budget: 20,
-    fixture: "lead-form-v1",
-    testFailure: true,
-  });
-  const first = await poll(purchase.orderId, ["revision_requested"]);
-  const firstReport = first.reports.at(-1);
-  if (firstReport?.decision !== "rejected") {
-    throw new Error("A auditoria não bloqueou a primeira entrega incompleta.");
-  }
+  if (orderId) {
+    const result = await tool("get_order", { orderId });
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          orderId,
+          status: result.order.status,
+          deliveryVersions: result.deliveries.length,
+          reports: result.reports.map(({ delivery_version, decision }) => ({
+            deliveryVersion: delivery_version,
+            decision,
+          })),
+          humanReviews: result.humanReviews?.length ?? 0,
+          reviewUrl: result.reviewUrl,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  } else {
+    const quote = await tool("quote_browser_test", { budget: 20 });
+    if (quote.selectedOffer === null || quote.price !== 15) {
+      throw new Error("O assessor não selecionou a oferta completa de 15 créditos.");
+    }
+    const purchase = await tool("buy_browser_test", {
+      requestId: randomUUID(),
+      budget: 20,
+      fixture: "lead-form-v1",
+      testFailure: true,
+    });
+    const first = await poll(purchase.orderId, ["revision_requested"]);
+    const firstReport = first.reports.at(-1);
+    if (firstReport?.decision !== "rejected") {
+      throw new Error("A auditoria não bloqueou a primeira entrega incompleta.");
+    }
 
-  await tool("retry_browser_test", { orderId: purchase.orderId });
-  const corrected = await poll(purchase.orderId, ["accepted"]);
-  const correctedReport = corrected.reports.at(-1);
-  if (correctedReport?.decision !== "approved") {
-    throw new Error("A auditoria não aprovou a correção completa.");
-  }
+    await tool("retry_browser_test", { orderId: purchase.orderId });
+    const corrected = await poll(purchase.orderId, ["accepted"]);
+    const correctedReport = corrected.reports.at(-1);
+    if (correctedReport?.decision !== "approved") {
+      throw new Error("A auditoria não aprovou a correção completa.");
+    }
 
-  const summary = {
-    orderId: purchase.orderId,
-    selectedPrice: quote.price,
-    rejectedVersion: first.order.current_delivery_version,
-    correctedVersion: corrected.order.current_delivery_version,
-    status: corrected.order.status,
-    reviewUrl: corrected.reviewUrl,
-    checks: correctedReport.checks.map(({ criterion, status }) => ({ criterion, status })),
-  };
-  process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+    const summary = {
+      orderId: purchase.orderId,
+      selectedPrice: quote.price,
+      rejectedVersion: first.order.current_delivery_version,
+      correctedVersion: corrected.order.current_delivery_version,
+      status: corrected.order.status,
+      reviewUrl: corrected.reviewUrl,
+      checks: correctedReport.checks.map(({ criterion, status }) => ({ criterion, status })),
+    };
+    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+  }
 } finally {
   child.stdin.end();
   child.kill("SIGTERM");
