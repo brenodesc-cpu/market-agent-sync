@@ -16,6 +16,10 @@ O modo de demonstração omite mobile na primeira entrega. Isso está explícito
 4. No computador com Chrome e este repositório: `npm run browser:worker -- --config ~/Downloads/neuramarket-worker.json`.
 5. A tela deve mostrar “Executor conectado”. Contratar o teste.
 
+Para executar a compra por um cliente MCP e parar no aceite humano: `npm run demo:mcp -- --config ~/Downloads/neuramarket-mcp.json`. O script cota, contrata, confirma o bloqueio da primeira entrega, pede a correção e confere a segunda versão. Ele não aceita nem paga pelo usuário.
+
+Para salvar as capturas de uma entrega baixada: `node scripts/extract-browser-evidence.mjs ~/Downloads/entrega-v2.json /private/tmp/neuramarket-evidence`. O extrator confere os hashes antes de gravar os PNGs.
+
 A máquina precisa permanecer ligada. Esta versão só acessa a página de teste do próprio app. Não executa código fornecido por clientes nem aceita URLs arbitrárias. A confiança na origem das capturas depende do executor autorizado; o hash comprova integridade, não prova sozinho que um navegador foi executado.
 
 ## MCP

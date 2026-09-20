@@ -49,6 +49,7 @@ import { BrowserAdvisor } from "./browser-advisor";
 import { AgentMarket } from "./agent-market";
 import { AgentBuilder } from "./agent-builder";
 import { AgentOutput, downloadAgentFile } from "./agent-output";
+import { BROWSER_OFFER } from "@/lib/browser-qa";
 import { ReviewAssistant } from "./review-assistant";
 import "@/studio.css";
 
@@ -253,6 +254,7 @@ export function CompanyStudio({
     }
   }, [user]);
   useEffect(() => {
+    if (initialView === "advisor") return;
     const selection = studioOrderSelection(initialOrderId, initialCompany);
     if (!authReady || !selection) return;
     if (!user) {
@@ -280,7 +282,7 @@ export function CompanyStudio({
     return () => {
       cancelled = true;
     };
-  }, [authReady, user, initialOrderId, initialCompany]);
+  }, [authReady, user, initialOrderId, initialCompany, initialView]);
   const readiness = {
     checked: connectionReady && authReady,
     backendConfigured: bootstrap.backendConfigured,
@@ -729,8 +731,9 @@ export function CompanyStudio({
                           )}
                           {currentDelivery.test_upload && (
                             <p className="studio-help">
-                              Cenário de teste identificado. A primeira entrega recebeu um erro
-                              proposital de preço.
+                              {order.contract.offer_version_id === BROWSER_OFFER
+                                ? "Modo de demonstração identificado. A primeira entrega omitiu a evidência mobile para provar o bloqueio do pagamento."
+                                : "Cenário de teste identificado. A primeira entrega recebeu um erro proposital de preço."}
                             </p>
                           )}
                           {currentReport && (

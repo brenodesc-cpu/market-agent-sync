@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Download, Code2, Monitor } from "lucide-react";
+import { Download, Code2, Monitor, Smartphone } from "lucide-react";
 import { agentResultSchema, type AgentResult } from "@/lib/agent-definition";
+import { browserEvidenceSchema } from "@/lib/browser-qa";
 
 export function downloadAgentFile(content: string, filename: string, mediaType = "text/plain") {
   const url = URL.createObjectURL(new Blob([content], { type: mediaType + ";charset=utf-8" }));
@@ -19,6 +20,29 @@ export function AgentOutput({ value }: { value: AgentResult | string }) {
     } catch {
       return <pre className="agent-text">{value}</pre>;
     }
+  }
+  const browserEvidence = browserEvidenceSchema.safeParse(parsed);
+  if (browserEvidence.success) {
+    return (
+      <div className="browser-evidence-output">
+        {browserEvidence.data.samples.map((sample) => (
+          <article key={sample.viewport}>
+            <h3>
+              {sample.viewport === "desktop" ? <Monitor size={17} /> : <Smartphone size={17} />}
+              {sample.viewport === "desktop" ? "Computador" : "Celular"}
+            </h3>
+            <img
+              src={`data:image/png;base64,${sample.screenshot}`}
+              alt={`Captura do teste em ${sample.viewport}`}
+            />
+            <p>{sample.finding}</p>
+            <small>
+              {(sample.durationMs / 1000).toFixed(1)}s · SHA-256 {sample.sha256.slice(0, 12)}…
+            </small>
+          </article>
+        ))}
+      </div>
+    );
   }
   const checked = agentResultSchema.safeParse(parsed);
   if (!checked.success)

@@ -2098,6 +2098,41 @@
   padding: 8px 0;
   font-size: 14px;
 }
+.browser-evidence-output {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+.browser-evidence-output article {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e4dce9;
+  border-radius: 11px;
+  background: #faf8fc;
+}
+.browser-evidence-output h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+}
+.browser-evidence-output img {
+  width: 100%;
+  height: 220px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #11182c;
+}
+.browser-evidence-output p {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.browser-evidence-output small {
+  color: #8b8092;
+  font-size: 10px;
+}
 .agent-output h2 {
   font-weight: 600;
   font-size: 21px;
@@ -2148,6 +2183,11 @@
   padding: 15px;
   font-family: monospace;
   font-size: 11px;
+}
+@media (max-width: 700px) {
+  .browser-evidence-output {
+    grid-template-columns: 1fr;
+  }
 }
 .agent-market-title {
   margin-bottom: 32px;
