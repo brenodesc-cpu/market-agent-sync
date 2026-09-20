@@ -70,3 +70,36 @@ Provas obrigatórias: oferta expirada, cotação alterada, total acima do limite
 A documentação da Wise distingue estimativas não autenticadas de cotações autenticadas utilizáveis na criação de transferências, com taxas, prazo e validade: https://docs.wise.com/guides/product/send-money/quotes . A Airwallex documenta cotações LockFX utilizadas por contas habilitadas em conversões posteriores: https://www.airwallex.com/docs/api/2024-04-30/transactional_fx/lockfx . Consultadas em 20/09/2026. São referências de arquitetura; não há integração, parceria ou autorização dessas empresas neste projeto.
 
 O caso demonstra como um agente compra uma capacidade controlada por outro participante. Não demonstra exclusividade técnica frente a um assistente integrado, liquidez real, autorização para operar câmbio, adequação regulatória ou aceitação bancária do relatório.
+
+## Implementação de 20/09
+
+O código implementa a capacidade na tela `/studio?view=fx` e na API `/api/a2a/fx`. A migração `0019_simulated_fx_market.sql` cria tabelas privadas próprias e três fornecedores fictícios; nenhum saldo anterior é alterado. Cada empresa começa com R$ 10.000 fictícios e US$ 0 no simulador. Os valores trafegam em centavos inteiros. A taxa fixa é 500 centavos BRL por operação concluída.
+
+O MCP expõe `quote_fx`, `start_fx_mission`, `hire_fx`, `get_fx_order`, `advance_fx_order`, `cancel_fx_order` e `get_fx_wallet`. A contraproposta já é calculada na cotação de acordo com a política de cada fornecedor. O pedido completo exige `authorizeSimulation: true` e o mesmo `requestId` nas repetições. Uma interrupção pode ser retomada com `advance_fx_order`; nenhuma leitura move dinheiro. A criação inicial da carteira ocorre de forma idempotente ao acessar o simulador.
+
+A NeuraLake explica a seleção feita por regras e registra modelo e tokens quando disponíveis. Uma falha nessa explicação permanece visível e não muda preços nem decide uma movimentação. O custo em USD é uma estimativa pela tabela da equipe. As políticas de preço, a auditoria e a liquidação são determinísticas.
+
+O modo manual permite escolher uma oferta elegível, pedir correção e aceitar a conversão. O modo autônomo conclui os mesmos passos no servidor, sem depender do executor de navegador. O painel consulta os eventos a cada dois segundos e recebe operações iniciadas pelo MCP da mesma empresa. A ordem das etapas fica persistida, mesmo se o navegador fechar.
+
+Passaram dez testes de PostgreSQL isolado, incluindo repetição concorrente, autorização, isolamento de empresas, prazo, comprovante falso e adulteração do registro após auditoria. Passaram 31 testes de API/MCP, TypeScript e build. A conferência visual e a execução no ambiente publicado ainda precisam ser concluídas.
+
+### Publicar
+
+No Lovable, aplicar integralmente `drizzle/migrations/0019_simulated_fx_market.sql` no banco conectado da NeuraMarket, preservando os dados existentes, e publicar o código do GitHub `main`. O comando cria apenas carteiras e operações de simulação; não conecta serviços financeiros reais.
+
+### Executar pelo MCP
+
+Chamar `start_fx_mission` com:
+
+```json
+{
+  "requestId": "UM-UUID-NOVO",
+  "targetUsdCents": 100000,
+  "maxTotalBrlCents": 560000,
+  "maxSettlementMinutes": 60,
+  "authorizeSimulation": true,
+  "testFailure": true
+}
+```
+
+Conferir `settled`, US$ 1.000 disponíveis, R$ 5.500 gastos, R$ 5 de taxa, dois comprovantes, dois relatórios e uma única operação. Repetir o mesmo pedido conserva os saldos. Uma cotação nova com prazo de 24 horas deve escolher Câmbio A. Um orçamento total inferior a R$ 5.500 e prazo de uma hora deve recusar a contratação. Para a comparação humana, usar uma empresa de teste distinta ou um valor menor, pois a demo respeita o saldo restante.

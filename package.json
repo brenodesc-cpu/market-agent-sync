@@ -15,7 +15,8 @@
     "test:a2a": "node --experimental-strip-types --test tests/studio.postgres.test.mjs",
     "mcp": "node scripts/neuramarket-mcp.mjs",
     "browser:worker": "node scripts/browser-worker.mjs",
-    "demo:mcp": "node scripts/run-browser-demo-mcp.mjs"
+    "demo:mcp": "node scripts/run-browser-demo-mcp.mjs",
+    "test:fx": "node --experimental-strip-types --test tests/fx.postgres.test.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"

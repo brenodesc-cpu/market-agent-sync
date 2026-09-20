@@ -8,6 +8,7 @@ export const Route = createFileRoute("/studio")({
     view: z
       .enum([
         "advisor",
+        "fx",
         "mission",
         "builder",
         "companies",

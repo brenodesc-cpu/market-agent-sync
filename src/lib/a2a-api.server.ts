@@ -221,6 +221,36 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
             "start_browser_mission: pagamento simulado automático somente com autorização explícita e critérios objetivos do contrato.",
         });
       }
+      if (path === "fx/wallet" && request.method === "GET") {
+        return json(
+          await (await import("./fx-market.server.ts")).getFx(actor.userId, actor.companyId),
+        );
+      }
+      if (["fx/quotes", "fx/missions", "fx/hire"].includes(path) && request.method === "POST") {
+        const fx = await import("./fx-market.server.ts");
+        const input = JSON.parse(await limitedBody(request));
+        return json(
+          await (path === "fx/quotes"
+            ? fx.quoteFx(actor.userId, actor.companyId, input)
+            : path === "fx/hire"
+              ? fx.hireFx(actor.userId, actor.companyId, input)
+              : fx.startFx(actor.userId, actor.companyId, input)),
+        );
+      }
+      const fxMatch = /^fx\/orders\/([^/]+)(?:\/(advance|cancel))?$/.exec(path);
+      if (fxMatch) {
+        const id = z.string().uuid().parse(fxMatch[1]);
+        const fx = await import("./fx-market.server.ts");
+        if (!fxMatch[2] && request.method === "GET")
+          return json(await fx.getFx(actor.userId, actor.companyId, id));
+        if (fxMatch[2] && request.method === "POST")
+          return json(
+            await (fxMatch[2] === "cancel"
+              ? fx.cancelFx(actor.userId, actor.companyId, id)
+              : fx.advanceFx(actor.userId, actor.companyId, id)),
+          );
+        return json({ error: "method_not_allowed" }, 405);
+      }
       if (
         ["browser/missions", "browser/quotes", "browser/quotes/hire"].includes(path) &&
         request.method === "POST"
@@ -411,6 +441,11 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
       return json({ error: "method_not_allowed" }, 405);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
+      if (message.startsWith("fx_"))
+        return json(
+          { error: message, simulation: true },
+          /not_found|access_denied/.test(message) ? 404 : 422,
+        );
       if (message === "body_too_large") return json({ error: "body_too_large" }, 413);
       if (error instanceof z.ZodError || error instanceof SyntaxError)
         return json(

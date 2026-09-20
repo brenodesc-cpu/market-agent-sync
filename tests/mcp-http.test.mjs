@@ -53,7 +53,7 @@ async function message(response) {
         .find((m) => m.id === 1)
     : JSON.parse(text);
 }
-test("remote MCP supports initialize and lists the same 17 tools as stdio", async () => {
+test("remote MCP supports initialize and lists the same 24 tools as stdio", async () => {
   const { handler, calls } = setup();
   const init = await message(
     await handler(
@@ -69,7 +69,7 @@ test("remote MCP supports initialize and lists the same 17 tools as stdio", asyn
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   const list = await message(response);
-  assert.equal(list.result.tools.length, 17);
+  assert.equal(list.result.tools.length, 24);
   assert.ok(list.result.tools.some((t) => t.name === "connection_status"));
   assert.ok(list.result.tools.some((t) => t.name === "buy_browser_test"));
   assert.equal(calls.length, 0);
@@ -162,4 +162,33 @@ test("wallet and cancellation dispatch using the same scoped credential", async 
       [`orders/${orderId}/cancel`, "Bearer nm_first"],
     ],
   );
+});
+
+test("FX tools forward authenticated structured simulator requests and require consent", async () => {
+  const { handler, calls } = setup();
+  const input = {
+    requestId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    targetUsdCents: 100000,
+    maxTotalBrlCents: 560000,
+    maxSettlementMinutes: 60,
+    authorizeSimulation: true,
+    testFailure: true,
+  };
+  const result = await message(
+    await handler(request("tools/call", { name: "start_fx_mission", arguments: input })),
+  );
+  assert.ok(!result.result.isError);
+  assert.equal(calls.at(-1).path, "fx/missions");
+  assert.deepEqual(JSON.parse(calls.at(-1).body), input);
+  const count = calls.length;
+  const missing = { ...input };
+  delete missing.authorizeSimulation;
+  const refused = await message(
+    await handler(request("tools/call", { name: "start_fx_mission", arguments: missing })),
+  );
+  assert.ok(refused.error || refused.result?.isError);
+  assert.equal(calls.length, count);
+  const id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  await handler(request("tools/call", { name: "get_fx_order", arguments: { orderId: id } }));
+  assert.equal(calls.at(-1).path, `fx/orders/${id}`);
 });

@@ -134,6 +134,13 @@
       "when": 1789912106542,
       "tag": "0018_confirm_autonomous_browser_market",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789914097994,
+      "tag": "0019_simulated_fx_market",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@ Atualizada em 19/09/2026. Esta é a direção atual do produto; o README conserv
 
 ## Caso fintech escolhido em 20/09
 
-Breno escolheu desenvolver o caso de uma tesouraria que contrata câmbio entre fornecedores com propostas executáveis. A [especificação do fluxo](fintech-fx-demo.md) define uma conversão BRL/USD inteiramente simulada, com comparação, negociação por políticas e auditoria de um registro de liquidação. Ainda não está implementada. A demo de navegador é o recorte publicado e comprovado em [evidências do pitch](publish-autonomy.md). As descrições anteriores de catálogo abaixo registram a origem do protótipo.
+Breno escolheu desenvolver o caso de uma tesouraria que contrata câmbio entre fornecedores com propostas executáveis. A [especificação do fluxo](fintech-fx-demo.md) define uma conversão BRL/USD inteiramente simulada, com comparação, negociação por políticas e auditoria de um registro de liquidação. O fluxo foi implementado e testado localmente; a migração 0019 e a publicação aguardam aplicação. A demo de navegador é o recorte publicado e comprovado em [evidências do pitch](publish-autonomy.md). As descrições anteriores de catálogo abaixo registram a origem do protótipo.
 
 ## Proposta
 

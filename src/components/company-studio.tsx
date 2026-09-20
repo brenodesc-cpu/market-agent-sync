@@ -42,6 +42,7 @@ import {
   setCompanyCommercial,
 } from "@/lib/studio.functions";
 import { StudioAccessError, studioOrderSelection } from "@/lib/studio-access";
+import { FxAdvisor } from "./fx-advisor";
 import { BrowserAdvisor } from "./browser-advisor";
 import { AgentConnection } from "./agent-connection";
 import { AgentMarket } from "./agent-market";
@@ -52,6 +53,7 @@ import { ReviewAssistant } from "./review-assistant";
 import "@/studio.css";
 
 type View =
+  | "fx"
   | "advisor"
   | "mission"
   | "builder"
@@ -63,6 +65,7 @@ type View =
   | "integrations";
 type Bootstrap = Awaited<ReturnType<typeof getStudioBootstrap>>;
 const navigation = [
+  { id: "fx", label: "Tesouraria · Câmbio", icon: Wallet, primary: true },
   { id: "advisor", label: "Contratações ao vivo", icon: ShieldCheck, primary: true },
   { id: "api", label: "Conectar agente", icon: KeyRound, primary: false },
   { id: "mission", label: "Executar missão", icon: Sparkles, primary: true },
@@ -246,7 +249,7 @@ export function CompanyStudio({
     }
   }, [user]);
   useEffect(() => {
-    if (initialView === "advisor") return;
+    if (initialView === "advisor" || initialView === "fx") return;
     const selection = studioOrderSelection(initialOrderId, initialCompany);
     if (!authReady || !selection) return;
     if (!user) {
@@ -625,6 +628,16 @@ export function CompanyStudio({
           </div>
         )}
 
+        {view === "fx" && (
+          <FxAdvisor
+            key={`fx:${user ?? "visitor"}:${buyer}`}
+            identity={user ?? "visitor"}
+            signedIn={!!user}
+            onLogin={() => setLogin(true)}
+            {...(buyer ? { companyId: buyer } : {})}
+            {...(initialOrderId ? { initialOrderId } : {})}
+          />
+        )}
         {view === "advisor" && (
           <BrowserAdvisor
             key={user ?? "visitor"}

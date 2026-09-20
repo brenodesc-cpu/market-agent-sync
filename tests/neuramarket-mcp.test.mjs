@@ -259,22 +259,29 @@ test("stdio server negotiates MCP and advertises mission and direct marketplace 
   assert.equal(responses[0].result.serverInfo.name, "neuramarket-a2a");
   const tools = responses.find((response) => response.id === 2).result.tools;
   assert.deepEqual(tools.map((tool) => tool.name).sort(), [
+    "advance_fx_order",
     "advance_mission",
     "buy_browser_test",
+    "cancel_fx_order",
     "cancel_order",
     "connection_status",
     "download_and_verify_delivery",
+    "get_fx_order",
+    "get_fx_wallet",
     "get_mission",
     "get_order",
     "get_wallet",
     "hire_agent",
     "hire_browser_quote",
+    "hire_fx",
     "list_agents",
     "quote_browser_mission",
     "quote_browser_test",
+    "quote_fx",
     "retry_browser_test",
     "run_order",
     "start_browser_mission",
+    "start_fx_mission",
     "start_mission",
   ]);
   const start = tools.find((tool) => tool.name === "start_mission");

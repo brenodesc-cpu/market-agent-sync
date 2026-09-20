@@ -1,0 +1,329 @@
+.fx-advisor {
+  max-width: 1120px;
+  margin: auto;
+  padding: 12px 0 48px;
+  color: #202438;
+}
+.fx-simulation {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  color: #8b5410;
+  background: #fff6e7;
+  border: 1px solid #f1dfba;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.fx-simulation span {
+  font-weight: 400;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+.fx-heading {
+  padding: 32px 0 24px;
+}
+.fx-heading h1 {
+  font-size: clamp(30px, 4vw, 44px);
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+  margin: 10px 0 16px;
+}
+.fx-heading p,
+.fx-goal > p,
+.fx-caption {
+  color: #6b7181;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.fx-wallet {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid #e4e5ec;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.fx-wallet span {
+  padding: 17px 22px;
+  font-size: 12px;
+  color: #6b7181;
+  border-right: 1px solid #eee;
+}
+.fx-wallet strong {
+  display: block;
+  color: #22273c;
+  font-size: 22px;
+  margin-top: 6px;
+  font-weight: 600;
+}
+.fx-goal {
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e4e5ec;
+  border-radius: 16px;
+}
+.fx-mode {
+  display: flex;
+  gap: 5px;
+  background: #f3f2f8;
+  border-radius: 9px;
+  padding: 4px;
+  width: max-content;
+  max-width: 100%;
+}
+.fx-mode button {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  padding: 9px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.fx-mode button[aria-pressed="true"] {
+  background: #fff;
+  box-shadow: 0 2px 5px #20243810;
+  color: #6957cb;
+}
+.fx-goal h2,
+.fx-advisor h2 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  margin: 22px 0 16px;
+}
+.fx-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.fx-inputs label {
+  font-size: 12px;
+  color: #6b7181;
+}
+.fx-inputs input,
+.fx-inputs select {
+  width: 100%;
+  display: block;
+  background: #fafafe;
+  border: 1px solid #dadde8;
+  border-radius: 8px;
+  padding: 12px;
+  color: #202438;
+  font-size: 17px;
+  margin-top: 7px;
+}
+.fx-consent {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  line-height: 1.5;
+  font-size: 13px;
+  margin: 14px 0;
+}
+.fx-consent input {
+  margin-top: 4px;
+  accent-color: #725de5;
+}
+.fx-goal > .studio-primary {
+  margin-top: 10px;
+}
+.fx-offers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.fx-offers article {
+  background: #fff;
+  border: 1px solid #e1e3ec;
+  border-radius: 13px;
+  padding: 20px;
+}
+.fx-offers article.fx-selected {
+  border: 2px solid #7f6ce3;
+  background: #faf9ff;
+  padding: 19px;
+}
+.fx-offers article > span {
+  font-size: 13px;
+}
+.fx-offers h3 {
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin: 16px 0 8px;
+}
+.fx-offers p {
+  font-size: 13px;
+  color: #626779;
+  line-height: 1.5;
+}
+.fx-offers small {
+  font-size: 11px;
+  color: #797e8e;
+}
+.fx-offers button {
+  margin-top: 14px;
+}
+.fx-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 28px;
+  border-radius: 14px;
+  background: #272344;
+  color: white;
+  margin: 24px 0;
+}
+.fx-result h2 {
+  font-size: 32px;
+  margin: 8px 0;
+}
+.fx-result span,
+.fx-result p {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.fx-actors {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.fx-actors span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 13px;
+  border: 1px solid #e4e5ec;
+  border-radius: 9px;
+  background: #fff;
+}
+.fx-actors b {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #eeeafc;
+  color: #715bce;
+}
+.fx-details {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 32px;
+  margin: 12px 0 20px;
+}
+.fx-details h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fx-audit {
+  border: 1px solid #e4e5ec;
+  background: white;
+  padding: 18px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.fx-audit strong {
+  display: block;
+  margin-bottom: 12px;
+}
+.fx-audit p {
+  margin: 7px 0;
+  line-height: 1.45;
+  font-size: 12px;
+}
+.fx-pass {
+  color: #278068;
+}
+.fx-fail {
+  color: #be4949;
+}
+.fx-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 12px;
+  border-left: 1px solid #ddd9ed;
+}
+.fx-timeline li {
+  padding: 0 0 16px 9px;
+  font-size: 12px;
+}
+.fx-timeline strong {
+  display: block;
+  font-weight: 500;
+}
+.fx-timeline span {
+  display: block;
+  color: #8a8b9a;
+  margin-top: 5px;
+  font-size: 11px;
+}
+.fx-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.fx-advisor details {
+  font-size: 12px;
+  color: #777c8c;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.fx-history button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e4e5ec;
+  border-radius: 9px;
+  background: #fff;
+  margin: 8px 0;
+  cursor: pointer;
+}
+.fx-spin {
+  animation: fx-spin 1s linear infinite;
+}
+@keyframes fx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 700px) {
+  .fx-inputs,
+  .fx-offers,
+  .fx-details {
+    grid-template-columns: 1fr;
+  }
+  .fx-wallet span {
+    padding: 12px;
+  }
+  .fx-wallet strong {
+    font-size: 16px;
+  }
+  .fx-actors {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .fx-result {
+    flex-wrap: wrap;
+    padding: 20px;
+  }
+  .fx-result h2 {
+    font-size: 25px;
+  }
+  .fx-goal {
+    padding: 18px;
+  }
+  .fx-mode button {
+    padding: 9px 12px;
+  }
+}
