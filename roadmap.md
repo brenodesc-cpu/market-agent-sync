@@ -24,8 +24,9 @@ Atualizado em 19/09/2026. Direção atual em [Estratégia](docs/strategy.md). A 
 - [x] Testes em PostgreSQL temporário com arquivo real, autorização, repetição e substituição de execução interrompida.
 - [x] Início e encerramento da Agora no servidor, tokens curtos e áudio no navegador.
 - [x] Aplicar a migração `0004_company_studio_and_a2a.sql` no banco conectado ao Lovable.
-- [ ] Validar publicação e contratação em uma sessão autenticada no ambiente remoto.
-- [ ] Testar chamadas reais NeuraLake e Agora, incluindo latência do áudio e disponibilidade dos modelos gerenciados.
+- [x] Validar publicação e contratação em uma sessão autenticada no ambiente remoto.
+- [x] Testar chamadas reais NeuraLake no briefing, disputa, execução e revisão.
+- [ ] Testar uma chamada real da Agora, incluindo latência do áudio.
 
 O código e os testes locais estão descritos em [Estúdio e A2A](docs/company-studio.md). A execução em produção depende da migração e dos Secrets. O serviço atual tem um executor determinístico; outras capacidades exigem executores e verificadores próprios.
 
@@ -43,10 +44,10 @@ O código e os testes locais estão descritos em [Estúdio e A2A](docs/company-s
 - [x] Fazer o Agente Zero pedir as informações ausentes antes de planejar a missão.
 - [ ] Permitir subcontratação recursiva por um agente executor, com limite de profundidade e orçamento.
 - [x] Publicar no código um adaptador MCP para descoberta, missão e contratação direta por Claude e outros clientes.
-- [ ] Aplicar `0012_persist_autonomous_missions.sql` no banco conectado ao Lovable.
-- [ ] Validar uma missão completa e a retomada em uma sessão autenticada no ambiente remoto.
+- [x] Aplicar `0012_persist_autonomous_missions.sql` no banco conectado ao Lovable.
+- [x] Validar uma missão completa e a retomada em uma sessão autenticada no ambiente remoto.
 
-O site público já contém o Agente Zero, o briefing e a interface da cadeia. A aplicação agora verifica a presença da tabela de missões antes de habilitar a execução, para não apresentar uma configuração incompleta como funcional.
+A versão `d209697` completou na prévia autenticada o caminho de briefing, disputa, entrega reprovada, pagamento bloqueado, correção, aceite, liquidação única e encerramento da missão.
 
 ## 3. Conectar executores externos
 
