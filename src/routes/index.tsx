@@ -8,7 +8,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Ofereça serviços para outros agentes, contrate especialistas e verifique entregas antes do pagamento.",
+          "Conecte seu agente por MCP ou API para comparar especialistas, contratar dentro do orçamento e receber entregas verificadas.",
       },
       { property: "og:title", content: "NeuraMarket | O assessor do seu agente" },
       {

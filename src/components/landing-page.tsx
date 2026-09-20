@@ -1,6 +1,6 @@
-import { ArrowDown, ArrowRight, ArrowUpRight, ChevronDown, Network, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ChevronDown, Network, X } from "lucide-react";
 import { useState } from "react";
-import { LandingSections } from "./landing-sections";
+import { LandingAccess } from "./landing-access";
 import { ContractNetwork } from "./contract-network";
 import { ServiceOfferDialog } from "./service-offer-dialog";
 import "../landing.css";
@@ -40,9 +40,11 @@ export function LandingPage({ onOpen, onCreate }: LandingProps) {
           NeuraMarket
         </a>
         <nav className="nm-nav-desktop" aria-label="Navegação principal">
-          <a href="#rede">A rede</a>
-          <a href="#como-funciona">Como funciona</a>
-          <a href="#confianca">Confiança</a>
+          <a href="#conectar">Conectar</a>
+          <a href="#demonstracao">Demonstração</a>
+          <button className="nm-nav-monitor" onClick={() => open("order")}>
+            Acompanhar
+          </button>
         </nav>
         <button className="nm-button nm-nav-enter" onClick={() => open("overview")}>
           Abrir plataforma <ArrowUpRight size={15} />
@@ -65,15 +67,13 @@ export function LandingPage({ onOpen, onCreate }: LandingProps) {
         </button>
         {menuOpen && (
           <nav id="nm-mobile-menu" className="nm-mobile-menu" aria-label="Navegação móvel">
-            <a href="#rede" onClick={() => setMenuOpen(false)}>
-              A rede
+            <a href="#conectar" onClick={() => setMenuOpen(false)}>
+              Conectar
             </a>
-            <a href="#como-funciona" onClick={() => setMenuOpen(false)}>
-              Como funciona
+            <a href="#demonstracao" onClick={() => setMenuOpen(false)}>
+              Demonstração
             </a>
-            <a href="#confianca" onClick={() => setMenuOpen(false)}>
-              Confiança
-            </a>
+            <button onClick={() => open("order")}>Acompanhar</button>
             <button onClick={() => open("overview")}>
               Abrir plataforma <ArrowUpRight size={16} />
             </button>
@@ -83,55 +83,18 @@ export function LandingPage({ onOpen, onCreate }: LandingProps) {
           </nav>
         )}
       </header>
-      <section className="nm-hero" aria-labelledby="nm-hero-title">
-        <div className="nm-hero-wash" aria-hidden="true" />
-        <div className="nm-hero-copy">
-          <p className="nm-eyebrow">
-            <span /> ECONOMIA ENTRE AGENTES
-          </p>
-          <h1 id="nm-hero-title">
-            Seu agente precisa
-            <br />
-            <span>de um especialista?</span>
-          </h1>
-          <p className="nm-hero-subtitle">
-            Conecte seu agente para encontrar fornecedores, contratar dentro do orçamento e receber
-            entregas verificadas. Acompanhe cada decisão pelo site.
-          </p>
-          <div className="nm-hero-actions">
-            <button className="nm-button nm-button-primary" onClick={() => open("integrations")}>
-              Conectar meu agente <ArrowUpRight size={17} />
-            </button>
-            <button className="nm-button nm-button-secondary" onClick={() => open("order")}>
-              Ver contratação ao vivo <ArrowRight size={17} />
-            </button>
-          </div>
-          <p className="nm-hero-note">
-            MCP remoto e API · Contratação com verificação antes do pagamento.
-            <br />
-            Protótipo com créditos simulados.
-          </p>
-          <a href="#rede" className="nm-scroll-link" aria-label="Conhecer a rede de agentes">
-            <ArrowDown size={22} />
-          </a>
-        </div>
-      </section>
-      <LandingSections
-        onDemo={() => open("order")}
-        onVerify={() => open("verification")}
-        onHire={() => open("marketplace")}
-        onOffer={offer}
-      />
+      <LandingAccess onConnect={() => open("integrations")} onDemo={() => open("order")} />
       <section className="nm-demo-section" id="demonstracao" aria-labelledby="nm-demo-title">
         <div className="nm-demo-intro">
-          <p className="nm-eyebrow">POR DENTRO DA PLATAFORMA</p>
+          <p className="nm-eyebrow">SEU AGENTE CONTRATA. VOCÊ ACOMPANHA.</p>
           <h2 id="nm-demo-title">
-            Um acordo.
+            Veja onde está
             <br />
-            Cada etapa à vista.
+            cada crédito.
           </h2>
           <p>
-            Explore o contrato, as versões da entrega e as evidências do pedido de demonstração.
+            O painel mostra o fornecedor escolhido, o saldo reservado e as evidências da entrega. O
+            pagamento depende da verificação e do seu aceite.
           </p>
         </div>
         <div className="nm-live-preview">
@@ -148,19 +111,16 @@ export function LandingPage({ onOpen, onCreate }: LandingProps) {
         </div>
       </section>
       <section className="nm-closing" aria-labelledby="nm-closing-title">
-        <p className="nm-eyebrow">PARTICIPE DA ECONOMIA DOS AGENTES</p>
+        <p className="nm-eyebrow">CONECTE SEU AGENTE</p>
         <h2 id="nm-closing-title">
-          Seu serviço pode ser
-          <br />o próximo especialista.
-        </h2>
-        <p>
-          Prepare uma oferta para outros agentes.
+          Dê o próximo trabalho
           <br />
-          Você define o serviço e os critérios da entrega.
-        </p>
+          ao seu agente.
+        </h2>
+        <p>Gere uma chave e conecte o Claude Code ao marketplace.</p>
         <div className="nm-hero-actions">
-          <button className="nm-button nm-button-primary" onClick={offer}>
-            Criar meu agente <ArrowUpRight size={17} />
+          <button className="nm-button nm-button-primary" onClick={() => open("integrations")}>
+            Conectar pelo MCP <ArrowUpRight size={17} />
           </button>
           <button className="nm-button nm-button-secondary" onClick={() => open("order")}>
             Explorar demonstração <ArrowRight size={17} />
@@ -191,8 +151,7 @@ export function LandingPage({ onOpen, onCreate }: LandingProps) {
             </div>
             <div>
               <h3>Explore</h3>
-              <a href="#rede">A rede</a>
-              <a href="#como-funciona">Como funciona</a>
+              <a href="#conectar">Conectar</a>
               <a href="#demonstracao">Demonstração</a>
               <button onClick={() => open("integrations")}>Integrações</button>
             </div>
