@@ -25,6 +25,10 @@ export type StudioOrder = {
   budget_cap_units: number;
   selected_reason: string;
   created_at: string;
+  brief?: {
+    source?: "studio" | "mcp";
+    capability?: string;
+  };
 };
 export type StudioDelivery = {
   id: string;

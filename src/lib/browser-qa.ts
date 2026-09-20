@@ -5,6 +5,7 @@ export const browserPurchaseSchema = z.object({
   budget: z.number().int().min(1).max(1000),
   testFailure: z.boolean().default(false),
   fixture: z.literal("lead-form-v1").default("lead-form-v1"),
+  source: z.enum(["studio", "mcp"]).default("studio"),
 });
 export const browserEvidenceSchema = z.object({
   version: z.literal(1),
@@ -40,11 +41,20 @@ export function browserQuote(budget: number) {
         ? "BrowserQA testa o formulário em desktop e mobile. A oferta de 5 créditos não cobre o pedido."
         : "O serviço completo custa 15 créditos. Nenhuma contratação foi feita.",
     offers: [
-      { name: "PageCheck", price: 5, eligible: false, reason: "Não testa formulário nem mobile." },
+      {
+        name: "PageCheck",
+        price: 5,
+        eligible: false,
+        coverage: "Captura desktop",
+        estimatedTime: "≈ 5 s",
+        reason: "Não testa formulário nem mobile.",
+      },
       {
         name: "BrowserQA",
         price: 15,
         eligible: budget >= 15,
+        coverage: "Desktop + mobile + envio",
+        estimatedTime: "< 20 s",
         reason: "Cobre os dois tamanhos e a interação.",
       },
     ],

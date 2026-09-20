@@ -30,6 +30,15 @@ test("quote filters required capability before price and never spends above budg
   assert.equal(browserQuote(14).selectedOffer, null);
   assert.equal(browserQuote(20).price, 15);
   assert.equal(browserQuote(20).offers[0].eligible, false);
+  assert.equal(browserQuote(20).offers[1].coverage, "Desktop + mobile + envio");
+  assert.equal(
+    browserPurchaseSchema.parse({ requestId: randomUUID(), budget: 20 }).source,
+    "studio",
+  );
+  assert.equal(
+    browserPurchaseSchema.parse({ requestId: randomUUID(), budget: 20, source: "mcp" }).source,
+    "mcp",
+  );
   assert.equal(
     browserPurchaseSchema.safeParse({ requestId: randomUUID(), budget: -1 }).success,
     false,

@@ -1,5 +1,13 @@
-import { useEffect, useState } from "react";
-import { ArrowRight, Check, LoaderCircle, ShieldCheck, Monitor, Smartphone } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  ArrowRight,
+  Bot,
+  Check,
+  LoaderCircle,
+  ShieldCheck,
+  Monitor,
+  Smartphone,
+} from "lucide-react";
 import { browserQuote, type BrowserEvidence } from "@/lib/browser-qa";
 import {
   getBrowserSetup,
@@ -41,6 +49,7 @@ export function BrowserAdvisor({
     [error, setError] = useState("");
   const [selected, setSelected] = useState(initialOrderId ?? ""),
     [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const seenOrders = useRef<Set<string> | null>(null);
   const quote = browserQuote(budget);
   async function refresh() {
     const state = await getBrowserSetup();
@@ -58,6 +67,17 @@ export function BrowserAdvisor({
       try {
         const state = await getBrowserSetup();
         if (active) setSetup(state);
+        const ids = state.orders.map((item) => item.id);
+        if (seenOrders.current === null) {
+          seenOrders.current = new Set(ids);
+        } else {
+          const incoming = state.orders.find((item) => !seenOrders.current!.has(item.id));
+          ids.forEach((id) => seenOrders.current!.add(id));
+          if (active && !selected && incoming) {
+            setSelected(incoming.id);
+            setOrder(await getStudioOrder({ data: { orderId: incoming.id } }));
+          }
+        }
         if (selected) {
           const detail = await getStudioOrder({ data: { orderId: selected } });
           if (active) setOrder(detail);
@@ -67,7 +87,7 @@ export function BrowserAdvisor({
       }
     };
     void tick();
-    const timer = setInterval(() => void tick(), 4000);
+    const timer = setInterval(() => void tick(), 1500);
     return () => {
       active = false;
       clearInterval(timer);
@@ -95,6 +115,8 @@ export function BrowserAdvisor({
     /* invalid artifacts are never rendered */
   }
   const state = order?.order.status;
+  const fromMcp = order?.order.brief?.source === "mcp";
+  const auditComplete = ["accepted", "settled"].includes(state ?? "");
   const labels: Record<string, string> = {
     contracted: "15 créditos reservados. Aguardando o executor.",
     in_progress: "O fornecedor está testando no navegador.",
@@ -104,7 +126,7 @@ export function BrowserAdvisor({
     cancelled: "Pedido cancelado. Reserva devolvida.",
   };
   return (
-    <section className="browser-advisor">
+    <section className={`browser-advisor${order ? " has-order" : ""}`}>
       <div className="qa-eyebrow">NEURAMARKET · ASSESSOR DO SEU AGENTE</div>
       <h1>
         Seu agente precisa de
@@ -114,6 +136,72 @@ export function BrowserAdvisor({
       <p className="qa-intro">
         Ele contrata quem executa. Você confere o resultado antes do pagamento.
       </p>
+      <div className={`qa-live-event${fromMcp ? " received" : ""}`}>
+        <Bot size={19} />
+        <div>
+          <strong>
+            {fromMcp
+              ? "Pedido recebido de um agente externo pelo MCP"
+              : order
+                ? "Pedido iniciado pelo estúdio"
+                : "Aguardando um agente externo pelo MCP"}
+          </strong>
+          <span>
+            {fromMcp
+              ? "A tela abriu esta contratação automaticamente."
+              : "Quando o agente contratar, esta tela acompanha a execução sozinha."}
+          </span>
+        </div>
+        <i>{fromMcp ? "A2A AO VIVO" : "ESCUTANDO"}</i>
+      </div>
+      <div className="qa-flow" aria-label="Fluxo da contratação">
+        <div className={order ? "done" : "current"}>
+          <b>1</b>
+          <span>
+            <strong>Pedido</strong>
+            <small>{fromMcp ? "MCP recebido" : "Aguardando MCP"}</small>
+          </span>
+        </div>
+        <div className={order ? "done" : ""}>
+          <b>2</b>
+          <span>
+            <strong>Escolha</strong>
+            <small>{order ? "BrowserQA · 15 cr" : "Compara cobertura"}</small>
+          </span>
+        </div>
+        <div
+          className={
+            state === "revision_requested"
+              ? "blocked"
+              : auditComplete
+                ? "done"
+                : order
+                  ? "current"
+                  : ""
+          }
+        >
+          <b>3</b>
+          <span>
+            <strong>Auditoria</strong>
+            <small>
+              {state === "revision_requested"
+                ? "Pagamento bloqueado"
+                : auditComplete
+                  ? "Correção aprovada"
+                  : "Confere as provas"}
+            </small>
+          </span>
+        </div>
+        <div className={state === "settled" ? "done" : auditComplete ? "current" : ""}>
+          <b>4</b>
+          <span>
+            <strong>Pagamento</strong>
+            <small>
+              {state === "settled" ? "14 fornecedor + 1 fee" : "Protegido até o aceite"}
+            </small>
+          </span>
+        </div>
+      </div>
       <div className="qa-request">
         <span className="qa-label">PEDIDO DO AGENTE CRIADOR DE SITES</span>
         <p>
@@ -183,12 +271,23 @@ export function BrowserAdvisor({
             <strong>{o.name}</strong>
             <b>{o.price} créditos</b>
             <p>{o.reason}</p>
+            <dl>
+              <div>
+                <dt>Cobertura</dt>
+                <dd>{o.coverage}</dd>
+              </div>
+              <div>
+                <dt>Tempo</dt>
+                <dd>{o.estimatedTime}</dd>
+              </div>
+            </dl>
             <small>{o.eligible ? "Selecionado pelo assessor" : "Não atende ao pedido"}</small>
           </div>
         ))}
       </div>
       <p className="qa-explanation">
-        {quote.reason} O comprador deste exemplo tem acesso a texto, mas não possui um navegador.
+        {quote.reason} Criar essa capacidade agora exigiria integrar e validar um navegador. A
+        compra custa 15 créditos e entrega o teste completo em menos de 20 segundos.
       </p>
       {signedIn && (
         <p className="qa-connection">
@@ -210,7 +309,7 @@ export function BrowserAdvisor({
           </h2>
           {report && (
             <div className="qa-checks">
-              {report.checks.map((c: any) => (
+              {report.checks.map((c) => (
                 <span key={c.criterion} className={c.status === "passed" ? "pass" : "fail"}>
                   {c.status === "passed" ? "✓" : "×"}{" "}
                   {c.criterion === "evidence_integrity"

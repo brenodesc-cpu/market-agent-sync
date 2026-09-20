@@ -21,6 +21,107 @@
   color: #787582;
   margin-bottom: 32px;
 }
+.qa-live-event {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #dcd6e8;
+  border-radius: 14px;
+  background: #f8f6fb;
+  margin-bottom: 14px;
+  color: #675d73;
+}
+.qa-live-event.received {
+  color: #2c6847;
+  border-color: #b8ddc7;
+  background: #f0faf4;
+}
+.qa-live-event div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.qa-live-event strong {
+  font-size: 13px;
+}
+.qa-live-event span {
+  font-size: 11px;
+  color: #80798c;
+}
+.qa-live-event i {
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.qa-flow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.qa-flow > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #e4e0eb;
+  border-radius: 12px;
+  color: #918a98;
+  background: #fff;
+}
+.qa-flow b {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 50%;
+  background: #eeeaf3;
+  font-size: 11px;
+}
+.qa-flow span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.qa-flow strong {
+  font-size: 11px;
+  color: #625d68;
+}
+.qa-flow small {
+  overflow: hidden;
+  font-size: 9px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.qa-flow .current {
+  border-color: #a993da;
+  background: #f7f3ff;
+}
+.qa-flow .current b {
+  color: #fff;
+  background: #7151bb;
+}
+.qa-flow .done {
+  border-color: #b8ddc7;
+  background: #f0faf4;
+}
+.qa-flow .done b {
+  color: #fff;
+  background: #32916c;
+}
+.qa-flow .blocked {
+  border-color: #efb9af;
+  background: #fff4f1;
+}
+.qa-flow .blocked b {
+  color: #fff;
+  background: #bb5949;
+}
 .qa-request {
   padding: 26px;
   border: 1px solid #dfdbe9;
@@ -107,6 +208,27 @@
   font-size: 13px;
   color: #77707e;
   margin: 9px 0;
+}
+.qa-offers dl {
+  display: grid;
+  grid-template-columns: 1fr 74px;
+  gap: 10px;
+  margin: 13px 0;
+}
+.qa-offers dl div {
+  min-width: 0;
+}
+.qa-offers dt {
+  color: #938b99;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.qa-offers dd {
+  margin: 3px 0 0;
+  font-size: 11px;
+  font-weight: 650;
+  color: #4d4852;
 }
 .qa-offers small {
   font-size: 11px;
@@ -234,6 +356,15 @@
   .qa-controls {
     align-items: stretch;
     flex-direction: column;
+  }
+  .qa-live-event {
+    grid-template-columns: auto 1fr;
+  }
+  .qa-live-event i {
+    display: none;
+  }
+  .qa-flow {
+    grid-template-columns: 1fr 1fr;
   }
   .qa-offers,
   .qa-evidence {

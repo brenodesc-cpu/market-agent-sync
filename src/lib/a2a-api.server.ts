@@ -221,11 +221,11 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
       }
       if (path === "browser/orders" && request.method === "POST") {
         const { purchaseBrowserTest } = await import("./browser-runtime.server.ts");
-        const result = await purchaseBrowserTest(
-          actor.userId,
-          actor.companyId,
-          JSON.parse(await limitedBody(request)),
-        );
+        const payload = JSON.parse(await limitedBody(request));
+        const result = await purchaseBrowserTest(actor.userId, actor.companyId, {
+          ...payload,
+          source: "mcp",
+        });
         return json(
           {
             ...result,
