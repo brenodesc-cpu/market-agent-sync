@@ -376,6 +376,27 @@ export type Database = {
           },
         ]
       }
+      browser_workers: {
+        Row: {
+          expires_at: string
+          last_seen_at: string | null
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          expires_at: string
+          last_seen_at?: string | null
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          expires_at?: string
+          last_seen_at?: string | null
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       capabilities: {
         Row: {
           code: string
@@ -1243,6 +1264,8 @@ export type Database = {
     }
     Functions: {
       agent_acceptance_criteria: { Args: { _sections: Json }; Returns: Json }
+      browser_buyer: { Args: { _user: string }; Returns: string }
+      browser_criteria: { Args: never; Returns: Json }
       catalogue_acceptance_criteria: { Args: never; Returns: Json }
       has_role: {
         Args: {
@@ -1319,11 +1342,24 @@ export type Database = {
         Args: { _payload: Json; _user: string }
         Returns: Json
       }
+      studio_place_browser_order: {
+        Args: { _payload: Json; _user: string }
+        Returns: Json
+      }
       studio_place_order: {
         Args: { _payload: Json; _user: string }
         Returns: Json
       }
       studio_record_agent_delivery: {
+        Args: {
+          _content: string
+          _order: string
+          _report: Json
+          _token: string
+        }
+        Returns: Json
+      }
+      studio_record_browser_delivery: {
         Args: {
           _content: string
           _order: string
