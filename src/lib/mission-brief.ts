@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const MAX_BRIEF_ROUNDS = 3;
+export const MAX_BRIEF_ROUNDS = 2;
 
 export const missionBriefAnswerSchema = z.object({
   question: z.string().trim().min(3).max(500),

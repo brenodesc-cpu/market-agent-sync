@@ -44,7 +44,9 @@ export async function neuralakeJson(
     response = await fetchImpl("https://api.neuralake.cloud/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(55000),
+      // Lovable encerra funções públicas antes de 30 s. Falhe com uma mensagem
+      // recuperável em vez de deixar o navegador receber um "Failed to fetch".
+      signal: AbortSignal.timeout(22000),
       body: JSON.stringify({
         model,
         stream: false,

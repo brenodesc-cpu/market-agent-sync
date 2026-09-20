@@ -19,7 +19,11 @@ import {
   runStudioAgent,
   startAutonomousStudioChain,
 } from "@/lib/agent-studio.functions";
-import type { MissionBriefAnswer, MissionBriefState } from "@/lib/mission-brief";
+import {
+  MAX_BRIEF_ROUNDS,
+  type MissionBriefAnswer,
+  type MissionBriefState,
+} from "@/lib/mission-brief";
 import {
   placeStudioOrder,
   executeStudioOrder,
@@ -491,7 +495,9 @@ export function AgentMarket({
                 <span>
                   <Bot size={17} /> Agente Zero
                 </span>
-                <small>Perguntas {Math.min(brief.round + 1, 3)} de 3</small>
+                <small>
+                  Perguntas {Math.min(brief.round + 1, MAX_BRIEF_ROUNDS)} de {MAX_BRIEF_ROUNDS}
+                </small>
               </header>
               <p>{brief.understanding}</p>
               <div className="mission-briefing-questions">

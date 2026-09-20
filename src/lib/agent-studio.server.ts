@@ -37,6 +37,7 @@ import {
   requireUntouchedMissionDescendants,
 } from "./mission-budget.ts";
 import {
+  MAX_BRIEF_ROUNDS,
   missionBriefInputSchema,
   resolveMissionBriefState,
   type MissionBriefInput,
@@ -327,7 +328,7 @@ export async function clarifyMissionBrief(
 ) {
   await ownedCompany(userId, companyId);
   const input = missionBriefInputSchema.parse(rawInput);
-  const system = `Você é o Agente Zero, responsável por alinhar uma missão antes de qualquer execução ou gasto. Avalie se o objetivo, o público, a entrega esperada e as restrições necessárias estão claros. Faça somente perguntas que mudem materialmente a execução. Nunca pergunte algo já respondido. Retorne no máximo três perguntas curtas e objetivas por rodada. Na rodada 3, não faça novas perguntas: consolide o melhor briefing possível e indique premissas no entendimento. Retorne apenas JSON: {"ready":boolean,"understanding":"o que você entendeu em linguagem simples","questions":["pergunta"],"consolidatedBrief":"brief completo quando ready; string vazia quando faltar contexto"}.`;
+  const system = `Você é o Agente Zero, responsável por alinhar uma missão antes de qualquer execução ou gasto. Avalie se o objetivo, o público, a entrega esperada e as restrições necessárias estão claros. Faça somente perguntas que mudem materialmente a execução. Nunca pergunte algo já respondido. Retorne no máximo três perguntas curtas e objetivas por rodada. Na rodada ${MAX_BRIEF_ROUNDS}, não faça novas perguntas: consolide o melhor briefing possível e indique premissas no entendimento. Retorne apenas JSON: {"ready":boolean,"understanding":"o que você entendeu em linguagem simples","questions":["pergunta"],"consolidatedBrief":"brief completo quando ready; string vazia quando faltar contexto"}.`;
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {

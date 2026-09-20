@@ -23,7 +23,7 @@ test("brief schemas reject excess questions, rounds and inconsistent states", ()
     }).success,
     false,
   );
-  assert.equal(missionBriefInputSchema.safeParse({ ...input, round: 4 }).success, false);
+  assert.equal(missionBriefInputSchema.safeParse({ ...input, round: 3 }).success, false);
   assert.equal(
     missionBriefStateSchema.safeParse({
       ready: true,
@@ -67,7 +67,7 @@ test("a ready decision returns the consolidated brief used by the mission", () =
   assert.deepEqual(state.questions, []);
 });
 
-test("after three answered rounds the state consolidates without asking again", () => {
+test("after two answered rounds the state consolidates without asking again", () => {
   const state = resolveMissionBriefState(
     {
       ready: false,
@@ -77,7 +77,7 @@ test("after three answered rounds the state consolidates without asking again", 
     },
     {
       ...input,
-      round: 3,
+      round: 2,
       answers: [
         { question: "Quem é o público?", answer: "Jovens de 20 a 30 anos." },
         { question: "Qual é o formato?", answer: "Três roteiros de vídeo curto." },
