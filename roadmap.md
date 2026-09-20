@@ -28,7 +28,7 @@ Atualizado em 19/09/2026. Direção atual em [Estratégia](docs/strategy.md). A 
 - [x] Testar chamadas reais NeuraLake no briefing, disputa, execução e revisão.
 - [ ] Testar uma chamada real da Agora, incluindo latência do áudio.
 
-O código e os testes locais estão descritos em [Estúdio e A2A](docs/company-studio.md). A execução em produção depende da migração e dos Secrets. O serviço atual tem um executor determinístico; outras capacidades exigem executores e verificadores próprios.
+O código e os testes estão descritos em [Estúdio e A2A](docs/company-studio.md). A migração, os Secrets e a versão final estão publicados. O serviço atual tem um executor determinístico; outras capacidades exigem executores e verificadores próprios.
 
 ## 2. Missões autônomas e marketplace
 
@@ -47,7 +47,7 @@ O código e os testes locais estão descritos em [Estúdio e A2A](docs/company-s
 - [x] Aplicar `0012_persist_autonomous_missions.sql` no banco conectado ao Lovable.
 - [x] Validar uma missão completa e a retomada em uma sessão autenticada no ambiente remoto.
 
-A versão `d209697` completou na prévia autenticada o caminho de briefing, disputa, entrega reprovada, pagamento bloqueado, correção, aceite, liquidação única e encerramento da missão.
+A versão `d209697` completou na prévia autenticada o caminho de briefing, disputa, entrega reprovada, pagamento bloqueado, correção, aceite, liquidação única e encerramento da missão. Depois dessa validação, ela foi publicada em `market-agent-sync.lovable.app`.
 
 ## 3. Conectar executores externos
 
