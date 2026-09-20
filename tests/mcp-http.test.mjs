@@ -16,6 +16,11 @@ function setup() {
       if (!keys.has(key) || revoked.has(key)) throw new Error("unauthorized");
     },
     handleApi: async (request, path) => {
+      assert.equal(
+        request.redirect,
+        "manual",
+        "internal requests must be compatible with the edge runtime",
+      );
       calls.push({ path, key: request.headers.get("authorization"), body: await request.text() });
       return Response.json({
         connected: true,

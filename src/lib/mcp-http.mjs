@@ -50,7 +50,12 @@ export function createRemoteMcpHandler({ authenticate, handleApi }) {
         const target = new URL(url);
         if (target.origin !== baseUrl.origin || !target.pathname.startsWith("/api/a2a/"))
           throw new Error("Endpoint fora da API de agentes.");
-        return handleApi(new Request(target, init), target.pathname.slice("/api/a2a/".length));
+        // This request stays inside the process. The edge runtime does not accept
+        // redirect: "error" even when constructing a Request for internal dispatch.
+        return handleApi(
+          new Request(target, { ...init, redirect: "manual" }),
+          target.pathname.slice("/api/a2a/".length),
+        );
       },
     });
     const sdk = createMcpHandler(
