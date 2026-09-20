@@ -39,3 +39,4 @@ neuramarket-mcp*.json
 .env
 .env.*
 !.env.example
+!.env.production
