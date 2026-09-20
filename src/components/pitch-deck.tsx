@@ -13,6 +13,8 @@ import {
   Fingerprint,
   LayoutGrid,
   Maximize,
+  MessageSquareText,
+  Mic2,
   Minimize,
   Network,
   ShieldCheck,
@@ -23,11 +25,13 @@ import {
 import "../pitch.css";
 
 const chapters = [
+  { id: "futuro", title: "O novo cliente", dark: true },
   { id: "ideia", title: "A ideia", dark: true },
   { id: "problema", title: "O problema", dark: false },
   { id: "solucao", title: "A solução", dark: true },
   { id: "fluxo", title: "A contratação", dark: false },
   { id: "receita", title: "Modelo de negócio", dark: true },
+  { id: "acesso", title: "Como acessar", dark: true },
   { id: "fintech", title: "Caso fintech", dark: false },
   { id: "confianca", title: "Confiança e verificação", dark: true },
   { id: "desafios", title: "Os cinco desafios", dark: false },
@@ -279,27 +283,55 @@ export function PitchDeck() {
       >
         <section
           hidden={current !== 0}
+          className="pitch-slide pitch-story"
+          aria-labelledby="pitch-story-title"
+        >
+          <p className="pitch-eyebrow">THE AGENT ECONOMY</p>
+          <div className="pitch-story-copy">
+            <h1 id="pitch-story-title">
+              Imagine um mundo onde
+              <br />
+              <em>agentes fazem tudo.</em>
+            </h1>
+            <p>
+              E 99% dos usuários
+              <br />
+              também são agentes.
+            </p>
+          </div>
+          <div className="pitch-story-question">
+            <span>01 humano</span>
+            <i />
+            <span>99 agentes</span>
+            <h2>Como atender um novo trilhão de clientes?</h2>
+            <button className="pitch-text-button" onClick={() => go(1)}>
+              Conheça a infraestrutura <ArrowRight size={20} />
+            </button>
+          </div>
+        </section>
+
+        <section
+          hidden={current !== 1}
           className="pitch-slide pitch-cover"
           aria-labelledby="pitch-cover-title"
         >
           <div className="pitch-cover-copy">
             <p className="pitch-eyebrow">THE AGENT ECONOMY</p>
             <h1 id="pitch-cover-title">
-              Seu agente
+              Somos a infraestrutura
               <br />
-              já pensa.
-              <br />
+              completa para{" "}
               <em>
-                Agora ele pode
+                as transações
                 <br />
-                contratar.
+                desses clientes.
               </em>
             </h1>
             <p className="pitch-lead">
-              Um assessor para agentes que precisam
-              <br className="pitch-desktop-break" /> de outros agentes para executar uma tarefa.
+              Descoberta, contratação, orçamento e verificação
+              <br className="pitch-desktop-break" /> para agentes comprarem serviços de agentes.
             </p>
-            <button className="pitch-text-button" onClick={() => go(1)}>
+            <button className="pitch-text-button" onClick={() => go(2)}>
               Conheça a NeuraMarket <ArrowRight size={20} />
             </button>
           </div>
@@ -307,7 +339,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 1}
+          hidden={current !== 2}
           className="pitch-slide"
           aria-labelledby="pitch-problem-title"
         >
@@ -344,7 +376,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 2}
+          hidden={current !== 3}
           className="pitch-slide pitch-solution"
           aria-labelledby="pitch-solution-title"
         >
@@ -423,7 +455,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 3}
+          hidden={current !== 4}
           className="pitch-slide pitch-flow-slide"
           aria-labelledby="pitch-flow-title"
         >
@@ -465,7 +497,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 4}
+          hidden={current !== 5}
           className="pitch-slide pitch-business"
           aria-labelledby="pitch-business-title"
         >
@@ -509,48 +541,98 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 5}
+          hidden={current !== 6}
+          className="pitch-slide pitch-access"
+          aria-labelledby="pitch-access-title"
+        >
+          <div>
+            <p className="pitch-eyebrow">DUAS PORTAS DE ENTRADA</p>
+            <h2 id="pitch-access-title">
+              A mesma infraestrutura.
+              <br />
+              <em>Dois jeitos de acessar.</em>
+            </h2>
+            <p className="pitch-lead">
+              O agente chama a NeuraMarket diretamente. O humano pode iniciar e acompanhar a mesma
+              missão por conversa.
+            </p>
+          </div>
+          <div className="pitch-access-paths">
+            <article>
+              <div className="pitch-access-icon">
+                <Terminal />
+              </div>
+              <span>AGENTE → NEURAMARKET</span>
+              <h3>API / MCP</h3>
+              <p>
+                Objetivo, orçamento, descoberta, contratação e resultado em uma interface legível
+                por máquina.
+              </p>
+              <div className="pitch-access-route">
+                <Code2 /> Seu agente <ArrowRight /> NeuraMarket
+              </div>
+            </article>
+            <article>
+              <div className="pitch-access-icon voice">
+                <Mic2 />
+              </div>
+              <span>HUMANO → ASSISTENTE → NEURAMARKET</span>
+              <h3>Chat e voz com Agora</h3>
+              <p>
+                O assistente entende o pedido, consulta a rede e devolve a negociação para
+                supervisão.
+              </p>
+              <div className="pitch-access-route">
+                <MessageSquareText /> Conversa <ArrowRight /> Mesma operação
+              </div>
+            </article>
+          </div>
+          <p className="pitch-note">
+            A conexão de voz com Agora está integrada e aguarda validação de áudio ponta a ponta.
+          </p>
+        </section>
+
+        <section
+          hidden={current !== 7}
           className="pitch-slide pitch-fintech"
           aria-labelledby="pitch-fintech-title"
         >
           <div>
             <p className="pitch-eyebrow">CASO FINTECH / CENÁRIO PROPOSTO</p>
             <h2 id="pitch-fintech-title">
-              Uma fintech.
-              <br />
-              200 clientes.
+              Crédito para 230 clientes.
               <br />
               <em>
-                Uma análise
+                Um agente precisa
                 <br />
-                contratada.
+                decidir quem contratar.
               </em>
             </h2>
             <p className="pitch-lead">
-              O agente financeiro contrata um especialista com acesso autorizado às fontes e
-              ferramentas necessárias.
+              O agente da fintech precisa analisar 230 empresas até amanhã. Sozinho, não tem acesso
+              a todas as fontes nem capacidade para validar cada registro.
             </p>
           </div>
           <div className="pitch-case-path">
             <div>
               <span>01</span>
               <div>
-                <h3>A fintech define o pedido</h3>
-                <p>Escopo, dados permitidos, prazo e orçamento.</p>
+                <h3>O agente recebe a missão</h3>
+                <p>Analisar 230 empresas, com prazo, fontes permitidas e orçamento definidos.</p>
               </div>
             </div>
             <div>
               <span>02</span>
               <div>
-                <h3>O especialista entrega a análise</h3>
-                <p>Resultado estruturado, com fontes e evidências.</p>
+                <h3>A NeuraMarket compara especialistas</h3>
+                <p>Preço, prazo, cobertura dos dados e histórico de entregas verificadas.</p>
               </div>
             </div>
             <div>
               <span>03</span>
               <div>
-                <h3>O auditor confere o combinado</h3>
-                <p>Cobertura dos 200 registros, integridade e rastreabilidade.</p>
+                <h3>O escolhido executa</h3>
+                <p>Entrega as 230 análises estruturadas, com fontes e evidências.</p>
               </div>
             </div>
             <div>
@@ -558,8 +640,8 @@ export function PitchDeck() {
                 <CheckCheck size={19} />
               </span>
               <div>
-                <h3>O pagamento depende da verificação</h3>
-                <p>A fintech mantém a responsabilidade pela decisão de crédito.</p>
+                <h3>O auditor verifica antes do pagamento</h3>
+                <p>Confere cobertura, integridade e rastreabilidade. O humano decide o crédito.</p>
               </div>
             </div>
             <p className="pitch-note">
@@ -570,7 +652,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 6}
+          hidden={current !== 8}
           className="pitch-slide pitch-trust"
           aria-labelledby="pitch-trust-title"
         >
@@ -605,7 +687,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 7}
+          hidden={current !== 9}
           className="pitch-slide pitch-challenges"
           aria-labelledby="pitch-challenges-title"
         >
@@ -645,7 +727,7 @@ export function PitchDeck() {
         </section>
 
         <section
-          hidden={current !== 8}
+          hidden={current !== 10}
           className="pitch-slide pitch-connect"
           aria-labelledby="pitch-connect-title"
         >

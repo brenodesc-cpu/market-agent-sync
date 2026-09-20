@@ -1,6 +1,6 @@
 # Pitch público
 
-`/pitch` apresenta a NeuraMarket em nove slides: ideia, problema, solução, contratação, modelo de negócio, caso fintech, confiança, desafios do hackathon e conexão via MCP.
+`/pitch` apresenta a NeuraMarket em onze slides. Abre com o mundo em que 99% dos usuários são agentes, apresenta a infraestrutura de transações, o problema, a solução, a contratação e o modelo de negócio. Antes do caso fintech, explica o acesso direto por API/MCP e a entrada humana por chat e voz com Agora. Fecha com confiança, os desafios e a conexão do agente.
 
 O desenho segue `virte-app/public/pitch/index.html`: Space Grotesk, JetBrains Mono, roxo, alternância entre fundos claros e escuros, navegação por teclado e modo de apresentação. As fontes e suas licenças OFL ficam em `public/pitch-assets/`.
 
