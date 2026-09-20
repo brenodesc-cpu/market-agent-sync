@@ -34,3 +34,8 @@ dist-ssr
 # Downloaded demo credentials
 neuramarket-worker*.json
 neuramarket-mcp*.json
+
+# Segredos locais
+.env
+.env.*
+!.env.example
