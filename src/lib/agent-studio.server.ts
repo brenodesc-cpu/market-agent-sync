@@ -30,7 +30,12 @@ import {
   type SupplierReputation,
 } from "./agent-auction.ts";
 import { createOnDemandAgentDefinition } from "./on-demand-agent.ts";
-import { fallbackMissionPlan } from "./mission-fallback.ts";
+import {
+  agentMatchesMission,
+  fallbackMissionPlan,
+  missionCapability,
+  planMatchesMission,
+} from "./mission-fallback.ts";
 import {
   allocateMissionStepBudgets,
   MAX_MISSION_STEPS,
@@ -374,6 +379,8 @@ export async function executeDefinition(spec: AgentDefinition, task: string, fee
   const input = { task, sections: spec.sections, correctionRequested: feedback };
   let output: Awaited<ReturnType<typeof neuralakeJson>> | null = null;
   let checked: ReturnType<typeof agentResultSchema.safeParse> | null = null;
+  const failures: string[] = [];
+  const requiresHtml = missionCapability(task).webArtifact;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       output = await neuralakeJson(
@@ -386,17 +393,38 @@ export async function executeDefinition(spec: AgentDefinition, task: string, fee
         6000,
       );
       checked = agentResultSchema.safeParse(normalizeAgentResult(output.value, spec.sections));
-      if (checked.success) break;
+      if (
+        checked.success &&
+        (!requiresHtml ||
+          checked.data.artifacts.some(
+            (artifact) => artifact.mediaType === "text/html" && artifact.name.endsWith(".html"),
+          ))
+      )
+        break;
+      if (checked.success) {
+        failures.push("a entrega não incluiu o arquivo HTML exigido");
+        checked = null;
+        continue;
+      }
+      failures.push(
+        `a resposta veio incompleta em ${checked.error.issues
+          .slice(0, 3)
+          .map((issue) => issue.path.join(".") || "raiz")
+          .join(", ")}`,
+      );
       console.warn(
         "specialist_output_invalid",
         checked.error.issues.map((issue) => ({ path: issue.path.join("."), code: issue.code })),
       );
     } catch (error) {
+      failures.push(error instanceof Error ? error.message : "a execução foi interrompida");
       console.warn("specialist_output_retry", error instanceof Error ? error.message : "unknown");
     }
   }
   if (!output || !checked?.success)
-    throw new Error("A NeuraLake não conseguiu concluir esta entrega após duas tentativas.");
+    throw new Error(
+      `A NeuraLake não conseguiu concluir esta entrega após duas tentativas. Última causa: ${failures.at(-1) ?? "resposta ausente"}.`,
+    );
   const content = JSON.stringify(checked.data);
   return {
     content,
@@ -735,13 +763,15 @@ async function progressAutonomousChain(
             fetch,
             2400,
           );
-          plan = missionPlanSchema.parse(planned.value);
+          const candidatePlan = missionPlanSchema.parse(planned.value);
+          plan = planMatchesMission(task, candidatePlan.steps) ? candidatePlan : null;
           break;
         } catch {
           plan = null;
         }
       }
-      if (!plan) plan = missionPlanSchema.parse(fallbackMissionPlan(task, budget, own, offers));
+      if (!plan || !planMatchesMission(task, plan.steps))
+        plan = missionPlanSchema.parse(fallbackMissionPlan(task, budget, own, offers));
     }
     const stepBudgets = allocateMissionStepBudgets(
       plan.steps.map((step) => !(step.action === "internal" && own)),
@@ -888,16 +918,22 @@ async function progressAutonomousChain(
       ) as MissionCompetition[];
       let candidate = persistedStep?.offer_version_id
         ? offers.find(
-            (offer) => offer.id === persistedStep.offer_version_id && offer.price <= stepBudget,
+            (offer) =>
+              offer.id === persistedStep.offer_version_id &&
+              offer.price <= stepBudget &&
+              agentMatchesMission(step.objective, offer),
           )
         : undefined;
       let winnerReason = persistedStep?.reason as string | undefined;
       let winnerScore: number | null = null;
       if (step.action === "network" && !candidate) {
+        const compatibleOffers = offers.filter((offer) =>
+          agentMatchesMission(step.objective, offer),
+        );
         const auction = await runMarketplaceAuction(
           db,
           companyId,
-          offers,
+          compatibleOffers,
           step.objective,
           step.category,
           stepBudget,
@@ -912,7 +948,7 @@ async function progressAutonomousChain(
       }
       const route = resolveMissionRoute(
         { mode: step.action, offerVersionId: candidate?.id ?? step.offerVersionId },
-        Boolean(own),
+        Boolean(own && agentMatchesMission(step.objective, own)),
         candidate ? [candidate.id] : [],
       );
       const source = route.mode;

@@ -338,6 +338,29 @@ test("POST mission advance leaves a terminal failure untouched", async () => {
   assert.equal(body.nextAction, "restart");
 });
 
+test("failed mission exposes its recorded cause without advancing", async () => {
+  const withStep = externalStepSnapshot();
+  const failed = {
+    ...withStep,
+    status: "failed" as const,
+    errorMessage: "A entrega não incluiu o arquivo HTML exigido.",
+    steps: withStep.steps.map((step) => ({
+      ...step,
+      status: "failed" as const,
+      errorMessage: "A entrega não incluiu o arquivo HTML exigido.",
+    })),
+  };
+  const handler = createAgentApiHandler({
+    authenticateAgent: async () => actor,
+    getAutonomousChainStatus: async () => failed,
+  });
+  const response = await handler(apiRequest("GET"), `missions/${requestId}`);
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.errorMessage, "A entrega não incluiu o arquivo HTML exigido.");
+  assert.equal(body.steps[0].errorMessage, "A entrega não incluiu o arquivo HTML exigido.");
+});
+
 test("mission routes map payload, dependency and provider failures", async () => {
   const base = {
     authenticateAgent: async () => actor,

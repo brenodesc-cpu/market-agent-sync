@@ -127,7 +127,7 @@ function publicMissionSnapshot(snapshot: MissionSnapshot) {
           }
         : null,
       reviewUrl: orderId ? orderReviewUrl(orderId, details!.order.buyer_company_id) : null,
-      errorMessage: step.status === "failed" ? "A etapa não foi concluída." : null,
+      errorMessage: step.status === "failed" ? step.errorMessage : null,
     };
   });
   const pendingReviews = snapshot.steps.flatMap((sourceStep, index) => {
@@ -169,6 +169,7 @@ function publicMissionSnapshot(snapshot: MissionSnapshot) {
     totalSteps: steps.length,
     initialBudget: snapshot.initialBudget,
     remainingBudget: snapshot.remainingBudget,
+    errorMessage: snapshot.status === "failed" ? snapshot.errorMessage : null,
     blockedTools: snapshot.blockedTools,
     pendingReviews,
     steps,

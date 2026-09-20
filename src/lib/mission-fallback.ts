@@ -35,18 +35,66 @@ function overlap(left: string, right: string) {
   return score;
 }
 
-function categoryFor(task: string): AgentDefinition["category"] {
+export function missionCapability(task: string) {
   const value = task
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
-  if (/\b(codigo|program|html|css|api|site|software|app)\b/.test(value)) return "Desenvolvimento";
-  if (/\b(proposta|venda|cliente|comercial)\b/.test(value)) return "Vendas";
-  if (/\b(marketing|campanha|anuncio|marca)\b/.test(value)) return "Marketing";
-  if (/\b(conteudo|roteiro|post|video|instagram|texto)\b/.test(value)) return "Conteúdo";
-  if (/\b(analise|pesquisa|diagnostico|dados)\b/.test(value)) return "Análise";
-  if (/\b(operacao|processo|automacao|financeiro)\b/.test(value)) return "Operações";
-  return "Outro";
+  const webArtifact = /\b(landing(?:\s+page)?|pagina\s+web|website|frontend|html|css|site)\b/.test(
+    value,
+  );
+  const category: AgentDefinition["category"] =
+    webArtifact || /\b(codigo|program|api|software|app)\b/.test(value)
+      ? "Desenvolvimento"
+      : /\b(proposta|venda|cliente|comercial)\b/.test(value)
+        ? "Vendas"
+        : /\b(marketing|campanha|anuncio|marca)\b/.test(value)
+          ? "Marketing"
+          : /\b(conteudo|roteiro|post|video|instagram|texto)\b/.test(value)
+            ? "Conteúdo"
+            : /\b(analise|pesquisa|diagnostico|dados)\b/.test(value)
+              ? "Análise"
+              : /\b(operacao|processo|automacao|financeiro)\b/.test(value)
+                ? "Operações"
+                : "Outro";
+  return {
+    category,
+    model: category === "Desenvolvimento" ? "code" : "text",
+    webArtifact,
+  } as const;
+}
+
+export function agentMatchesMission(
+  task: string,
+  agent: {
+    category?: string;
+    name?: string;
+    description?: string;
+    serviceTitle?: string;
+    exampleTask?: string;
+  },
+) {
+  const requirement = missionCapability(task);
+  if (requirement.category === "Outro") return true;
+  if (agent.category?.localeCompare(requirement.category, undefined, { sensitivity: "base" }) === 0)
+    return true;
+  if (!requirement.webArtifact) return false;
+  return /\b(landing(?:\s+page)?|pagina\s+web|website|frontend|html|css|site)\b/.test(
+    `${agent.name ?? ""} ${agent.description ?? ""} ${agent.serviceTitle ?? ""} ${agent.exampleTask ?? ""}`
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase(),
+  );
+}
+
+export function planMatchesMission(
+  task: string,
+  steps: Array<{ category: AgentDefinition["category"]; model: AgentDefinition["model"] }>,
+) {
+  const requirement = missionCapability(task);
+  if (!requirement.webArtifact) return true;
+  const finalStep = steps.at(-1);
+  return finalStep?.category === "Desenvolvimento" && finalStep.model === "code";
 }
 
 export function fallbackMissionPlan(
@@ -55,9 +103,10 @@ export function fallbackMissionPlan(
   own: AgentDefinition | null,
   offers: AgentOffer[],
 ) {
-  const category = categoryFor(task);
+  const requirement = missionCapability(task);
+  const category = requirement.category;
   const candidates = offers
-    .filter((offer) => offer.price <= budget)
+    .filter((offer) => offer.price <= budget && agentMatchesMission(task, offer))
     .map((offer) => ({
       offer,
       relevance: overlap(
@@ -73,9 +122,10 @@ export function fallbackMissionPlan(
         left.offer.id.localeCompare(right.offer.id),
     );
   const candidate = candidates[0]?.offer;
-  const ownRelevance = own
-    ? overlap(task, `${own.name} ${own.description} ${own.serviceTitle} ${own.category}`)
-    : 0;
+  const ownRelevance =
+    own && agentMatchesMission(task, own)
+      ? overlap(task, `${own.name} ${own.description} ${own.serviceTitle} ${own.category}`)
+      : 0;
   const action = candidate ? "network" : own && ownRelevance > 0 ? "internal" : "create";
   const role =
     action === "network" && candidate
@@ -94,10 +144,11 @@ export function fallbackMissionPlan(
         role,
         objective: task.slice(0, 1200),
         category,
-        instructions:
-          "Use somente o briefing recebido. Produza uma entrega completa, indique premissas e não afirme ter executado ferramentas externas.",
+        instructions: requirement.webArtifact
+          ? "Use somente o briefing recebido. Produza uma landing page funcional e entregue o arquivo HTML completo em artifacts. Inclua o CSS necessário e não afirme ter publicado o site."
+          : "Use somente o briefing recebido. Produza uma entrega completa, indique premissas e não afirme ter executado ferramentas externas.",
         sections: ["Entrega", "Premissas e próximos passos"],
-        model: category === "Desenvolvimento" ? "code" : "text",
+        model: requirement.model,
         action,
         offerVersionId: candidate?.id ?? null,
         reason: candidate

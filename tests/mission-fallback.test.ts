@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { agentDefinitionSchema } from "../src/lib/agent-definition.ts";
-import { fallbackMissionPlan } from "../src/lib/mission-fallback.ts";
+import {
+  agentMatchesMission,
+  fallbackMissionPlan,
+  missionCapability,
+  planMatchesMission,
+} from "../src/lib/mission-fallback.ts";
 import type { AgentOffer } from "../src/lib/a2a-contract.ts";
 
 const proposalOffer = {
@@ -58,4 +63,30 @@ test("fallback planning can use a compatible internal agent", () => {
   const plan = fallbackMissionPlan("Analise meus dados de vendas.", 20, own, []);
   assert.equal(plan.steps[0].action, "internal");
   assert.equal(plan.steps[0].offerVersionId, null);
+});
+
+test("landing page requires a code specialist and rejects a commercial proposal agent", () => {
+  const task = "Crie uma landing page para uma agência de marketing.";
+  assert.deepEqual(missionCapability(task), {
+    category: "Desenvolvimento",
+    model: "code",
+    webArtifact: true,
+  });
+  assert.equal(agentMatchesMission(task, proposalOffer), false);
+  const plan = fallbackMissionPlan(task, 50, null, [proposalOffer]);
+  assert.equal(plan.steps[0].action, "create");
+  assert.equal(plan.steps[0].role, "Especialista de Desenvolvimento");
+  assert.equal(plan.steps[0].model, "code");
+  assert.match(plan.steps[0].instructions, /arquivo HTML/);
+});
+
+test("stored plans cannot route a landing page to a sales text agent", () => {
+  assert.equal(
+    planMatchesMission("Crie uma landing page", [{ category: "Vendas", model: "text" }]),
+    false,
+  );
+  assert.equal(
+    planMatchesMission("Crie uma landing page", [{ category: "Desenvolvimento", model: "code" }]),
+    true,
+  );
 });
