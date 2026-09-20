@@ -4,7 +4,7 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types --test tests/review-*.test.ts tests/review-*.test.mjs tests/a2a-contract.test.ts tests/a2a-api.test.ts tests/agora-provider.test.ts tests/studio-access.test.ts tests/auth-flow.test.ts tests/economics.test.ts tests/buyer-agent.test.mjs tests/agent-definition.test.ts tests/mission-brief.test.ts tests/mission-fallback.test.ts tests/neuramarket-mcp.test.mjs",
+    "test": "node --experimental-strip-types --test tests/review-*.test.ts tests/review-*.test.mjs tests/a2a-contract.test.ts tests/a2a-api.test.ts tests/agora-provider.test.ts tests/studio-access.test.ts tests/auth-flow.test.ts tests/economics.test.ts tests/buyer-agent.test.mjs tests/agent-definition.test.ts tests/mission-brief.test.ts tests/mission-fallback.test.ts tests/neuramarket-mcp.test.mjs tests/browser-qa.test.ts",
     "test:finance": "node --test tests/finance.postgres.test.mjs",
     "dev": "vite dev",
     "build": "vite build",
@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test:a2a": "node --experimental-strip-types --test tests/studio.postgres.test.mjs",
-    "mcp": "node scripts/neuramarket-mcp.mjs"
+    "mcp": "node scripts/neuramarket-mcp.mjs",
+    "browser:worker": "node scripts/browser-worker.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -94,6 +95,7 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "nitro": "3.0.260603-beta",
+    "playwright": "^1.58.2",
     "postgres": "^3.4.9",
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",

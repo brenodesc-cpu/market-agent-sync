@@ -1,0 +1,248 @@
+.browser-advisor {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 52px 28px 80px;
+  color: #242332;
+}
+.qa-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #7560bd;
+}
+.browser-advisor h1 {
+  font-size: clamp(32px, 4vw, 50px);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  margin: 18px 0;
+}
+.qa-intro {
+  font-size: 17px;
+  color: #787582;
+  margin-bottom: 32px;
+}
+.qa-request {
+  padding: 26px;
+  border: 1px solid #dfdbe9;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 8px 40px #45236708;
+}
+.qa-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #827b91;
+}
+.qa-request > p {
+  font-size: 20px;
+  line-height: 1.55;
+  margin: 16px 0;
+}
+.qa-request a {
+  font-size: 13px;
+  color: #745ab5;
+}
+.qa-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 28px;
+}
+.qa-controls label {
+  font-size: 13px;
+}
+.qa-controls input {
+  width: 65px;
+  padding: 7px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin: 0 5px;
+}
+.browser-advisor button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  background: #7151bb;
+  color: white;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.browser-advisor button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.qa-fault {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #847b8b;
+  margin-top: 18px;
+}
+.qa-offers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 22px;
+}
+.qa-offers > div {
+  border: 1px solid #e4e0eb;
+  border-radius: 16px;
+  padding: 20px;
+  background: #faf9fc;
+}
+.qa-offers > div.eligible {
+  border-color: #baa9df;
+  background: #f5f0ff;
+}
+.qa-offers b {
+  float: right;
+  font-size: 13px;
+}
+.qa-offers p {
+  font-size: 13px;
+  color: #77707e;
+  margin: 9px 0;
+}
+.qa-offers small {
+  font-size: 11px;
+  color: #766581;
+}
+.qa-explanation,
+.qa-connection {
+  font-size: 12px;
+  color: #80798c;
+  line-height: 1.6;
+  margin-top: 16px;
+}
+.qa-connection span {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: #a7a0ae;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+.qa-connection .online {
+  background: #32916c;
+}
+.qa-result {
+  margin-top: 26px;
+  padding: 25px;
+  background: white;
+  border: 1px solid #e2dce9;
+  border-radius: 20px;
+}
+.qa-result h2 {
+  font-size: 19px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.qa-checks {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.qa-checks span {
+  font-size: 12px;
+  border-radius: 7px;
+  padding: 6px 10px;
+}
+.qa-checks .pass {
+  background: #eef9f1;
+  color: #297349;
+}
+.qa-checks .fail,
+.qa-error {
+  background: #fff1ef;
+  color: #aa493b;
+}
+.qa-error {
+  padding: 14px;
+  border-radius: 10px;
+}
+.qa-evidence {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.qa-evidence h3 {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+}
+.qa-evidence img {
+  width: 100%;
+  height: 200px;
+  object-fit: contain;
+  background: #eef0f6;
+  border-radius: 9px;
+}
+.qa-evidence p {
+  font-size: 13px;
+}
+.qa-evidence small {
+  font-size: 10px;
+  color: #93899d;
+}
+.qa-result > button {
+  margin-top: 22px;
+}
+.browser-advisor .qa-link {
+  color: #786982;
+  background: transparent;
+  font-size: 12px;
+}
+.qa-paid {
+  padding: 16px;
+  background: #edf8f0;
+  color: #37734b;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.browser-advisor details {
+  margin-top: 24px;
+  font-size: 13px;
+  color: #877c93;
+}
+.browser-advisor summary {
+  cursor: pointer;
+}
+.browser-advisor details p {
+  line-height: 1.6;
+  margin: 14px 0;
+}
+.qa-setup pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #eeeaf3;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 11px;
+  margin: 16px 0;
+}
+@media (max-width: 600px) {
+  .browser-advisor {
+    padding: 30px 18px;
+  }
+  .qa-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .qa-offers,
+  .qa-evidence {
+    grid-template-columns: 1fr;
+  }
+  .qa-request {
+    padding: 20px;
+  }
+  .qa-request > p {
+    font-size: 17px;
+  }
+}

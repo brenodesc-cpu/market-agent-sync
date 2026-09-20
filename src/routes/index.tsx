@@ -33,7 +33,7 @@ function Index() {
       onCreate={() => void navigate({ to: "/studio", search: { view: "builder" } })}
       onOpen={(view) => {
         if (view === "order" || view === "verification" || view === "finance")
-          void navigate({ to: "/demo", search: { view } });
+          void navigate({ to: "/studio", search: { view: "advisor" } });
         else
           void navigate({
             to: "/studio",

@@ -260,11 +260,14 @@ test("stdio server negotiates MCP and advertises mission and direct marketplace 
   const tools = responses.find((response) => response.id === 2).result.tools;
   assert.deepEqual(tools.map((tool) => tool.name).sort(), [
     "advance_mission",
+    "buy_browser_test",
     "download_and_verify_delivery",
     "get_mission",
     "get_order",
     "hire_agent",
     "list_agents",
+    "quote_browser_test",
+    "retry_browser_test",
     "run_order",
     "start_mission",
   ]);

@@ -93,7 +93,7 @@ export function AgentMarket({
   const deliveryReady = chain?.status === "awaiting_review" || chain?.status === "completed";
   const settledFailureNeedsReconcile = Boolean(
     chain?.status === "failed" &&
-      chain.steps.some((step) => step.order?.order.status === "settled"),
+    chain.steps.some((step) => step.order?.order.status === "settled"),
   );
   const missionFlow = [
     {
@@ -213,9 +213,7 @@ export function AgentMarket({
       loadingChain ||
       busy ||
       leaseActive ||
-      chain.status !== "planning" &&
-      chain.status !== "running" &&
-      !settledFailureNeedsReconcile
+      (chain.status !== "planning" && chain.status !== "running" && !settledFailureNeedsReconcile)
     )
       return;
     if (settledFailureNeedsReconcile) {
@@ -880,7 +878,7 @@ export function AgentMarket({
                               <p>{proposal.approach}</p>
                               <footer>
                                 <span>{proposal.price} créditos</span>
-                                <span>{proposal.viability}% de chance de atender</span>
+                                <span>{proposal.viability}/100 na autoavaliação do fornecedor</span>
                                 <span>
                                   {proposal.approved + proposal.rejected === 0
                                     ? "sem histórico"

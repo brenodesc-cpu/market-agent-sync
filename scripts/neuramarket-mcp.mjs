@@ -99,6 +99,23 @@ export class NeuraMarketClient {
     return this.absoluteLinks(payload);
   }
 
+  retryBrowserTest({ orderId }) {
+    return this.request(`browser/orders/${encodeURIComponent(orderId)}/retry`, { method: "POST" });
+  }
+  quoteBrowserTest({ budget }) {
+    return this.request("browser/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ budget }),
+    });
+  }
+  buyBrowserTest(input) {
+    return this.request("browser/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  }
   listAgents() {
     return this.request("offers");
   }
@@ -204,6 +221,9 @@ function guarded(handler) {
 
 export function createNeuraMarketToolHandlers(client) {
   return {
+    retryBrowserTest: guarded((input) => client.retryBrowserTest(input)),
+    quoteBrowserTest: guarded((input) => client.quoteBrowserTest(input)),
+    buyBrowserTest: guarded((input) => client.buyBrowserTest(input)),
     listAgents: guarded(() => client.listAgents()),
     startMission: guarded((input) => client.startMission(input)),
     getMission: guarded(({ requestId }) => client.getMission(requestId)),
@@ -222,6 +242,44 @@ export function createNeuraMarketMcpServer(options = {}) {
   const tools = createNeuraMarketToolHandlers(client);
   const server = new McpServer({ name: "neuramarket-a2a", version: "1.0.0" });
 
+  server.registerTool(
+    "retry_browser_test",
+    {
+      title: "Pedir a correção do teste",
+      description:
+        "Solicita a única correção incluída no contrato após a reprovação. Não libera pagamento.",
+      inputSchema: z.object({ orderId: z.uuid() }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+    },
+    tools.retryBrowserTest,
+  );
+  server.registerTool(
+    "quote_browser_test",
+    {
+      title: "Comparar testes de navegador",
+      description:
+        "Compara fornecedores para testar o formulário da página de demonstração em desktop e mobile. Não reserva créditos.",
+      inputSchema: z.object({ budget: z.int().min(1).max(1000) }),
+      annotations: { readOnlyHint: true },
+    },
+    tools.quoteBrowserTest,
+  );
+  server.registerTool(
+    "buy_browser_test",
+    {
+      title: "Comprar teste de navegador",
+      description:
+        "Reserva 15 créditos simulados e contrata testes reais no Chromium. Requer executor conectado. Só a página de demonstração é suportada. Consulte get_order; o humano aceita em reviewUrl.",
+      inputSchema: z.object({
+        requestId: z.uuid(),
+        budget: z.int().min(1).max(1000),
+        fixture: z.literal("lead-form-v1").default("lead-form-v1"),
+        testFailure: z.boolean().default(false),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+    },
+    tools.buyBrowserTest,
+  );
   server.registerTool(
     "list_agents",
     {

@@ -45,6 +45,7 @@ import {
   setCompanyCommercial,
 } from "@/lib/studio.functions";
 import { StudioAccessError, studioOrderSelection } from "@/lib/studio-access";
+import { BrowserAdvisor } from "./browser-advisor";
 import { AgentMarket } from "./agent-market";
 import { AgentBuilder } from "./agent-builder";
 import { AgentOutput, downloadAgentFile } from "./agent-output";
@@ -52,9 +53,18 @@ import { ReviewAssistant } from "./review-assistant";
 import "@/studio.css";
 
 type View =
-  "mission" | "builder" | "companies" | "market" | "orders" | "wallet" | "api" | "integrations";
+  | "advisor"
+  | "mission"
+  | "builder"
+  | "companies"
+  | "market"
+  | "orders"
+  | "wallet"
+  | "api"
+  | "integrations";
 type Bootstrap = Awaited<ReturnType<typeof getStudioBootstrap>>;
 const navigation = [
+  { id: "advisor", label: "Demo: comprar uma capacidade", icon: ShieldCheck, primary: true },
   { id: "mission", label: "Executar missão", icon: Sparkles, primary: true },
   { id: "builder", label: "Criar especialista", icon: Plus, primary: false },
   { id: "companies", label: "Minhas empresas", icon: Building2, primary: false },
@@ -621,6 +631,8 @@ export function CompanyStudio({
             )}
           </div>
         )}
+
+        {view === "advisor" && <BrowserAdvisor signedIn={!!user} onLogin={() => setLogin(true)} />}
 
         {(view === "mission" || view === "market") && (
           <AgentMarket

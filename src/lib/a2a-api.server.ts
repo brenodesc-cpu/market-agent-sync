@@ -203,6 +203,38 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
     }
 
     try {
+      const browserRetry = /^browser\/orders\/([a-f0-9-]{36})\/retry$/.exec(path);
+      if (browserRetry && request.method === "POST") {
+        await dependencies.orderDetails(actor.userId, browserRetry[1]!, actor.companyId);
+        return json(
+          await (
+            await import("./browser-runtime.server.ts")
+          ).retryBrowserTest(actor.userId, browserRetry[1]!),
+        );
+      }
+      if (path === "browser/quote" && request.method === "POST") {
+        const { browserQuote } = await import("./browser-qa.ts");
+        const input = z
+          .object({ budget: z.number().int().min(1).max(1000) })
+          .parse(JSON.parse(await limitedBody(request)));
+        return json(browserQuote(input.budget));
+      }
+      if (path === "browser/orders" && request.method === "POST") {
+        const { purchaseBrowserTest } = await import("./browser-runtime.server.ts");
+        const result = await purchaseBrowserTest(
+          actor.userId,
+          actor.companyId,
+          JSON.parse(await limitedBody(request)),
+        );
+        return json(
+          {
+            ...result,
+            reviewUrl: "/studio?view=advisor",
+            next: `/api/a2a/orders/${result.orderId}`,
+          },
+          201,
+        );
+      }
       if (path === "missions" && request.method === "POST") {
         const input = missionRequestSchema.parse(JSON.parse(await limitedBody(request)));
         const snapshot = await dependencies.startAutonomousChain(

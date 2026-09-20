@@ -7,6 +7,7 @@ export const Route = createFileRoute("/studio")({
     orderId: z.string().uuid().optional(),
     view: z
       .enum([
+        "advisor",
         "mission",
         "builder",
         "companies",

@@ -75,6 +75,7 @@ before(() => {
     "0008_complete_agent_chain",
     "0010_neuralake_specialists",
     "0012_persist_autonomous_missions",
+    "0013_browser_qa",
   ]) {
     sql(readFileSync(new URL(`../drizzle/migrations/${file}.sql`, import.meta.url), "utf8"));
   }
@@ -902,5 +903,84 @@ test("an autonomous mission persists review pending and can resume after settlem
   assert.throws(
     () => sql(`UPDATE autonomous_missions SET status='paid' WHERE id='${mission.missionId}'`),
     /autonomous_missions_status_check/,
+  );
+});
+
+test("browser QA: reserve, reject incomplete, correct, human accept and pay exactly once", () => {
+  const user = randomUUID();
+  const cid = sql(`SELECT browser_buyer('${user}')`);
+  assert.equal(sql(`SELECT browser_buyer('${user}')`), cid);
+  const payload = {
+    buyerCompanyId: cid,
+    offerVersionId: "00000000-0000-0000-0000-000000002302",
+    requestId: randomUUID(),
+    title: "Testar formulário",
+    task: "Testar desktop e mobile com evidências",
+    budget: 20,
+    fixture: "lead-form-v1",
+    testFailure: true,
+  };
+  const purchase = () => call(`studio_place_browser_order('${user}',${j(payload)})`);
+  const o = { user, companyId: cid, ...purchase() };
+  assert.equal(purchase().orderId, o.orderId);
+  assert.equal(balance(o), "85,15,0");
+  assert.throws(
+    () => call(`studio_place_browser_order('${user}',${j({ ...payload, budget: 14 })})`),
+    /idempotency_conflict/,
+  );
+  assert.throws(
+    () => call(`studio_place_browser_order('${randomUUID()}',${j(payload)})`),
+    /buyer_access_denied/,
+  );
+  assert.throws(
+    () =>
+      call(
+        `studio_place_browser_order('${user}',${j({ ...payload, requestId: randomUUID(), budget: 14 })})`,
+      ),
+    /invalid_contract_price/,
+  );
+  const checks = (pass) =>
+    ["desktop", "mobile", "evidence_integrity"].map((criterion) => ({
+      criterion,
+      expected: true,
+      observed: pass || criterion !== "mobile",
+      status: pass || criterion !== "mobile" ? "passed" : "failed",
+      evidence: "Teste executado",
+    }));
+  const lease = claim(o);
+  call(
+    `studio_record_browser_delivery('${o.orderId}','${lease.token}','{"realTest":1}',${j({ decision: "rejected", checks: checks(false), summary: "Falta mobile" })})`,
+  );
+  assert.equal(balance(o), "85,15,0");
+  assert.throws(() => call(`settle_verified_order('${o.orderId}','any')`));
+  const corrected = claim(o);
+  const delivery = call(
+    `studio_record_browser_delivery('${o.orderId}','${corrected.token}','{"realTest":2}',${j({ decision: "approved", checks: checks(true), summary: "Cobertura comprovada" })})`,
+  );
+  assert.throws(
+    () => call(`settle_verified_order('${o.orderId}','any')`),
+    /human_approval_required/,
+  );
+  const report = sql(
+    `SELECT id FROM verification_reports WHERE delivery_id='${delivery.deliveryId}'`,
+  );
+  const accept = () =>
+    call(
+      `studio_review_delivery('${user}','${o.orderId}','${delivery.deliveryId}','${report}','${delivery.sha256}','approved','Conferi a cobertura dos testes.')`,
+    );
+  assert.equal(accept().status, "settled");
+  accept();
+  assert.equal(balance(o), "85,0,15");
+  assert.equal(
+    sql(
+      `SELECT count(*) FROM ledger_entries WHERE order_id='${o.orderId}' AND entry_type='payment'`,
+    ),
+    "1",
+  );
+  assert.equal(
+    sql(
+      `SELECT amount_units FROM ledger_entries WHERE order_id='${o.orderId}' AND entry_type='commission'`,
+    ),
+    "1",
   );
 });

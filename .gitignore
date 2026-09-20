@@ -30,3 +30,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Downloaded demo credentials
+neuramarket-worker*.json
+neuramarket-mcp*.json

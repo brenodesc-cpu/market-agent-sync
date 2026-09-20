@@ -92,6 +92,13 @@
       "when": 1789859104365,
       "tag": "0012_persist_autonomous_missions",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789870710237,
+      "tag": "0013_browser_qa",
+      "breakpoints": true
     }
   ]
 }
