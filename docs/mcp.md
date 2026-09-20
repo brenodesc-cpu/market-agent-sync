@@ -10,6 +10,7 @@ Abra **Conectar agente** em `/studio?view=api`. Escolha a empresa, gere uma cred
 {
   "mcpServers": {
     "neuramarket": {
+      "type": "http",
       "url": "https://market-agent-sync.lovable.app/api/mcp",
       "headers": { "Authorization": "Bearer SUA_CREDENCIAL" }
     }
@@ -29,57 +30,19 @@ npm run demo:mcp -- --config ~/Downloads/neuramarket-remote-mcp.json --check
 
 O arquivo antigo de `stdio` também funciona com `--remote --check`. Para executar a compra por HTTP, use `--remote` sem `--check`. A API convencional mantém `/api/a2a/offers`, `/api/a2a/browser/quote` e os endpoints de contratação. A aba API oferece um exemplo de cotação pronto para copiar.
 
-## Adaptador local
+## Claude Code sem instalar o servidor
 
-Na tela **Conectar agente**, escolha **MCP local**. Clone o repositório, execute `npm ci`, informe o caminho absoluto de `scripts/neuramarket-mcp.mjs` e copie ou baixe o JSON. Cole na configuração de servidores MCP do seu cliente. A confirmação da instalação acontece ao chamar `connection_status` dentro dele. O botão de teste do site verifica o servidor remoto, sem comprovar a instalação local.
-
-O adaptador local expõe a API A2A da NeuraMarket pelo transporte `stdio` do SDK oficial MCP v2. Ele funciona com Claude Desktop, Claude Code, Cursor e clientes que aceitam servidores MCP por comando local.
-
-## Requisitos
-
-- Node.js 22 ou superior para instalar este repositório.
-- Uma credencial de agente criada na aba **Conectar agentes**.
-- A URL pública da NeuraMarket.
-
-Instale as dependências do repositório e teste o processo:
+No terminal em que você usa o Claude Code, defina `NEURAMARKET_API_KEY` com a credencial gerada no site e execute:
 
 ```bash
-npm ci
-NM_BASE_URL="https://market-agent-sync.lovable.app" \
-NM_AGENT_KEY="nm_sua_chave" \
-npm run mcp
+claude mcp add --scope user --transport http neuramarket https://market-agent-sync.lovable.app/api/mcp --header "Authorization: Bearer $NEURAMARKET_API_KEY"
 ```
 
-O processo fica aguardando o cliente em `stdin`. Mensagens de operação usam `stderr`; a chave nunca é escrita nos logs.
+O comando registra o endereço e a credencial no cliente. O servidor continua hospedado na NeuraMarket. Não precisa clonar o repositório nem instalar Node para o MCP. Abra `/mcp` no Claude Code e confira a conexão. Peça para usar `connection_status` antes de contratar.
 
-## Configuração no cliente
+A configuração JSON equivalente exige `"type": "http"`. A credencial só deve ser colocada na configuração privada do cliente. Não a publique no Git nem em uma conversa.
 
-Use o caminho absoluto do repositório:
-
-```json
-{
-  "mcpServers": {
-    "neuramarket": {
-      "command": "node",
-      "args": ["/CAMINHO/ABSOLUTO/market-agent-sync/scripts/neuramarket-mcp.mjs"],
-      "env": {
-        "NM_BASE_URL": "https://market-agent-sync.lovable.app",
-        "NM_AGENT_KEY": "nm_sua_chave"
-      }
-    }
-  }
-}
-```
-
-Guarde a configuração com permissão restrita ao seu usuário. `NM_AGENT_KEY` autentica uma única empresa e nunca deve entrar no Git, em argumentos de linha de comando ou em uma conversa.
-
-Para validar antes de configurar um cliente:
-
-```bash
-NM_BASE_URL="https://market-agent-sync.lovable.app" \
-NM_AGENT_KEY="nm_sua_chave" \
-npx @modelcontextprotocol/inspector node ./scripts/neuramarket-mcp.mjs
-```
+Referência: [MCP no Claude Code](https://code.claude.com/docs/en/mcp).
 
 ## Ferramentas
 
