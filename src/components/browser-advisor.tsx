@@ -15,14 +15,10 @@ import {
   buyBrowserTest,
   retryBrowserOrder,
 } from "@/lib/browser.functions";
-import {
-  getStudioOrder,
-  submitHumanReview,
-  cancelStudioOrder,
-  createAgentKey,
-} from "@/lib/studio.functions";
+import { getStudioOrder, submitHumanReview, cancelStudioOrder } from "@/lib/studio.functions";
 import type { StudioDetails } from "@/lib/studio.types";
 import "@/browser-advisor.css";
+import { ContractNetwork } from "./contract-network";
 type Setup = Awaited<ReturnType<typeof getBrowserSetup>>;
 function save(name: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: "application/json" }));
@@ -36,10 +32,12 @@ export function BrowserAdvisor({
   signedIn,
   onLogin,
   initialOrderId,
+  onConnect,
 }: {
   signedIn: boolean;
   onLogin: () => void;
   initialOrderId?: string;
+  onConnect: () => void;
 }) {
   const [setup, setSetup] = useState<Setup | null>(null),
     [order, setOrder] = useState<StudioDetails | null>(null);
@@ -63,10 +61,13 @@ export function BrowserAdvisor({
       return;
     }
     let active = true;
+    let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
       try {
         const state = await getBrowserSetup();
-        if (active) setSetup(state);
+        if (!active) return;
+        setSetup(state);
+        setError("");
         const ids = state.orders.map((item) => item.id);
         if (seenOrders.current === null) {
           seenOrders.current = new Set(ids);
@@ -84,13 +85,14 @@ export function BrowserAdvisor({
         }
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : "Não foi possível carregar.");
+      } finally {
+        if (active) timer = setTimeout(() => void tick(), 1500);
       }
     };
     void tick();
-    const timer = setInterval(() => void tick(), 1500);
     return () => {
       active = false;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
   }, [signedIn, selected]);
   async function action(work: () => Promise<void>) {
@@ -114,9 +116,11 @@ export function BrowserAdvisor({
   } catch {
     /* invalid artifacts are never rendered */
   }
+  const account = order
+    ? setup?.accounts.find((a) => a.company_id === order.order.buyer_company_id)
+    : setup?.account;
   const state = order?.order.status;
   const fromMcp = order?.order.brief?.source === "mcp";
-  const auditComplete = ["accepted", "settled"].includes(state ?? "");
   const labels: Record<string, string> = {
     contracted: "15 créditos reservados. Aguardando o executor.",
     in_progress: "O fornecedor está testando no navegador.",
@@ -124,183 +128,108 @@ export function BrowserAdvisor({
     accepted: "Testes conferidos. Falta o seu aceite.",
     settled: "Entrega aceita. Pagamento concluído.",
     cancelled: "Pedido cancelado. Reserva devolvida.",
+    expired: "Pedido expirado.",
+    delivered: "Entrega recebida. Aguardando a auditoria.",
+    verifying: "Auditoria em andamento.",
+    verification_inconclusive: "Auditoria inconclusiva. Pagamento bloqueado.",
   };
   return (
     <section className={`browser-advisor${order ? " has-order" : ""}`}>
-      <div className="qa-eyebrow">NEURAMARKET · ASSESSOR DO SEU AGENTE</div>
-      <h1>
-        Seu agente precisa de
-        <br />
-        uma capacidade nova?
-      </h1>
-      <p className="qa-intro">
-        Ele contrata quem executa. Você confere o resultado antes do pagamento.
-      </p>
-      <div className={`qa-live-event${fromMcp ? " received" : ""}`}>
-        <Bot size={19} />
+      <div className="qa-dashboard-heading">
         <div>
-          <strong>
-            {fromMcp
-              ? "Pedido recebido de um agente externo pelo MCP"
-              : order
-                ? "Pedido iniciado pelo estúdio"
-                : "Aguardando um agente externo pelo MCP"}
-          </strong>
-          <span>
-            {fromMcp
-              ? "A tela abriu esta contratação automaticamente."
-              : "Quando o agente contratar, esta tela acompanha a execução sozinha."}
-          </span>
+          <div className="qa-eyebrow">NEURAMARKET · OPERAÇÃO AO VIVO</div>
+          <h1>Acompanhe seus agentes.</h1>
+          <p className="qa-intro">Acompanhe quem foi escolhido, o que entregou e quanto custou.</p>
         </div>
-        <i>{fromMcp ? "A2A AO VIVO" : "ESCUTANDO"}</i>
+        <span className="qa-update-status">
+          {signedIn ? "Atualização automática · 1,5 s" : "Entre para acompanhar sua operação"}
+        </span>
       </div>
-      <div className="qa-flow" aria-label="Fluxo da contratação">
-        <div className={order ? "done" : "current"}>
-          <b>1</b>
-          <span>
-            <strong>Pedido</strong>
-            <small>{fromMcp ? "MCP recebido" : "Aguardando MCP"}</small>
-          </span>
-        </div>
-        <div className={order ? "done" : ""}>
-          <b>2</b>
-          <span>
-            <strong>Escolha</strong>
-            <small>{order ? "BrowserQA · 15 cr" : "Compara cobertura"}</small>
-          </span>
-        </div>
-        <div
-          className={
-            state === "revision_requested"
-              ? "blocked"
-              : auditComplete
-                ? "done"
+      <ContractNetwork order={order} budget={budget} connected={signedIn} onConnect={onConnect} />
+      <div className="qa-command-bar">
+        <div className="qa-command-copy">
+          <Bot size={18} />
+          <div>
+            <strong>
+              {fromMcp
+                ? "Pedido externo recebido pelo MCP/API"
                 : order
-                  ? "current"
-                  : ""
-          }
-        >
-          <b>3</b>
-          <span>
-            <strong>Auditoria</strong>
-            <small>
-              {state === "revision_requested"
-                ? "Pagamento bloqueado"
-                : auditComplete
-                  ? "Correção aprovada"
-                  : "Confere as provas"}
-            </small>
-          </span>
-        </div>
-        <div className={state === "settled" ? "done" : auditComplete ? "current" : ""}>
-          <b>4</b>
-          <span>
-            <strong>Pagamento</strong>
-            <small>
-              {state === "settled" ? "14 fornecedor + 1 fee" : "Protegido até o aceite"}
-            </small>
-          </span>
-        </div>
-      </div>
-      {order ? (
-        <div className="qa-active-summary">
-          <div>
-            <span className="qa-label">PEDIDO</span>
-            <p>Testar o formulário no computador e no celular, com capturas.</p>
+                  ? "Contratação iniciada pelo estúdio"
+                  : "Experimente uma contratação"}
+            </strong>
+            <span>
+              {order
+                ? `Pedido ${order.order.id.slice(0, 8)} · ${labels[state!] ?? state}`
+                : "Teste o formulário de demonstração em desktop e mobile."}
+            </span>
           </div>
-          <div>
-            <span className="qa-label">ESCOLHA DO ASSESSOR</span>
-            <p>
-              <strong>BrowserQA</strong> · desktop + mobile + envio · &lt; 20 s
-            </p>
-          </div>
-          <b>15 créditos</b>
         </div>
-      ) : (
-        <>
-          <div className="qa-request">
-            <span className="qa-label">PEDIDO DO AGENTE CRIADOR DE SITES</span>
-            <p>
-              “Terminei a página. Teste o formulário no computador e no celular, com capturas que
-              comprovem o resultado.”
-            </p>
-            <a href="/qa-fixture" target="_blank" rel="noreferrer">
-              Abrir a página que será testada ↗
-            </a>
-            <div className="qa-controls">
-              <label>
-                Orçamento{" "}
-                <input
-                  aria-label="Orçamento em créditos simulados"
-                  type="number"
-                  min={1}
-                  max={1000}
-                  value={budget}
-                  disabled={!!order}
-                  onChange={(e) => setBudget(Number(e.target.value))}
-                />{" "}
-                créditos
-              </label>
-              <button
-                disabled={
-                  busy ||
-                  !!order ||
-                  (!quote.selectedOffer && signedIn) ||
-                  Boolean(signedIn && !setup?.workerOnline)
-                }
-                onClick={() => {
-                  if (!signedIn) {
-                    onLogin();
-                    return;
-                  }
-                  void action(async () => {
-                    const created = await buyBrowserTest({
-                      data: { requestId, budget, testFailure: fault, fixture: "lead-form-v1" },
-                    });
-                    setSelected(created.orderId);
-                    setOrder(await getStudioOrder({ data: { orderId: created.orderId } }));
-                  });
-                }}
-              >
-                {busy ? <LoaderCircle size={17} /> : <ArrowRight size={17} />}{" "}
-                {signedIn ? "Contratar teste" : "Entrar para testar"}
-              </button>
-            </div>
-            <label className="qa-fault">
+        {!order && (
+          <div className="qa-controls">
+            <label>
+              Orçamento{" "}
               <input
-                type="checkbox"
-                checked={fault}
-                disabled={!!order}
-                onChange={(e) => setFault(e.target.checked)}
+                aria-label="Orçamento em créditos simulados"
+                type="number"
+                min={1}
+                max={1000}
+                value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))}
               />{" "}
-              Demonstrar bloqueio: omitir a evidência mobile na primeira entrega.
+              cr
             </label>
+            <button
+              disabled={busy || (signedIn && (!quote.selectedOffer || !setup?.workerOnline))}
+              onClick={() => {
+                if (!signedIn) {
+                  onLogin();
+                  return;
+                }
+                void action(async () => {
+                  const created = await buyBrowserTest({
+                    data: { requestId, budget, testFailure: fault, fixture: "lead-form-v1" },
+                  });
+                  setSelected(created.orderId);
+                  setOrder(await getStudioOrder({ data: { orderId: created.orderId } }));
+                });
+              }}
+            >
+              {busy ? <LoaderCircle size={16} /> : <ArrowRight size={16} />}{" "}
+              {signedIn ? "Contratar por 15 cr" : "Entrar para testar"}
+            </button>
           </div>
-          <div className="qa-offers">
-            {quote.offers.map((o) => (
-              <div key={o.name} className={o.eligible ? "eligible" : ""}>
-                <strong>{o.name}</strong>
-                <b>{o.price} créditos</b>
-                <p>{o.reason}</p>
-                <dl>
-                  <div>
-                    <dt>Cobertura</dt>
-                    <dd>{o.coverage}</dd>
-                  </div>
-                  <div>
-                    <dt>Tempo</dt>
-                    <dd>{o.estimatedTime}</dd>
-                  </div>
-                </dl>
-                <small>{o.eligible ? "Selecionado pelo assessor" : "Não atende ao pedido"}</small>
-              </div>
+        )}
+      </div>
+      {!order && (
+        <div className="qa-demo-options">
+          <label className="qa-fault">
+            <input type="checkbox" checked={fault} onChange={(e) => setFault(e.target.checked)} />{" "}
+            Demonstrar uma entrega incompleta e a correção.
+          </label>
+          <a href="/qa-fixture" target="_blank" rel="noreferrer">
+            Ver página de teste ↗
+          </a>
+        </div>
+      )}
+      {signedIn && !!setup?.orders.length && (
+        <label className="qa-order-picker">
+          Histórico de contratações{" "}
+          <select
+            aria-label="Escolher contratação"
+            value={selected}
+            onChange={(e) => {
+              setOrder(null);
+              setSelected(e.target.value);
+            }}
+          >
+            <option value="">Aguardar novo pedido</option>
+            {setup.orders.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.id.slice(0, 8)} · {labels[o.status] ?? o.status}
+              </option>
             ))}
-          </div>
-          <p className="qa-explanation">
-            {quote.reason} Criar essa capacidade agora exigiria integrar e validar um navegador. A
-            compra custa 15 créditos e entrega o teste completo em menos de 20 segundos.
-          </p>
-        </>
+          </select>
+        </label>
       )}
       {error && (
         <p role="alert" className="qa-error">
@@ -314,8 +243,8 @@ export function BrowserAdvisor({
             ? "Executor conectado"
             : "Executor desconectado. Abra “Preparar demonstração” abaixo."}{" "}
           · Créditos simulados
-          {setup?.account
-            ? ` · Saldo ${setup.account.available_units} · Reservado ${setup.account.reserved_units}`
+          {account
+            ? ` · Saldo ${account.available_units} · Reservado ${account.reserved_units}`
             : ""}
         </p>
       )}
@@ -460,40 +389,7 @@ export function BrowserAdvisor({
             Baixar configuração do executor
           </button>
           <pre>npm run browser:worker -- --config ~/Downloads/neuramarket-worker.json</pre>
-          <p>
-            Para um agente externo contratar via MCP, baixe a configuração e use o caminho deste
-            repositório no campo do script.
-          </p>
-          <button
-            disabled={busy || !setup}
-            onClick={() =>
-              void action(async () => {
-                const key = await createAgentKey({ data: { companyId: setup!.companyId } });
-                save(
-                  "neuramarket-mcp.json",
-                  JSON.stringify(
-                    {
-                      mcpServers: {
-                        neuramarket: {
-                          command: "node",
-                          args: ["/CAMINHO/market-agent-sync/scripts/neuramarket-mcp.mjs"],
-                          env: { NM_BASE_URL: location.origin, NM_AGENT_KEY: key.token },
-                        },
-                      },
-                    },
-                    null,
-                    2,
-                  ),
-                );
-              })
-            }
-          >
-            Baixar conexão MCP
-          </button>
-          <p>
-            O agente usa <code>quote_browser_test</code>, <code>buy_browser_test</code> e{" "}
-            <code>get_order</code>. O aceite humano continua nesta tela.
-          </p>
+          <button onClick={onConnect}>Conectar um agente pelo MCP remoto ou API</button>
           {setup?.orders.map((o) => (
             <button className="qa-link" key={o.id} onClick={() => setSelected(o.id)}>
               {o.title} · {o.status}

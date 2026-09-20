@@ -1,0 +1,311 @@
+.agent-connection {
+  max-width: 1140px;
+  margin: auto;
+  padding: 44px 36px 70px;
+  color: #24344b;
+}
+.connect-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  color: #4773ba;
+}
+.connect-heading h1 {
+  font-size: 42px;
+  letter-spacing: -0.045em;
+  line-height: 1.12;
+  margin: 15px 0;
+}
+.connect-heading h1 span {
+  color: #466ec3;
+}
+.connect-heading > p {
+  font-size: 15px;
+  color: #7c899b;
+  margin: 0 0 30px;
+}
+.connect-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 285px;
+  gap: 24px;
+}
+.connect-main {
+  background: #fff;
+  border: 1px solid #dfe5ef;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.connect-tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e9f0;
+  padding: 0 24px;
+  gap: 24px;
+}
+.connect-tabs button {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: #7d8899;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 18px 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+.connect-tabs button[aria-selected="true"] {
+  border-color: #4674c9;
+  color: #315fb3;
+  font-weight: 650;
+}
+.connect-step {
+  display: flex;
+  gap: 15px;
+  padding: 26px 26px 0;
+}
+.connect-step:last-of-type {
+  padding-bottom: 26px;
+}
+.connect-step-number {
+  flex: 0 0 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: #5276b6;
+  background: #eef3fc;
+  border-radius: 50%;
+}
+.connect-step > div {
+  min-width: 0;
+  flex: 1;
+}
+.connect-step h2 {
+  font-size: 15px;
+  margin: 2px 0 9px;
+}
+.connect-step p {
+  font-size: 12px;
+  line-height: 1.65;
+  color: #7e8a9c;
+  margin: 0 0 14px;
+}
+.connect-step select {
+  display: block;
+  width: 100%;
+  border: 1px solid #dce2eb;
+  border-radius: 8px;
+  padding: 11px;
+  margin-bottom: 12px;
+  background: #fff;
+  font-size: 12px;
+  color: #3f4e63;
+}
+.agent-connection button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.connect-primary,
+.connect-secondary,
+.connect-verified {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.connect-primary {
+  background: #386cce;
+  border: 1px solid #386cce;
+  color: #fff;
+}
+.connect-secondary {
+  background: #fff;
+  border: 1px solid #dbe2ed;
+  color: #53657e;
+}
+.connect-verified {
+  color: #288162;
+  background: #eff9f4;
+  border: 1px solid #b4dbcb;
+}
+.connect-endpoint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #f7f9fc;
+  border: 1px solid #e1e7ef;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+.connect-endpoint code {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.connect-endpoint button {
+  border: 0;
+  background: none;
+  color: #6380b1;
+  cursor: pointer;
+}
+.connect-code {
+  background: #142034;
+  color: #c1d1e9;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.connect-code > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 15px;
+  background: #1c2b42;
+  color: #a9bddb;
+  font-size: 10px;
+}
+.connect-code pre {
+  font-size: 10px;
+  line-height: 1.8;
+  padding: 17px;
+  margin: 0;
+  overflow: auto;
+  max-height: 270px;
+}
+.connect-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.connect-step p.connect-fine {
+  font-size: 10px;
+  margin-top: 10px;
+}
+.connect-message,
+.connect-error {
+  margin: 0 25px 25px;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.connect-message {
+  background: #edf8f2;
+  color: #287957;
+}
+.connect-error {
+  background: #fff0ee;
+  color: #a44435;
+}
+.connect-side > div {
+  padding: 23px;
+  border: 1px solid #e2e7ef;
+  border-radius: 14px;
+  background: #fff;
+  margin-bottom: 16px;
+}
+.connect-side > div:first-child {
+  background: #f1f5fc;
+  border-color: #d9e4f5;
+}
+.connect-side svg {
+  color: #547cbc;
+}
+.connect-side h2 {
+  font-size: 17px;
+  margin: 15px 0;
+}
+.connect-side h3 {
+  font-size: 13px;
+  margin: 0 0 13px;
+}
+.connect-side p,
+.connect-side li {
+  font-size: 12px;
+  color: #738199;
+  line-height: 1.7;
+}
+.connect-side ul {
+  padding-left: 16px;
+  margin: 16px 0 24px;
+}
+.connect-side li {
+  padding-bottom: 8px;
+}
+.connect-side small {
+  font-size: 10px;
+  line-height: 1.6;
+  display: block;
+  color: #8b98aa;
+}
+.connect-side .connect-prompt {
+  color: #415978;
+}
+.connect-key {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 11px;
+}
+.connect-key button {
+  border: 0;
+  background: none;
+  color: #986455;
+  font-size: 11px;
+  cursor: pointer;
+}
+.connect-key code {
+  font-size: 10px;
+  color: #71819a;
+}
+.connect-key span {
+  color: #94a0b1;
+  font-size: 10px;
+}
+.agent-connection button:focus-visible {
+  outline: 3px solid #a0bafa;
+  outline-offset: 3px;
+}
+@media (max-width: 950px) {
+  .connect-layout {
+    grid-template-columns: 1fr;
+  }
+  .connect-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .agent-connection {
+    padding: 30px 20px;
+  }
+  .connect-heading h1 {
+    font-size: 34px;
+  }
+}
+@media (max-width: 560px) {
+  .connect-side {
+    grid-template-columns: 1fr;
+  }
+  .connect-step {
+    padding: 22px 15px 0;
+    gap: 10px;
+  }
+  .connect-tabs {
+    padding: 0 16px;
+  }
+  .agent-connection {
+    padding: 25px 14px;
+  }
+  .connect-heading h1 {
+    font-size: 31px;
+  }
+}

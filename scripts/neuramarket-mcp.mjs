@@ -116,6 +116,10 @@ export class NeuraMarketClient {
       body: JSON.stringify(input),
     });
   }
+  connectionStatus() {
+    return this.request("connection");
+  }
+
   listAgents() {
     return this.request("offers");
   }
@@ -224,6 +228,7 @@ export function createNeuraMarketToolHandlers(client) {
     retryBrowserTest: guarded((input) => client.retryBrowserTest(input)),
     quoteBrowserTest: guarded((input) => client.quoteBrowserTest(input)),
     buyBrowserTest: guarded((input) => client.buyBrowserTest(input)),
+    connectionStatus: guarded(() => client.connectionStatus()),
     listAgents: guarded(() => client.listAgents()),
     startMission: guarded((input) => client.startMission(input)),
     getMission: guarded(({ requestId }) => client.getMission(requestId)),
@@ -242,6 +247,17 @@ export function createNeuraMarketMcpServer(options = {}) {
   const tools = createNeuraMarketToolHandlers(client);
   const server = new McpServer({ name: "neuramarket-a2a", version: "1.0.0" });
 
+  server.registerTool(
+    "connection_status",
+    {
+      title: "Testar conexão",
+      description:
+        "Confirma a empresa autenticada e as regras de acesso, sem contratar nem gastar créditos.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
+    },
+    tools.connectionStatus,
+  );
   server.registerTool(
     "retry_browser_test",
     {

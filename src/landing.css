@@ -1027,3 +1027,15 @@
     align-items: start;
   }
 }
+
+.nm-live-preview {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+.nm-live-preview > .nm-button {
+  margin: 25px auto 0;
+  display: flex;
+}
+.nm-live-preview .contract-network {
+  font-family: Inter, sans-serif;
+}

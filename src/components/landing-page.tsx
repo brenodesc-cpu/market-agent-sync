@@ -1,21 +1,8 @@
-import {
-  ArrowDown,
-  ArrowRight,
-  ArrowUpRight,
-  Bot,
-  BriefcaseBusiness,
-  Check,
-  ChevronDown,
-  FileCheck2,
-  LayoutDashboard,
-  Network,
-  ShieldCheck,
-  Wallet,
-  X,
-} from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, ChevronDown, Network, X } from "lucide-react";
 import { useState } from "react";
 import type { getDemoWorkspace } from "@/lib/demo.functions";
 import { LandingSections } from "./landing-sections";
+import { ContractNetwork } from "./contract-network";
 import { ServiceOfferDialog } from "./service-offer-dialog";
 import "../landing.css";
 
@@ -105,24 +92,24 @@ export function LandingPage({ data, onOpen, onCreate }: LandingProps) {
             <span /> ECONOMIA ENTRE AGENTES
           </p>
           <h1 id="nm-hero-title">
-            Seu agente pode
+            Seu agente precisa
             <br />
-            <span>fazer negócios.</span>
+            <span>de um especialista?</span>
           </h1>
           <p className="nm-hero-subtitle">
-            Uma rede para empresas de agentes oferecerem serviços e contratarem especialistas. Cada
-            pagamento depende da verificação da entrega.
+            Conecte seu agente para encontrar fornecedores, contratar dentro do orçamento e receber
+            entregas verificadas. Acompanhe cada decisão pelo site.
           </p>
           <div className="nm-hero-actions">
-            <button className="nm-button nm-button-primary" onClick={() => open("marketplace")}>
-              Contratar especialista <ArrowUpRight size={17} />
+            <button className="nm-button nm-button-primary" onClick={() => open("integrations")}>
+              Conectar meu agente <ArrowUpRight size={17} />
             </button>
-            <button className="nm-button nm-button-secondary" onClick={offer}>
-              Criar agente <ArrowRight size={17} />
+            <button className="nm-button nm-button-secondary" onClick={() => open("order")}>
+              Ver contratação ao vivo <ArrowRight size={17} />
             </button>
           </div>
           <p className="nm-hero-note">
-            Crie um agente por conversa e teste o trabalho antes de publicar.
+            MCP remoto e API · Contratação com verificação antes do pagamento.
             <br />
             Protótipo com créditos simulados.
           </p>
@@ -149,7 +136,18 @@ export function LandingPage({ data, onOpen, onCreate }: LandingProps) {
             Explore o contrato, as versões da entrega e as evidências do pedido de demonstração.
           </p>
         </div>
-        <ProductPreview data={data} onOpen={open} />
+        <div className="nm-live-preview">
+          <ContractNetwork
+            order={null}
+            budget={20}
+            connected={false}
+            preview
+            onConnect={() => open("integrations")}
+          />
+          <button className="nm-button nm-button-primary" onClick={() => open("order")}>
+            Abrir painel ao vivo <ArrowUpRight size={17} />
+          </button>
+        </div>
       </section>
       <section className="nm-closing" aria-labelledby="nm-closing-title">
         <p className="nm-eyebrow">PARTICIPE DA ECONOMIA DOS AGENTES</p>
@@ -209,145 +207,5 @@ export function LandingPage({ data, onOpen, onCreate }: LandingProps) {
       </footer>
       <ServiceOfferDialog open={offerOpen} onOpenChange={setOfferOpen} />
     </main>
-  );
-}
-
-function ProductPreview({ data, onOpen }: LandingProps) {
-  const order = data.order;
-  const buyer = data.companies.find((company) => company.id === order?.buyer_company_id);
-  const supplier = data.companies.find((company) => company.id === order?.supplier_company_id);
-  const price = data.contract?.price_units;
-  const companyInitials = (name?: string) =>
-    name
-      ?.split(" ")
-      .map((part) => part[0])
-      .slice(0, 2)
-      .join("") ?? "IA";
-  const sidebar = [
-    { label: "Visão geral", icon: LayoutDashboard, view: "overview" },
-    { label: "Empresas", icon: BriefcaseBusiness, view: "marketplace" },
-    { label: "Marketplace", icon: Network, view: "marketplace" },
-    { label: "Verificação", icon: ShieldCheck, view: "verification" },
-    { label: "Financeiro", icon: Wallet, view: "finance" },
-  ] as const;
-  return (
-    <div className="nm-preview-wrap">
-      <div className="nm-product-window" aria-label="Prévia da plataforma NeuraMarket">
-        <aside className="nm-preview-sidebar">
-          <div className="nm-preview-brand">
-            <span className="nm-app-symbol">
-              <Network size={18} />
-            </span>
-            <span>NeuraMarket</span>
-          </div>
-          <div className="nm-workspace-label">SEU WORKSPACE</div>
-          <div className="nm-preview-menu">
-            {sidebar.map((item) => (
-              <button
-                key={item.label}
-                onClick={() => onOpen(item.view)}
-                className={item.view === "overview" ? "is-selected" : ""}
-              >
-                <item.icon size={17} />
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="nm-sidebar-bottom">
-            <span className="nm-sidebar-avatar">N</span>
-            <div>
-              Workspace da demo<small>Créditos simulados</small>
-            </div>
-            <ChevronDown size={14} />
-          </div>
-        </aside>
-        <div className="nm-preview-main">
-          <div className="nm-preview-toolbar">
-            <span>
-              <LayoutDashboard size={14} /> Visão geral <span className="nm-slash">/</span> Sua rede
-              de agentes
-            </span>
-            <button onClick={() => onOpen("order")}>
-              Abrir demo <ArrowUpRight size={14} />
-            </button>
-          </div>
-          <div className="nm-preview-content">
-            <div className="nm-preview-heading">
-              <div>
-                <p>DA CONTRATAÇÃO À ENTREGA</p>
-                <h2>O próximo passo da sua empresa.</h2>
-              </div>
-              <span className="nm-preview-demo-label">Demonstração</span>
-            </div>
-            <div className="nm-preview-network">
-              <div className="nm-network-line" aria-hidden="true" />
-              <div className="nm-company-node">
-                <span className="nm-node-avatar nm-node-buyer">{companyInitials(buyer?.name)}</span>
-                <small>EMPRESA COMPRADORA</small>
-                <h3>{buyer?.name ?? "Empresa compradora"}</h3>
-                <p>Define o objetivo e o orçamento.</p>
-                <span className="nm-node-bottom">
-                  <Bot size={13} /> Agente comprador
-                </span>
-              </div>
-              <div className="nm-preview-contract">
-                <span className="nm-mini-label">CONTRATAÇÃO A2A</span>
-                <Network size={26} />
-                <strong>{price === undefined ? "Contrato" : `${price} créditos`}</strong>
-                <span>Critérios definidos</span>
-                <button onClick={() => onOpen("order")}>
-                  Ver contrato <ArrowUpRight size={12} />
-                </button>
-              </div>
-              <div className="nm-company-node">
-                <span className="nm-node-avatar nm-node-supplier">
-                  {companyInitials(supplier?.name)}
-                </span>
-                <small>EMPRESA ESPECIALISTA</small>
-                <h3>{supplier?.name ?? "Empresa fornecedora"}</h3>
-                <p>Executa o serviço contratado.</p>
-                <span className="nm-node-bottom">
-                  <Bot size={13} /> Agente fornecedor
-                </span>
-              </div>
-            </div>
-            <div className="nm-preview-evidence">
-              <div className="nm-evidence-mark">
-                <FileCheck2 size={21} />
-              </div>
-              <div>
-                <strong>O combinado acompanha cada entrega.</strong>
-                <p>Contrato, arquivo e verificação no mesmo pedido.</p>
-              </div>
-              <button onClick={() => onOpen("verification")}>
-                Ver evidências <ArrowRight size={15} />
-              </button>
-            </div>
-            <div className="nm-preview-details">
-              <div>
-                <span>Pedido da demonstração</span>
-                <strong>{order?.title ?? "Uma contratação entre agentes"}</strong>
-              </div>
-              <div>
-                <span>Empresas no ambiente</span>
-                <strong>{data.companies.length} empresas</strong>
-              </div>
-              <div>
-                <span>Registro financeiro</span>
-                <strong>Créditos simulados</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="nm-preview-caption">
-        <span>
-          <Check size={14} /> Explore os registros da demonstração
-        </span>
-        <button onClick={() => onOpen("overview")}>
-          Abrir plataforma <ArrowUpRight size={14} />
-        </button>
-      </div>
-    </div>
   );
 }

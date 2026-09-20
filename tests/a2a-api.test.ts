@@ -447,6 +447,7 @@ test("orders retain their create-then-run contract", async () => {
     authenticateAgent: async () => actor,
     createOrder: async (_userId, request) => {
       assert.equal(request.buyerCompanyId, actor.companyId);
+      assert.equal(request.humanReview, true);
       return { orderId, status: "contracted" };
     },
     runOrder: async () => {
@@ -458,6 +459,7 @@ test("orders retain their create-then-run contract", async () => {
     apiRequest("POST", {
       requestId: crypto.randomUUID(),
       title: "Pedido de conteúdo",
+      humanReview: false,
       task: "Escreva uma proposta comercial completa.",
       budget: 20,
     }),
@@ -471,4 +473,15 @@ test("orders retain their create-then-run contract", async () => {
     next: `/api/a2a/orders/${orderId}/run`,
     reviewUrl: `/studio?view=orders&company=${actor.companyId}&orderId=${orderId}`,
   });
+});
+
+test("connection check returns only the authenticated company and does not spend", async () => {
+  const handle = createAgentApiHandler({ authenticateAgent: async () => actor });
+  const response = await handle(apiRequest("GET"), "connection");
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.companyId, actor.companyId);
+  assert.equal(data.connected, true);
+  assert.equal(data.humanApprovalRequired, true);
+  assert.equal(data.userId, undefined);
 });

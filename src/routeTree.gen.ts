@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as QaFixtureRouteImport } from './routes/qa-fixture'
 import { Route as StudioRouteImport } from './routes/studio'
+import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as ApiA2aSplatRouteImport } from './routes/api/a2a/$'
 import { Route as ApiBrowserWorkerSplatRouteImport } from './routes/api/browser-worker/$'
 import { Route as ApiPublicOpenapiRouteImport } from './routes/api/public/openapi'
@@ -36,6 +37,11 @@ const QaFixtureRoute = QaFixtureRouteImport.update({
 const StudioRoute = StudioRouteImport.update({
   id: '/studio',
   path: '/studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMcpRoute = ApiMcpRouteImport.update({
+  id: '/api/mcp',
+  path: '/api/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiA2aSplatRoute = ApiA2aSplatRouteImport.update({
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/demo': typeof DemoRoute
   '/qa-fixture': typeof QaFixtureRoute
   '/studio': typeof StudioRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/api/a2a/$': typeof ApiA2aSplatRoute
   '/api/browser-worker/$': typeof ApiBrowserWorkerSplatRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/demo': typeof DemoRoute
   '/qa-fixture': typeof QaFixtureRoute
   '/studio': typeof StudioRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/api/a2a/$': typeof ApiA2aSplatRoute
   '/api/browser-worker/$': typeof ApiBrowserWorkerSplatRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/demo': typeof DemoRoute
   '/qa-fixture': typeof QaFixtureRoute
   '/studio': typeof StudioRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/api/a2a/$': typeof ApiA2aSplatRoute
   '/api/browser-worker/$': typeof ApiBrowserWorkerSplatRoute
   '/api/public/openapi': typeof ApiPublicOpenapiRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/demo'
     | '/qa-fixture'
     | '/studio'
+    | '/api/mcp'
     | '/api/a2a/$'
     | '/api/browser-worker/$'
     | '/api/public/openapi'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/demo'
     | '/qa-fixture'
     | '/studio'
+    | '/api/mcp'
     | '/api/a2a/$'
     | '/api/browser-worker/$'
     | '/api/public/openapi'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/demo'
     | '/qa-fixture'
     | '/studio'
+    | '/api/mcp'
     | '/api/a2a/$'
     | '/api/browser-worker/$'
     | '/api/public/openapi'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   DemoRoute: typeof DemoRoute
   QaFixtureRoute: typeof QaFixtureRoute
   StudioRoute: typeof StudioRoute
+  ApiMcpRoute: typeof ApiMcpRoute
   ApiA2aSplatRoute: typeof ApiA2aSplatRoute
   ApiBrowserWorkerSplatRoute: typeof ApiBrowserWorkerSplatRoute
   ApiPublicOpenapiRoute: typeof ApiPublicOpenapiRoute
@@ -163,6 +176,13 @@ declare module '@tanstack/react-router' {
       path: '/studio'
       fullPath: '/studio'
       preLoaderRoute: typeof StudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mcp': {
+      id: '/api/mcp'
+      path: '/api/mcp'
+      fullPath: '/api/mcp'
+      preLoaderRoute: typeof ApiMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/a2a/$': {
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   DemoRoute: DemoRoute,
   QaFixtureRoute: QaFixtureRoute,
   StudioRoute: StudioRoute,
+  ApiMcpRoute: ApiMcpRoute,
   ApiA2aSplatRoute: ApiA2aSplatRoute,
   ApiBrowserWorkerSplatRoute: ApiBrowserWorkerSplatRoute,
   ApiPublicOpenapiRoute: ApiPublicOpenapiRoute,

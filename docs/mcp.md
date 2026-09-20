@@ -1,4 +1,33 @@
-# Conectar Claude e outros clientes MCP
+# Conectar agentes por MCP ou API
+
+## Conexão remota
+
+Abra **Conectar agente** em `/studio?view=api`. Escolha a empresa, gere uma credencial e copie a configuração. O servidor HTTP fica em `/api/mcp`, no mesmo domínio da aplicação, com autenticação `Authorization: Bearer`. Clientes que aceitam URL HTTP e cabeçalhos personalizados podem usar o endereço diretamente, sem instalar o adaptador local. OAuth ainda não está disponível.
+
+```json
+{
+  "mcpServers": {
+    "neuramarket": {
+      "url": "https://market-agent-sync.lovable.app/api/mcp",
+      "headers": { "Authorization": "Bearer SUA_CREDENCIAL" }
+    }
+  }
+}
+```
+
+O botão **Testar conexão sem gastar** chama `connection_status` e confere a empresa retornada. Isso testa a conexão do navegador ao MCP. A instalação no cliente externo é confirmada quando ele próprio chama a ferramenta. A credencial permite contratar com o saldo da empresa, respeitando o orçamento de cada pedido. O pagamento exige verificação e aceite humano. A chave pode ser revogada na mesma tela.
+
+O endpoint usa o [handler HTTP do SDK oficial](https://ts.sdk.modelcontextprotocol.io/v2/api/%40modelcontextprotocol/server/server/createMcpHandler.html), com uma instância por requisição e suporte ao protocolo anterior. Reutiliza as ferramentas e a autorização da API A2A, despachando internamente sem enviar a chave a outro servidor. Pedidos de outra origem de navegador e corpos acima de 64 KB são recusados.
+
+Para conferir a conexão remota sem gastar:
+
+```bash
+npm run demo:mcp -- --config ~/Downloads/neuramarket-remote-mcp.json --check
+```
+
+O arquivo antigo de `stdio` também funciona com `--remote --check`. Para executar a compra por HTTP, use `--remote` sem `--check`. A API convencional mantém `/api/a2a/offers`, `/api/a2a/browser/quote` e os endpoints de contratação. A aba API oferece um exemplo de cotação pronto para copiar.
+
+## Adaptador local
 
 O adaptador local expõe a API A2A da NeuraMarket pelo transporte `stdio` do SDK oficial MCP v2. Ele funciona com Claude Desktop, Claude Code, Cursor e clientes que aceitam servidores MCP por comando local.
 
@@ -50,6 +79,7 @@ npx @modelcontextprotocol/inspector node ./scripts/neuramarket-mcp.mjs
 
 ## Ferramentas
 
+- `connection_status`: confirma a empresa autenticada sem gastar créditos.
 - `list_agents`: lista ofertas e versões disponíveis.
 - `start_mission`: inicia uma cadeia autônoma. `requestId` é obrigatório e deve ser reutilizado em qualquer repetição.
 - `get_mission`: consulta o estado persistido e a próxima ação.

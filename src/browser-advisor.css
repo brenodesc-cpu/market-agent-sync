@@ -411,3 +411,181 @@
     font-size: 17px;
   }
 }
+
+/* Live purchasing workspace */
+.browser-advisor,
+.browser-advisor.has-order {
+  max-width: 1520px;
+  padding: 32px 30px 70px;
+  color: #24344b;
+}
+.qa-dashboard-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+.browser-advisor h1,
+.browser-advisor.has-order h1 {
+  font-size: clamp(26px, 2.6vw, 37px);
+  line-height: 1.2;
+  margin: 12px 0 8px;
+  letter-spacing: -0.045em;
+}
+.qa-eyebrow {
+  color: #5578b2;
+  font-size: 10px;
+}
+.qa-intro,
+.browser-advisor.has-order .qa-intro {
+  font-size: 14px;
+  color: #7d8b9f;
+  margin: 0;
+}
+.qa-update-status {
+  font-size: 10px;
+  color: #8494a8;
+  white-space: nowrap;
+  padding-bottom: 3px;
+}
+.qa-command-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 19px 22px;
+  background: #fff;
+  border: 1px solid #dfe5ef;
+  border-radius: 12px;
+  margin-top: 18px;
+}
+.qa-command-copy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #547bbd;
+}
+.qa-command-copy > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.qa-command-copy strong {
+  font-size: 12px;
+  color: #33475f;
+}
+.qa-command-copy span {
+  font-size: 11px;
+  color: #8390a1;
+}
+.qa-command-bar .qa-controls {
+  margin: 0;
+  gap: 12px;
+}
+.qa-command-bar .qa-controls label {
+  white-space: nowrap;
+  font-size: 11px;
+}
+.qa-command-bar .qa-controls input {
+  width: 50px;
+}
+.browser-advisor button {
+  background: #386cce;
+  font-size: 12px;
+}
+.qa-demo-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 12px 5px;
+}
+.qa-demo-options .qa-fault {
+  margin: 0;
+  font-size: 11px;
+}
+.qa-demo-options a {
+  font-size: 11px;
+  color: #6d83a4;
+}
+.qa-order-picker {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 17px 0;
+  font-size: 11px;
+  color: #77879d;
+}
+.qa-order-picker select {
+  max-width: 430px;
+  background: white;
+  border: 1px solid #dce3ee;
+  border-radius: 7px;
+  padding: 7px;
+  color: #557094;
+  font-size: 11px;
+}
+.qa-result {
+  border-color: #dfe5ef;
+}
+.qa-result h2 {
+  color: #304761;
+}
+.qa-evidence img {
+  max-height: 280px;
+  object-fit: contain;
+  background: #f2f5fa;
+}
+.qa-setup {
+  font-size: 12px;
+}
+.qa-setup pre {
+  overflow: auto;
+}
+.qa-connection {
+  font-size: 11px;
+}
+@media (max-width: 900px) {
+  .qa-dashboard-heading {
+    display: block;
+  }
+  .qa-update-status {
+    display: block;
+    margin-top: 12px;
+  }
+  .qa-command-bar {
+    flex-wrap: wrap;
+  }
+  .browser-advisor,
+  .browser-advisor.has-order {
+    padding: 25px 18px 50px;
+  }
+}
+@media (max-width: 560px) {
+  .qa-demo-options {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .qa-command-bar {
+    padding: 14px;
+  }
+  .qa-controls {
+    flex-wrap: wrap;
+  }
+  .qa-order-picker {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .qa-order-picker select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .qa-evidence {
+    grid-template-columns: 1fr;
+  }
+  .qa-result {
+    padding: 17px;
+  }
+}

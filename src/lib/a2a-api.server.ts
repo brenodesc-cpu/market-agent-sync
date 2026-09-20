@@ -203,6 +203,16 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
     }
 
     try {
+      if (path === "connection" && request.method === "GET") {
+        return json({
+          connected: true,
+          companyId: actor.companyId,
+          currency: "simulated_credits",
+          permissions: ["discover", "quote", "hire", "track"],
+          spendingPolicy: "Saldo da empresa e orçamento de cada contratação.",
+          humanApprovalRequired: true,
+        });
+      }
       const browserRetry = /^browser\/orders\/([a-f0-9-]{36})\/retry$/.exec(path);
       if (browserRetry && request.method === "POST") {
         await dependencies.orderDetails(actor.userId, browserRetry[1]!, actor.companyId);
@@ -254,6 +264,7 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
         const data = orderRequestSchema.parse({
           ...JSON.parse(text),
           buyerCompanyId: actor.companyId,
+          humanReview: true,
         });
         const created = await dependencies.createOrder(actor.userId, data);
         return json(

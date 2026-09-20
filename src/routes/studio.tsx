@@ -24,7 +24,7 @@ export const Route = createFileRoute("/studio")({
     const { view, company, orderId } = Route.useSearch();
     return (
       <CompanyStudio
-        initialView={view ?? "mission"}
+        initialView={view ?? "advisor"}
         {...(company ? { initialCompany: company } : {})}
         {...(orderId ? { initialOrderId: orderId } : {})}
       />

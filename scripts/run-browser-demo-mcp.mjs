@@ -13,27 +13,65 @@ if (!process.argv.includes("--config") || !configPath) {
 
 const file = JSON.parse(await readFile(configPath, "utf8"));
 const config = file?.mcpServers?.neuramarket;
+const remote = process.argv.includes("--remote") || Boolean(config?.url);
+if (config?.url) {
+  config.env = {
+    NM_BASE_URL: new URL(config.url).origin,
+    NM_AGENT_KEY: config.headers?.Authorization?.replace(/^Bearer /, ""),
+  };
+}
 if (!config?.env?.NM_BASE_URL || !config?.env?.NM_AGENT_KEY) {
   throw new Error("A configuração MCP da NeuraMarket está incompleta.");
 }
 
-const child = spawn(process.execPath, ["scripts/neuramarket-mcp.mjs"], {
-  cwd: process.cwd(),
-  env: {
-    ...process.env,
-    NM_BASE_URL: config.env.NM_BASE_URL,
-    NM_AGENT_KEY: config.env.NM_AGENT_KEY,
-  },
-  stdio: ["pipe", "pipe", "pipe"],
-});
+const child = remote
+  ? null
+  : spawn(process.execPath, ["scripts/neuramarket-mcp.mjs"], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        NM_BASE_URL: config.env.NM_BASE_URL,
+        NM_AGENT_KEY: config.env.NM_AGENT_KEY,
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
 
 let nextId = 1;
 let stdout = "";
 let stderr = "";
 const pending = new Map();
 
-function send(method, params = {}) {
+async function send(method, params = {}) {
   const id = nextId++;
+  if (remote) {
+    const url = new URL("/api/mcp", config.env.NM_BASE_URL);
+    if (url.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(url.hostname))
+      throw new Error("O MCP remoto precisa usar HTTPS.");
+    const response = await fetch(url, {
+      method: "POST",
+      redirect: "error",
+      signal: AbortSignal.timeout(80000),
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        Authorization: `Bearer ${config.env.NM_AGENT_KEY}`,
+        "MCP-Protocol-Version": "2025-06-18",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+    });
+    if (!response.ok) throw new Error(`O MCP remoto respondeu HTTP ${response.status}.`);
+    const text = await response.text();
+    const message = response.headers.get("content-type")?.includes("text/event-stream")
+      ? text
+          .split("\n")
+          .filter((line) => line.startsWith("data: "))
+          .map((line) => JSON.parse(line.slice(6)))
+          .find((item) => item.id === id)
+      : JSON.parse(text);
+    if (!message || message.error)
+      throw new Error(message?.error?.message ?? "Resposta MCP inválida.");
+    return message.result;
+  }
   child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -44,7 +82,7 @@ function send(method, params = {}) {
   });
 }
 
-child.stdout.setEncoding("utf8").on("data", (chunk) => {
+child?.stdout.setEncoding("utf8").on("data", (chunk) => {
   stdout += chunk;
   for (;;) {
     const newline = stdout.indexOf("\n");
@@ -61,7 +99,7 @@ child.stdout.setEncoding("utf8").on("data", (chunk) => {
     else waiter.resolve(message.result);
   }
 });
-child.stderr.setEncoding("utf8").on("data", (chunk) => {
+child?.stderr.setEncoding("utf8").on("data", (chunk) => {
   stderr += chunk.replaceAll(config.env.NM_AGENT_KEY, "[redacted]");
 });
 
@@ -103,11 +141,17 @@ try {
     capabilities: {},
     clientInfo: { name: "neuramarket-demo", version: "1" },
   });
-  child.stdin.write(
+  child?.stdin.write(
     `${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} })}\n`,
   );
 
-  if (orderId) {
+  if (process.argv.includes("--check")) {
+    const status = await tool("connection_status", {});
+    const list = await send("tools/list");
+    process.stdout.write(
+      `${JSON.stringify({ transport: remote ? "http" : "stdio", ...status, tools: list.tools.length }, null, 2)}\n`,
+    );
+  } else if (orderId) {
     const result = await tool("get_order", { orderId });
     process.stdout.write(
       `${JSON.stringify(
@@ -162,7 +206,7 @@ try {
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
   }
 } finally {
-  child.stdin.end();
-  child.kill("SIGTERM");
+  child?.stdin.end();
+  child?.kill("SIGTERM");
   if (stderr.trim()) process.stderr.write(stderr.slice(0, 2_000));
 }

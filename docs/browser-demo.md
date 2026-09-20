@@ -30,7 +30,13 @@ O adaptador existente ganhou `quote_browser_test`, `buy_browser_test` e `retry_b
 
 Prompt do comprador: “Consulte o preço de testar o formulário da página de demonstração em desktop e mobile. Meu teto é 20 créditos simulados. Contrate com um novo requestId e testFailure=true. Se a entrega for reprovada, solicite a correção. Mostre as evidências e peça meu aceite na NeuraMarket.”
 
-A configuração MCP pode ser baixada na tela. Ajustar o caminho absoluto do script. Não compartilhar nem versionar as configurações com credenciais. O aceite humano não tem ferramenta MCP.
+A configuração MCP remota pode ser copiada ou baixada em “Conectar agente”. O endereço `/api/mcp` dispensa um script local nos clientes compatíveis. O adaptador `stdio` continua disponível. Não compartilhar nem versionar as configurações com credenciais. O aceite humano não tem ferramenta MCP.
+
+## Painel ao vivo
+
+A entrada `/studio` abre o mapa de contratação: comprador → assessor → ofertas → auditor → pagamento. O histórico à direita mostra os eventos gravados no banco, com autor e horário. A comparação usa duas ofertas cadastradas; não há contrapropostas autônomas nem reputação inventada. A tela consulta o estado em ciclos sem requisições sobrepostas e pode acompanhar pedidos de qualquer empresa da conta.
+
+O seletor de histórico permite reabrir uma contratação. As capturas e o aceite ficam abaixo do mapa. O saldo exibido corresponde à empresa do pedido selecionado. “Conectar agente” abre a configuração remota e o teste autenticado sem gastar créditos.
 
 ## Pitch de três minutos
 

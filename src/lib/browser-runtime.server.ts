@@ -11,7 +11,10 @@ import { auditBrowserEvidence } from "./browser-audit.server.ts";
 export async function browserSetup(userId: string) {
   const companyId = (await rpc("browser_buyer", { _user: userId })) as string;
   const db = await runtimeDb();
-  const [worker, account, orders] = await Promise.all([
+  const owned = await db.from("companies").select("id").eq("owner_user_id", userId);
+  if (owned.error) throw new Error(owned.error.message);
+  const companyIds = owned.data.map((company) => company.id);
+  const [worker, account, orders, accounts] = await Promise.all([
     db
       .from("browser_workers")
       .select("last_seen_at,expires_at")
@@ -25,15 +28,21 @@ export async function browserSetup(userId: string) {
     db
       .from("orders")
       .select("id,title,status,created_at")
-      .eq("buyer_company_id", companyId)
+      .in("buyer_company_id", companyIds)
       .eq("brief->>capability", "browser.qa.v1")
       .order("created_at", { ascending: false })
-      .limit(10),
+      .limit(20),
+    db
+      .from("accounts")
+      .select("company_id,available_units,reserved_units,paid_units")
+      .in("company_id", companyIds),
   ]);
-  for (const r of [worker, account, orders]) if (r.error) throw new Error(r.error.message);
+  for (const r of [worker, account, orders, accounts])
+    if (r.error) throw new Error(r.error.message);
   return {
     companyId,
     account: account.data,
+    accounts: accounts.data ?? [],
     orders: orders.data ?? [],
     workerOnline: Boolean(
       worker.data?.last_seen_at &&
@@ -45,14 +54,12 @@ export async function browserSetup(userId: string) {
 export async function browserWorkerKey(userId: string) {
   const key = `nmw_${randomBytes(32).toString("hex")}`;
   const db = await runtimeDb();
-  const result = await db
-    .from("browser_workers")
-    .upsert({
-      user_id: userId,
-      token_hash: createHash("sha256").update(key).digest("hex"),
-      expires_at: new Date(Date.now() + 86400000).toISOString(),
-      last_seen_at: null,
-    });
+  const result = await db.from("browser_workers").upsert({
+    user_id: userId,
+    token_hash: createHash("sha256").update(key).digest("hex"),
+    expires_at: new Date(Date.now() + 86400000).toISOString(),
+    last_seen_at: null,
+  });
   if (result.error) throw new Error(result.error.message);
   return { key, expiresInHours: 24 };
 }

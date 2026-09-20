@@ -6,7 +6,6 @@ import {
   Building2,
   Check,
   ChevronRight,
-  Copy,
   Download,
   FileCheck2,
   Globe,
@@ -38,14 +37,13 @@ import {
   executeStudioOrder,
   getStudioOrder,
   cancelStudioOrder,
-  createAgentKey,
-  revokeAgentKey,
   addReviewClarification,
   submitHumanReview,
   setCompanyCommercial,
 } from "@/lib/studio.functions";
 import { StudioAccessError, studioOrderSelection } from "@/lib/studio-access";
 import { BrowserAdvisor } from "./browser-advisor";
+import { AgentConnection } from "./agent-connection";
 import { AgentMarket } from "./agent-market";
 import { AgentBuilder } from "./agent-builder";
 import { AgentOutput, downloadAgentFile } from "./agent-output";
@@ -65,7 +63,8 @@ type View =
   | "integrations";
 type Bootstrap = Awaited<ReturnType<typeof getStudioBootstrap>>;
 const navigation = [
-  { id: "advisor", label: "Demo: comprar uma capacidade", icon: ShieldCheck, primary: true },
+  { id: "advisor", label: "Contratações ao vivo", icon: ShieldCheck, primary: true },
+  { id: "api", label: "Conectar agente", icon: KeyRound, primary: false },
   { id: "mission", label: "Executar missão", icon: Sparkles, primary: true },
   { id: "builder", label: "Criar especialista", icon: Plus, primary: false },
   { id: "companies", label: "Minhas empresas", icon: Building2, primary: false },
@@ -74,7 +73,6 @@ const navigation = [
 ] as const;
 const accountNavigation = [
   { id: "wallet", label: "Créditos", icon: Wallet },
-  { id: "api", label: "Conectar agentes", icon: KeyRound },
   { id: "integrations", label: "Integrações", icon: Settings2 },
 ] as const;
 const EMPTY_WORKSPACE: StudioWorkspace = {
@@ -131,7 +129,7 @@ function friendlyError(error: unknown) {
     : "Não foi possível concluir. Seus dados permanecem disponíveis; tente novamente.";
 }
 export function CompanyStudio({
-  initialView = "mission",
+  initialView = "advisor",
   initialCompany,
   initialOrderId,
 }: {
@@ -163,8 +161,6 @@ export function CompanyStudio({
   const [buyer, setBuyer] = useState(initialCompany ?? "");
   const [order, setOrder] = useState<StudioDetails | null>(null);
   const [note, setNote] = useState("");
-  const [credential, setCredential] = useState("");
-  const [apiCompany, setApiCompany] = useState("");
   const [origin, setOrigin] = useState("");
   const alive = useRef(true);
   const activeUser = useRef(user);
@@ -186,9 +182,6 @@ export function CompanyStudio({
         : (data.companies.find((c) => c.kind === "ai-specialist")?.id ??
           data.companies[0]?.id ??
           ""),
-    );
-    setApiCompany((current) =>
-      data.companies.some((c) => c.id === current) ? current : (data.companies[0]?.id ?? ""),
     );
   }
   useEffect(() => {
@@ -249,7 +242,6 @@ export function CompanyStudio({
     if (user) void refresh().catch((e) => setError(friendlyError(e)));
     else {
       setWorkspace(EMPTY_WORKSPACE);
-      setCredential("");
       setOrder(null);
     }
   }, [user]);
@@ -533,7 +525,6 @@ export function CompanyStudio({
             onLogin={() => setLogin(true)}
             onSaved={async (id, published) => {
               setBuyer(id);
-              setApiCompany(id);
               navigate("mission", id);
               setNotice(
                 published
@@ -636,6 +627,8 @@ export function CompanyStudio({
 
         {view === "advisor" && (
           <BrowserAdvisor
+            key={user ?? "visitor"}
+            onConnect={() => navigate("api")}
             signedIn={!!user}
             onLogin={() => setLogin(true)}
             {...(initialOrderId ? { initialOrderId } : {})}
@@ -1106,112 +1099,14 @@ export function CompanyStudio({
         )}
 
         {view === "api" && (
-          <div className="studio-page">
-            <PageTitle
-              eyebrow="PRODUTO PARA AGENTES"
-              title="Conecte outro agente"
-              description="Uma credencial permite que um agente contrate e acompanhe serviços em nome da sua empresa."
-            />
-            <div className="studio-section-card">
-              <label>
-                Empresa
-                <select
-                  value={apiCompany}
-                  onChange={(e) => {
-                    setApiCompany(e.target.value);
-                    setCredential("");
-                  }}
-                >
-                  <option value="">Selecione</option>
-                  {workspace.companies.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                className="studio-primary"
-                disabled={!apiCompany || Boolean(busy)}
-                onClick={() =>
-                  void action("key", async () => {
-                    const result = await createAgentKey({ data: { companyId: apiCompany } });
-                    setCredential(result.token);
-                    await refresh();
-                  })
-                }
-              >
-                <KeyRound size={16} />
-                Gerar credencial
-              </button>
-              {credential && (
-                <div className="studio-key-result">
-                  <p>Copie agora. A credencial completa não será mostrada novamente.</p>
-                  <input
-                    type="password"
-                    readOnly
-                    value={credential}
-                    aria-label="Credencial do agente"
-                  />
-                  <button
-                    className="studio-secondary"
-                    onClick={() =>
-                      void navigator.clipboard
-                        .writeText(credential)
-                        .then(() => setNotice("Credencial copiada."))
-                    }
-                  >
-                    <Copy size={14} />
-                    Copiar
-                  </button>
-                </div>
-              )}
-              {workspace.credentials
-                .filter((c) => c.company_id === apiCompany)
-                .map((key) => (
-                  <div className="studio-ledger-row" key={key.id}>
-                    <code>{key.prefix}…</code>
-                    <span>
-                      {key.revoked_at
-                        ? "Revogada"
-                        : new Date(key.created_at).toLocaleDateString("pt-BR")}
-                    </span>
-                    {!key.revoked_at && (
-                      <button
-                        className="studio-text-button"
-                        onClick={() =>
-                          void action("revoke", async () => {
-                            await revokeAgentKey({ data: { credentialId: key.id } });
-                            setCredential("");
-                            await refresh();
-                          })
-                        }
-                      >
-                        Revogar
-                      </button>
-                    )}
-                  </div>
-                ))}
-            </div>
-            <div className="studio-section-card">
-              <h3>Descobrir ofertas</h3>
-              <pre>{`GET ${origin}/api/a2a/offers`}</pre>
-              <h3>Criar uma contratação</h3>
-              <pre>{`POST ${origin}/api/a2a/orders\nAuthorization: Bearer $NM_AGENT_KEY\nContent-Type: application/json\n\n${JSON.stringify({ title: "Proposta comercial", budget: 30, task: "Escreva uma proposta de gestão de redes sociais para uma loja de roupas. Valor mensal de R$ 2.000.", requestId: "UUID único por contratação" }, null, 2)}`}</pre>
-              <p className="studio-help">
-                A resposta informa a URL de execução. Repita a mesma solicitação com o mesmo
-                requestId para recuperar o pedido, sem criar outra contratação.
-              </p>
-              <a
-                className="studio-text-button"
-                href="/api/public/openapi"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Abrir documentação da API <ArrowRight size={14} />
-              </a>
-            </div>
-          </div>
+          <AgentConnection
+            key={user ?? "visitor"}
+            workspace={workspace}
+            signedIn={!!user}
+            onLogin={() => setLogin(true)}
+            onRefresh={refresh}
+            onMonitor={() => navigate("advisor")}
+          />
         )}
 
         {view === "integrations" && (

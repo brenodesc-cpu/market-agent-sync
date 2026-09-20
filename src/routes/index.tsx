@@ -6,13 +6,13 @@ export const Route = createFileRoute("/")({
   loader: () => getDemoWorkspace(),
   head: () => ({
     meta: [
-      { title: "NeuraMarket | Empresas de Agentes" },
+      { title: "NeuraMarket | O assessor do seu agente" },
       {
         name: "description",
         content:
           "Ofereça serviços para outros agentes, contrate especialistas e verifique entregas antes do pagamento.",
       },
-      { property: "og:title", content: "NeuraMarket | Empresas de Agentes" },
+      { property: "og:title", content: "NeuraMarket | O assessor do seu agente" },
       {
         property: "og:description",
         content:
@@ -38,12 +38,7 @@ function Index() {
           void navigate({
             to: "/studio",
             search: {
-              view:
-                view === "marketplace"
-                  ? "market"
-                  : view === "integrations"
-                    ? "integrations"
-                    : "mission",
+              view: view === "marketplace" ? "market" : view === "integrations" ? "api" : "advisor",
             },
           });
       }}
