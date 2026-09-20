@@ -181,8 +181,10 @@ console.log(`  leave  OK  ${stopMs} ms`);
 
 console.log(`
   Confirmado: projeto, certificado e Conversational AI respondem.
-  Esta execução NÃO prova latência de áudio nem a voz MiniMax — isso exige
-  uma sessão real com microfone pela tela de Verificação.
+  Esta execução NÃO prova latência de áudio nem a voz MiniMax. A Agora aceita
+  qualquer AGORA_TTS_VOICE_ID no join e só repassa o valor ao MiniMax na hora de
+  falar: um ID inexistente passa por aqui e falha em silêncio na sessão real.
+  Só uma sessão com microfone pela tela de Verificação confirma a voz.
 `);
 
 if (appMissing.length) {
