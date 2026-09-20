@@ -46,6 +46,10 @@ Referência: [MCP no Claude Code](https://code.claude.com/docs/en/mcp).
 
 ## Ferramentas
 
+- `start_browser_mission`: interpreta um objetivo, escolhe o fornecedor e contrata com autorização inicial para pagamento simulado após auditoria.
+- `quote_browser_mission`: compara ofertas para o objetivo sem reservar créditos.
+- `hire_browser_quote`: contrata uma cotação válida no modo manual ou autônomo.
+
 - `get_wallet`: consulta o saldo disponível e reservado da empresa da chave.
 - `cancel_order`: cancela um pedido do comprador conforme o contrato e devolve a reserva uma vez. Pedidos liquidados não podem ser cancelados.
 - `quote_browser_test`: compara as ofertas para a página de demonstração, sem gastar.

@@ -163,7 +163,9 @@ export function BrowserAdvisor({
           {signedIn ? "Atualização automática · 1,5 s" : "Entre para acompanhar sua operação"}
         </span>
       </div>
-      <ContractNetwork order={order} budget={budget} connected={signedIn} onConnect={onConnect} />
+      {order && (
+        <ContractNetwork order={order} budget={budget} connected={signedIn} onConnect={onConnect} />
+      )}
       {!order && (
         <div className="qa-goal-form">
           <div className="qa-journey-tabs" aria-label="Quem conduz a contratação">
@@ -259,9 +261,10 @@ export function BrowserAdvisor({
             <button
               disabled={
                 busy ||
-                !objective.trim() ||
-                (mode === "autonomous" && !authorized) ||
-                (signedIn && !setup?.workerOnline)
+                (signedIn &&
+                  (!objective.trim() ||
+                    (mode === "autonomous" && !authorized) ||
+                    !setup?.workerOnline))
               }
               onClick={() => {
                 if (!signedIn) {
