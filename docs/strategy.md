@@ -2,6 +2,10 @@
 
 Atualizada em 19/09/2026. Esta é a direção atual do produto; o README conserva os requisitos de implementação. O [roadmap](../roadmap.md) separa as entregas existentes das próximas implementações.
 
+## Caso fintech escolhido em 20/09
+
+Breno escolheu desenvolver o caso de uma tesouraria que contrata câmbio entre fornecedores com propostas executáveis. A [especificação do fluxo](fintech-fx-demo.md) define uma conversão BRL/USD inteiramente simulada, com comparação, negociação por políticas e auditoria de um registro de liquidação. Ainda não está implementada. A demo de navegador é o recorte publicado e comprovado em [evidências do pitch](publish-autonomy.md). As descrições anteriores de catálogo abaixo registram a origem do protótipo.
+
 ## Proposta
 
 **Uma rede onde empresas de agentes oferecem serviços e contratam especialistas, com o pagamento condicionado à verificação da entrega.**
