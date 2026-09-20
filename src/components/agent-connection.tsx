@@ -31,7 +31,9 @@ export function AgentConnection({
   const [token, setToken] = useState("");
   const [keyId, setKeyId] = useState("");
   const [origin, setOrigin] = useState("");
-  const [mode, setMode] = useState<"mcp" | "api">("mcp");
+  const [mode, setMode] = useState<"mcp" | "local" | "api">("mcp");
+  const [localPath, setLocalPath] = useState("");
+  const localReady = /^(\/|[A-Za-z]:[\\/])/.test(localPath.trim());
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -52,10 +54,17 @@ export function AgentConnection({
   const config = JSON.stringify(
     {
       mcpServers: {
-        neuramarket: {
-          url: `${origin}/api/mcp`,
-          headers: { Authorization: `Bearer ${currentToken}` },
-        },
+        neuramarket:
+          mode === "local"
+            ? {
+                command: "node",
+                args: [localPath.trim()],
+                env: { NM_BASE_URL: origin, NM_AGENT_KEY: currentToken },
+              }
+            : {
+                url: `${origin}/api/mcp`,
+                headers: { Authorization: `Bearer ${currentToken}` },
+              },
       },
     },
     null,
@@ -88,7 +97,7 @@ export function AgentConnection({
     const url = URL.createObjectURL(new Blob([config], { type: "application/json" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "neuramarket-remote-mcp.json";
+    a.download = mode === "local" ? "neuramarket-mcp.json" : "neuramarket-remote-mcp.json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     setMessage("Configuração baixada. Ela contém a sua credencial privada.");
@@ -154,6 +163,16 @@ export function AgentConnection({
               <PlugZap size={17} />
               MCP remoto
             </button>
+            <button
+              role="tab"
+              aria-selected={mode === "local"}
+              onClick={() => {
+                setMode("local");
+                setVerified(false);
+              }}
+            >
+              <Terminal size={17} /> MCP local
+            </button>
             <button role="tab" aria-selected={mode === "api"} onClick={() => setMode("api")}>
               <Code2 size={17} />
               API
@@ -216,12 +235,35 @@ export function AgentConnection({
           <div className="connect-step">
             <span className="connect-step-number">2</span>
             <div>
-              <h2>{mode === "mcp" ? "Adicione ao seu cliente" : "Faça a primeira consulta"}</h2>
+              <h2>{mode !== "api" ? "Adicione ao seu cliente" : "Faça a primeira consulta"}</h2>
               <p>
-                {mode === "mcp"
-                  ? "Em clientes com MCP por HTTP, como o Cursor, copie esta configuração. Nenhum script local é necessário."
-                  : "Use a credencial na variável NM_AGENT_KEY. Esta consulta compara ofertas sem contratar."}
+                {mode === "local"
+                  ? "Instale o adaptador uma vez. O cliente inicia o processo local e acessa as mesmas operações da rede."
+                  : mode === "mcp"
+                    ? "Em clientes com MCP por HTTP, como o Cursor, copie esta configuração. Nenhum script local é necessário."
+                    : "Use a credencial na variável NM_AGENT_KEY. Esta consulta compara ofertas sem contratar."}
               </p>
+              {mode === "local" && (
+                <>
+                  <pre className="connect-install">
+                    git clone https://github.com/brenodesc-cpu/market-agent-sync.git{`\n`}cd
+                    market-agent-sync{`\n`}npm ci
+                  </pre>
+                  <label>
+                    Caminho completo do adaptador no seu computador
+                    <input
+                      aria-label="Caminho do adaptador MCP"
+                      value={localPath}
+                      placeholder="/Users/seu-usuario/market-agent-sync/scripts/neuramarket-mcp.mjs"
+                      onChange={(event) => setLocalPath(event.target.value)}
+                    />
+                  </label>
+                  <p>
+                    Requer Node.js 22. Cole o caminho de scripts/neuramarket-mcp.mjs depois da
+                    instalação.
+                  </p>
+                </>
+              )}
               <div className="connect-endpoint">
                 <code>
                   {origin}
@@ -243,19 +285,21 @@ export function AgentConnection({
                 <div>
                   <Terminal size={13} />
                   <span>
-                    {mode === "mcp"
-                      ? "Configuração MCP · Authorization: Bearer"
-                      : "Terminal · cotação sem custo"}
+                    {mode === "local"
+                      ? "Configuração MCP · processo local (stdio)"
+                      : mode === "mcp"
+                        ? "Configuração MCP · Authorization: Bearer"
+                        : "Terminal · cotação sem custo"}
                   </span>
                 </div>
-                <pre>{mode === "mcp" ? maskedConfig : curl}</pre>
+                <pre>{mode !== "api" ? maskedConfig : curl}</pre>
               </div>
               <div className="connect-buttons">
-                {mode === "mcp" ? (
+                {mode !== "api" ? (
                   <>
                     <button
                       className="connect-primary"
-                      disabled={!token}
+                      disabled={!token || (mode === "local" && !localReady)}
                       onClick={() =>
                         void copy(
                           config,
@@ -266,7 +310,11 @@ export function AgentConnection({
                       <Copy size={15} />
                       Copiar configuração
                     </button>
-                    <button className="connect-secondary" disabled={!token} onClick={download}>
+                    <button
+                      className="connect-secondary"
+                      disabled={!token || (mode === "local" && !localReady)}
+                      onClick={download}
+                    >
                       Baixar JSON
                     </button>
                   </>
@@ -299,7 +347,10 @@ export function AgentConnection({
             <span className="connect-step-number">3</span>
             <div>
               <h2>Confira antes de contratar</h2>
-              <p>O teste chama o MCP com a sua credencial e confirma a empresa autorizada.</p>
+              <p>
+                O teste verifica o servidor remoto e a credencial. A instalação local é confirmada
+                no seu cliente ao chamar connection_status.
+              </p>
               <button
                 className={verified ? "connect-verified" : "connect-secondary"}
                 disabled={!token || busy}

@@ -1,5 +1,7 @@
 # Conectar agentes por MCP ou API
 
+O mesmo servidor oferece **14 ferramentas**, um guia em `neuramarket://guide` e o prompt `hire_specialist`. As conexões local e remota expõem as mesmas operações. O escopo é contratar e acompanhar serviços disponíveis na rede. Criar conectores externos e publicar fornecedores por MCP ainda não fazem parte deste acesso.
+
 ## Conexão remota
 
 Abra **Conectar agente** em `/studio?view=api`. Escolha a empresa, gere uma credencial e copie a configuração. O servidor HTTP fica em `/api/mcp`, no mesmo domínio da aplicação, com autenticação `Authorization: Bearer`. Clientes que aceitam URL HTTP e cabeçalhos personalizados podem usar o endereço diretamente, sem instalar o adaptador local. OAuth ainda não está disponível.
@@ -29,18 +31,20 @@ O arquivo antigo de `stdio` também funciona com `--remote --check`. Para execut
 
 ## Adaptador local
 
+Na tela **Conectar agente**, escolha **MCP local**. Clone o repositório, execute `npm ci`, informe o caminho absoluto de `scripts/neuramarket-mcp.mjs` e copie ou baixe o JSON. Cole na configuração de servidores MCP do seu cliente. A confirmação da instalação acontece ao chamar `connection_status` dentro dele. O botão de teste do site verifica o servidor remoto, sem comprovar a instalação local.
+
 O adaptador local expõe a API A2A da NeuraMarket pelo transporte `stdio` do SDK oficial MCP v2. Ele funciona com Claude Desktop, Claude Code, Cursor e clientes que aceitam servidores MCP por comando local.
 
 ## Requisitos
 
-- Node.js 20 ou superior.
+- Node.js 22 ou superior para instalar este repositório.
 - Uma credencial de agente criada na aba **Conectar agentes**.
 - A URL pública da NeuraMarket.
 
 Instale as dependências do repositório e teste o processo:
 
 ```bash
-bun install
+npm ci
 NM_BASE_URL="https://market-agent-sync.lovable.app" \
 NM_AGENT_KEY="nm_sua_chave" \
 npm run mcp
@@ -79,6 +83,11 @@ npx @modelcontextprotocol/inspector node ./scripts/neuramarket-mcp.mjs
 
 ## Ferramentas
 
+- `get_wallet`: consulta o saldo disponível e reservado da empresa da chave.
+- `cancel_order`: cancela um pedido do comprador conforme o contrato e devolve a reserva uma vez. Pedidos liquidados não podem ser cancelados.
+- `quote_browser_test`: compara as ofertas para a página de demonstração, sem gastar.
+- `buy_browser_test`: contrata o teste de navegador dentro do orçamento.
+- `retry_browser_test`: solicita a correção prevista no contrato.
 - `connection_status`: confirma a empresa autenticada sem gastar créditos.
 - `list_agents`: lista ofertas e versões disponíveis.
 - `start_mission`: inicia uma cadeia autônoma. `requestId` é obrigatório e deve ser reutilizado em qualquer repetição.
@@ -96,3 +105,9 @@ Para contratar um agente específico, chame `list_agents`, copie o `id` da vers�
 ## Segurança do adaptador
 
 O adaptador envia a credencial apenas ao domínio configurado em `NM_BASE_URL`, recusa HTTP fora de `localhost`, bloqueia redirecionamentos e não baixa uma entrega de outro domínio. Links de revisão são absolutos e abrem o pedido exato no site, onde o aceite continua exigindo uma sessão humana. Downloads são limitados a 1 MB e só são devolvidos quando os bytes e o cabeçalho da API correspondem ao SHA-256 informado pela missão.
+
+## Primeira contratação
+
+No cliente conectado, peça: “Use a NeuraMarket para testar o formulário da demonstração em desktop e mobile, com até 20 créditos. Compare as ofertas e mostre o relatório.” O agente consulta o saldo e a cotação, contrata e acompanha o pedido. O executor de navegador precisa estar conectado. A entrega segue para auditoria e o site recebe o aceite humano antes do pagamento simulado.
+
+O recurso `neuramarket://guide` explica os estados, as repetições e os limites. O prompt `hire_specialist` recebe `task` e `budget` como texto e prepara esse fluxo sem fazer nenhuma compra por si só. O cliente precisa decidir chamar as ferramentas. OAuth para clientes que exigem autorização pelo navegador continua pendente.

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { orderRequestSchema } from "./a2a-contract.ts";
 import {
   authenticateAgent,
+  agentWallet,
   catalogueOffers,
   createOrder,
   orderDetails,
@@ -24,6 +25,7 @@ type MissionSnapshot = NonNullable<Awaited<ReturnType<typeof getAutonomousChainS
 type StartedMissionSnapshot = Awaited<ReturnType<typeof startAutonomousChain>>;
 type AgentApiDependencies = {
   authenticateAgent: typeof authenticateAgent;
+  agentWallet: typeof agentWallet;
   catalogueOffers: typeof catalogueOffers;
   createOrder: typeof createOrder;
   orderDetails: typeof orderDetails;
@@ -50,6 +52,7 @@ type AgentApiDependencies = {
 
 const defaultDependencies: AgentApiDependencies = {
   authenticateAgent,
+  agentWallet,
   catalogueOffers,
   createOrder,
   orderDetails,
@@ -203,6 +206,8 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
     }
 
     try {
+      if (path === "wallet" && request.method === "GET")
+        return json(await dependencies.agentWallet(actor.userId, actor.companyId));
       if (path === "connection" && request.method === "GET") {
         return json({
           connected: true,

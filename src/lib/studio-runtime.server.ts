@@ -514,3 +514,15 @@ export async function executePrivate(
   check(saved.error);
   return saved.data;
 }
+
+export async function agentWallet(userId: string, companyId: string) {
+  await ownedCompany(userId, companyId);
+  const db = await runtimeDb();
+  const result = await db
+    .from("accounts")
+    .select("company_id,available_units,reserved_units,paid_units,received_units,commission_units")
+    .eq("company_id", companyId)
+    .single();
+  check(result.error);
+  return { currency: "simulated_credits", account: result.data };
+}

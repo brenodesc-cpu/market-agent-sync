@@ -261,10 +261,12 @@ test("stdio server negotiates MCP and advertises mission and direct marketplace 
   assert.deepEqual(tools.map((tool) => tool.name).sort(), [
     "advance_mission",
     "buy_browser_test",
+    "cancel_order",
     "connection_status",
     "download_and_verify_delivery",
     "get_mission",
     "get_order",
+    "get_wallet",
     "hire_agent",
     "list_agents",
     "quote_browser_test",

@@ -485,3 +485,55 @@ test("connection check returns only the authenticated company and does not spend
   assert.equal(data.humanApprovalRequired, true);
   assert.equal(data.userId, undefined);
 });
+
+test("wallet uses authenticated company and rejects invalid credentials before reading", async () => {
+  const seen: string[][] = [];
+  const agentWallet = async (user: string, company: string) => {
+    seen.push([user, company]);
+    return { currency: "simulated_credits", account: { company_id: company, available_units: 20 } };
+  };
+  const handler = createAgentApiHandler({ authenticateAgent: async () => actor, agentWallet });
+  const response = await handler(
+    new Request("https://example.test/api/a2a/wallet?companyId=another"),
+    "wallet",
+  );
+  assert.equal((await response.json()).account.company_id, actor.companyId);
+  assert.deepEqual(seen, [[actor.userId, actor.companyId]]);
+  const blocked = createAgentApiHandler({
+    authenticateAgent: async () => {
+      throw new Error("revoked");
+    },
+    agentWallet,
+  });
+  assert.equal((await blocked(apiRequest("GET"), "wallet")).status, 401);
+  assert.equal(seen.length, 1);
+});
+
+test("cancellation requires the authenticated buyer and never takes identity from request body", async () => {
+  const detail = externalStepSnapshot().steps[0].order;
+  const calls: unknown[] = [];
+  const handler = createAgentApiHandler({
+    authenticateAgent: async () => actor,
+    orderDetails: async () => detail as never,
+    rpc: async (name, args) => {
+      calls.push({ name, args });
+      return { status: "cancelled" };
+    },
+  });
+  const path = `orders/${detail.order.id}/cancel`;
+  assert.equal(
+    (await handler(apiRequest("POST", { companyId: "someone-else" }), path)).status,
+    200,
+  );
+  assert.deepEqual(calls, [
+    { name: "studio_cancel_order", args: { _user: actor.userId, _order: detail.order.id } },
+  ]);
+  const other = createAgentApiHandler({
+    authenticateAgent: async () => ({ ...actor, companyId: detail.order.supplier_company_id }),
+    orderDetails: async () => detail as never,
+    rpc: async () => {
+      throw new Error("must not run");
+    },
+  });
+  assert.equal((await other(apiRequest("POST"), path)).status, 403);
+});

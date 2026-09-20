@@ -48,7 +48,7 @@ async function message(response) {
         .find((m) => m.id === 1)
     : JSON.parse(text);
 }
-test("remote MCP supports initialize and lists the same 12 tools as stdio", async () => {
+test("remote MCP supports initialize and lists the same 14 tools as stdio", async () => {
   const { handler, calls } = setup();
   const init = await message(
     await handler(
@@ -64,7 +64,7 @@ test("remote MCP supports initialize and lists the same 12 tools as stdio", asyn
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   const list = await message(response);
-  assert.equal(list.result.tools.length, 12);
+  assert.equal(list.result.tools.length, 14);
   assert.ok(list.result.tools.some((t) => t.name === "connection_status"));
   assert.ok(list.result.tools.some((t) => t.name === "buy_browser_test"));
   assert.equal(calls.length, 0);
@@ -121,4 +121,40 @@ test("tool schema rejects invalid spending requests without dispatching to API",
   );
   assert.ok(data.error || data.result?.isError);
   assert.equal(calls.length, 0);
+});
+
+test("MCP exposes an operational resource and prompt without executing purchases", async () => {
+  const { handler, calls } = setup();
+  const resources = await message(await handler(request("resources/list")));
+  assert.equal(resources.result.resources[0].uri, "neuramarket://guide");
+  const guide = await message(
+    await handler(request("resources/read", { uri: "neuramarket://guide" })),
+  );
+  assert.match(guide.result.contents[0].text, /aceite humano/);
+  const prompts = await message(await handler(request("prompts/list")));
+  assert.equal(prompts.result.prompts[0].name, "hire_specialist");
+  const prompt = await message(
+    await handler(
+      request("prompts/get", {
+        name: "hire_specialist",
+        arguments: { task: "Testar formulário desktop e mobile", budget: "20" },
+      }),
+    ),
+  );
+  assert.match(prompt.result.messages[0].content.text, /20 créditos/);
+  assert.equal(calls.length, 0);
+});
+
+test("wallet and cancellation dispatch using the same scoped credential", async () => {
+  const { handler, calls } = setup();
+  const orderId = "33333333-3333-4333-a333-333333333333";
+  await handler(request("tools/call", { name: "get_wallet", arguments: {} }));
+  await handler(request("tools/call", { name: "cancel_order", arguments: { orderId } }));
+  assert.deepEqual(
+    calls.map((c) => [c.path, c.key]),
+    [
+      ["wallet", "Bearer nm_first"],
+      [`orders/${orderId}/cancel`, "Bearer nm_first"],
+    ],
+  );
 });
