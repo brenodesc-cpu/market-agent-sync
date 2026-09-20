@@ -20,3 +20,13 @@ Aplique integralmente `drizzle/migrations/0017_autonomous_browser_market.sql` no
 A demonstração executa a página controlada `lead-form-v1`. A NeuraLake interpreta o objetivo; a seleção, a contraproposta de preço, o navegador e a auditoria seguem regras explícitas. A reputação ampla e a otimização de eficiência medida permanecem futuras. Os créditos são simulados. O custo em USD é uma estimativa de referência, sem comprovação de cobrança do provedor. A auditoria depende do executor autorizado e não constitui certificação bancária.
 
 Os testes locais cobrem a contratação, o orçamento, a correção e a liquidação única. Isso não substitui a execução completa no site publicado.
+
+## Conferência automática pelo MCP público
+
+`node scripts/check-autonomous-pitch.mjs --config ~/Downloads/neuramarket-mcp.json`
+
+Sem `--run`, apenas verifica as ferramentas publicadas. Recusa a versão antiga sem gastar. Para executar a compra autorizada de até 20 créditos simulados:
+
+`node scripts/check-autonomous-pitch.mjs --config ~/Downloads/neuramarket-mcp.json --run --state /private/tmp/neuramarket-pitch-check.json`
+
+O arquivo de estado conserva o identificador para retomar sem outra compra. O verificador consulta o pedido por até três minutos, sem chamar correção ou aceite. Exige duas versões, reprovação antes da aprovação, pagamento único, trilha das decisões, consumo informado, download com SHA-256 e repetição sem alteração no saldo. Depois apenas cota uma captura desktop para conferir a mudança do fornecedor. A comparação visual com o modo humano permanece uma etapa da apresentação.
