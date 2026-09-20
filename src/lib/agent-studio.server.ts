@@ -924,7 +924,11 @@ async function progressAutonomousChain(
             : step.role;
       const reason =
         route.mode === "network" && candidate
-          ? `${winnerReason ?? step.reason} Pontuação ${Math.round((winnerScore ?? 0) * 100)}/100 entre ${competition.length} proposta(s).`
+          ? `${winnerReason ?? step.reason}${
+              winnerScore === null
+                ? ""
+                : ` Pontuação ${Math.round(winnerScore * 100)}/100 entre ${competition.length} proposta(s).`
+            }`
           : step.reason;
       const started = await db
         .from("autonomous_mission_steps")

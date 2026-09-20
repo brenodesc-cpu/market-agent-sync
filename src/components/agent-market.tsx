@@ -73,6 +73,7 @@ export function AgentMarket({
   const [briefAnswers, setBriefAnswers] = useState<string[]>([]);
   const request = useRef({ key: "", id: "", orderId: "" });
   const advancing = useRef(false);
+  const reconciled = useRef("");
   const selected = workspace.companies.find((c) => c.id === company);
   const offers = workspace.offers.filter((o) => o.capability === AGENT_CAPABILITY);
   const chosen = offers.find((o) => o.id === offerId);
@@ -90,6 +91,10 @@ export function AgentMarket({
   const firstOrderAwaitingReview =
     chain?.steps.find((step) => step.order && step.order.order.status !== "settled")?.order ?? null;
   const deliveryReady = chain?.status === "awaiting_review" || chain?.status === "completed";
+  const settledFailureNeedsReconcile = Boolean(
+    chain?.status === "failed" &&
+      chain.steps.some((step) => step.order?.order.status === "settled"),
+  );
   const missionFlow = [
     {
       title: "Agente Zero alinha",
@@ -208,11 +213,26 @@ export function AgentMarket({
       loadingChain ||
       busy ||
       leaseActive ||
-      (chain.status !== "planning" && chain.status !== "running")
+      chain.status !== "planning" &&
+      chain.status !== "running" &&
+      !settledFailureNeedsReconcile
     )
       return;
+    if (settledFailureNeedsReconcile) {
+      if (reconciled.current === chain.requestId) return;
+      reconciled.current = chain.requestId;
+    }
     void advanceChain(company, chain.requestId, "autonomous");
-  }, [busy, chain, company, leaseActive, loadingChain, mode, signedIn]);
+  }, [
+    busy,
+    chain,
+    company,
+    leaseActive,
+    loadingChain,
+    mode,
+    settledFailureNeedsReconcile,
+    signedIn,
+  ]);
 
   async function advanceChain(
     missionCompany: string,
@@ -444,6 +464,7 @@ export function AgentMarket({
                 setBriefHistory([]);
                 setBriefAnswers([]);
                 setOfferId("");
+                reconciled.current = "";
                 request.current = { key: "", id: "", orderId: "" };
               }}
               disabled={!!busy}
@@ -965,6 +986,7 @@ export function AgentMarket({
                       setChain(null);
                       updateTask("");
                       setError("");
+                      reconciled.current = "";
                       request.current = { key: "", id: "", orderId: "" };
                     }}
                   >
