@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoRouteImport } from './routes/demo'
+import { Route as PitchRouteImport } from './routes/pitch'
 import { Route as QaFixtureRouteImport } from './routes/qa-fixture'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as ApiMcpRouteImport } from './routes/api/mcp'
@@ -27,6 +28,11 @@ const IndexRoute = IndexRouteImport.update({
 const DemoRoute = DemoRouteImport.update({
   id: '/demo',
   path: '/demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PitchRoute = PitchRouteImport.update({
+  id: '/pitch',
+  path: '/pitch',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QaFixtureRoute = QaFixtureRouteImport.update({
@@ -69,6 +75,7 @@ const ApiReviewsOrderIdChatCompletionsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/pitch': typeof PitchRoute
   '/qa-fixture': typeof QaFixtureRoute
   '/studio': typeof StudioRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/pitch': typeof PitchRoute
   '/qa-fixture': typeof QaFixtureRoute
   '/studio': typeof StudioRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/pitch': typeof PitchRoute
   '/qa-fixture': typeof QaFixtureRoute
   '/studio': typeof StudioRoute
   '/api/mcp': typeof ApiMcpRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/demo'
+    | '/pitch'
     | '/qa-fixture'
     | '/studio'
     | '/api/mcp'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/demo'
+    | '/pitch'
     | '/qa-fixture'
     | '/studio'
     | '/api/mcp'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/demo'
+    | '/pitch'
     | '/qa-fixture'
     | '/studio'
     | '/api/mcp'
@@ -139,6 +151,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DemoRoute: typeof DemoRoute
+  PitchRoute: typeof PitchRoute
   QaFixtureRoute: typeof QaFixtureRoute
   StudioRoute: typeof StudioRoute
   ApiMcpRoute: typeof ApiMcpRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/demo'
       fullPath: '/demo'
       preLoaderRoute: typeof DemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pitch': {
+      id: '/pitch'
+      path: '/pitch'
+      fullPath: '/pitch'
+      preLoaderRoute: typeof PitchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/qa-fixture': {
@@ -219,6 +239,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DemoRoute: DemoRoute,
+  PitchRoute: PitchRoute,
   QaFixtureRoute: QaFixtureRoute,
   StudioRoute: StudioRoute,
   ApiMcpRoute: ApiMcpRoute,

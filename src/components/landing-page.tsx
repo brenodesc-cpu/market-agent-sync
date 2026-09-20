@@ -42,6 +42,7 @@ export function LandingPage({ onOpen, onCreate }: LandingProps) {
         <nav className="nm-nav-desktop" aria-label="Navegação principal">
           <a href="#conectar">Conectar</a>
           <a href="#demonstracao">Demonstração</a>
+          <a href="/pitch">Pitch</a>
           <button className="nm-nav-monitor" onClick={() => open("order")}>
             Acompanhar
           </button>
@@ -73,6 +74,7 @@ export function LandingPage({ onOpen, onCreate }: LandingProps) {
             <a href="#demonstracao" onClick={() => setMenuOpen(false)}>
               Demonstração
             </a>
+            <a href="/pitch">Pitch</a>
             <button onClick={() => open("order")}>Acompanhar</button>
             <button onClick={() => open("overview")}>
               Abrir plataforma <ArrowUpRight size={16} />
