@@ -1,9 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { LandingPage } from "@/components/landing-page";
-import { getDemoWorkspace } from "@/lib/demo.functions";
 
 export const Route = createFileRoute("/")({
-  loader: () => getDemoWorkspace(),
   head: () => ({
     meta: [
       { title: "NeuraMarket | O assessor do seu agente" },
@@ -25,11 +23,9 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 function Index() {
-  const data = Route.useLoaderData();
   const navigate = useNavigate();
   return (
     <LandingPage
-      data={data}
       onCreate={() => void navigate({ to: "/studio", search: { view: "builder" } })}
       onOpen={(view) => {
         if (view === "order" || view === "verification" || view === "finance")

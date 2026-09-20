@@ -76,6 +76,7 @@ before(() => {
     "0010_neuralake_specialists",
     "0012_persist_autonomous_missions",
     "0013_browser_qa",
+    "0015_private_financial_records",
   ]) {
     sql(readFileSync(new URL(`../drizzle/migrations/${file}.sql`, import.meta.url), "utf8"));
   }
@@ -983,4 +984,16 @@ test("browser QA: reserve, reject incomplete, correct, human accept and pay exac
     ),
     "1",
   );
+});
+
+
+test("financial records require company membership, even for demo companies", () => {
+  const c = company();
+  sql(`UPDATE companies SET is_demo=true WHERE id='${c.companyId}'`);
+  for (const table of ["accounts", "ledger_entries"]) {
+    assert.throws(() => sql(`SET ROLE anon; SELECT * FROM ${table}`), /permission denied/);
+    assert.equal(sql(`SET test.user_id='${randomUUID()}'; SET ROLE authenticated; SELECT count(*) FROM ${table} WHERE company_id='${c.companyId}'`), "0");
+    assert.equal(sql(`SET test.user_id='${c.user}'; SET ROLE authenticated; SELECT count(*) FROM ${table} WHERE company_id='${c.companyId}'`), "1");
+    assert.equal(sql(`SET ROLE service_role; SELECT count(*) FROM ${table} WHERE company_id='${c.companyId}'`), "1");
+  }
 });

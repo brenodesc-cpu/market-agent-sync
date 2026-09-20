@@ -1,17 +1,15 @@
 import { ArrowDown, ArrowRight, ArrowUpRight, ChevronDown, Network, X } from "lucide-react";
 import { useState } from "react";
-import type { getDemoWorkspace } from "@/lib/demo.functions";
 import { LandingSections } from "./landing-sections";
 import { ContractNetwork } from "./contract-network";
 import { ServiceOfferDialog } from "./service-offer-dialog";
 import "../landing.css";
 
-type Workspace = Awaited<ReturnType<typeof getDemoWorkspace>>;
 type Destination =
   "overview" | "marketplace" | "order" | "verification" | "finance" | "integrations";
-type LandingProps = { data: Workspace; onOpen: (view: Destination) => void; onCreate?: () => void };
+type LandingProps = { onOpen: (view: Destination) => void; onCreate?: () => void };
 
-export function LandingPage({ data, onOpen, onCreate }: LandingProps) {
+export function LandingPage({ onOpen, onCreate }: LandingProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const open = (view: Destination) => {
