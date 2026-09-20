@@ -30,6 +30,7 @@ import {
   type SupplierReputation,
 } from "./agent-auction.ts";
 import { createOnDemandAgentDefinition } from "./on-demand-agent.ts";
+import { fallbackMissionPlan } from "./mission-fallback.ts";
 import {
   allocateMissionStepBudgets,
   MAX_MISSION_STEPS,
@@ -740,8 +741,7 @@ async function progressAutonomousChain(
           plan = null;
         }
       }
-      if (!plan)
-        throw new Error("O gestor não conseguiu montar uma cadeia válida após duas tentativas.");
+      if (!plan) plan = missionPlanSchema.parse(fallbackMissionPlan(task, budget, own, offers));
     }
     const stepBudgets = allocateMissionStepBudgets(
       plan.steps.map((step) => !(step.action === "internal" && own)),
