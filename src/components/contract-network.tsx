@@ -23,6 +23,15 @@ export function ContractNetwork({
   const rejected = status === "revision_requested";
   const running = ["contracted", "in_progress", "delivered", "verifying"].includes(status ?? "");
   const quote = browserQuote(order?.order.budget_cap_units ?? budget);
+  const market = order?.order.brief?.market;
+  const offers = market
+    ? market.offers.map((o) => ({
+        ...o,
+        estimatedTime: `≈ ${o.estimatedMs / 1000} s`,
+        chosen: o.id === order?.contract.offer_version_id,
+      }))
+    : quote.offers.map((o) => ({ ...o, chosen: o.eligible }));
+  const automatic = order && !order.contract.requires_human_review;
   const price = order?.contract.price_units ?? quote.price;
   const fee = order ? Math.floor((price * order.contract.commission_bps) / 10000) : quote.fee;
   const events = [...(order?.events ?? [])].sort(
@@ -57,7 +66,10 @@ export function ContractNetwork({
               </div>
               <span className="node-kicker">AGENTE COMPRADOR</span>
               <h3>Criador de sites</h3>
-              <p>Preciso testar meu formulário no computador e no celular.</p>
+              <p>
+                {order?.order.brief?.task ??
+                  "Preciso testar meu formulário no computador e no celular."}
+              </p>
               <footer>
                 <span>{source}</span>
                 <b>Teto {order?.order.budget_cap_units ?? budget} cr</b>
@@ -75,7 +87,7 @@ export function ContractNetwork({
               <p>{order ? order.order.selected_reason || quote.reason : quote.reason}</p>
               <footer>
                 <span>{order ? "Escolha registrada" : "Comparação de ofertas"}</span>
-                <b>2 opções</b>
+                <b>{offers.length} opções</b>
               </footer>
             </article>
             <div className="network-decision-note">
@@ -86,10 +98,10 @@ export function ContractNetwork({
           </div>
           <div className="network-column offers-column">
             <span className="network-lane">03 · FORNECEDORES</span>
-            {quote.offers.map((offer) => (
+            {offers.map((offer) => (
               <article
                 key={offer.name}
-                className={`network-node supplier ${offer.eligible ? "chosen" : "excluded"}`}
+                className={`network-node supplier ${offer.chosen ? "chosen" : "excluded"}`}
               >
                 <div className="supplier-heading">
                   <ScanLine size={18} />
@@ -106,9 +118,15 @@ export function ContractNetwork({
                 </div>
                 <footer>
                   <span>
-                    {offer.eligible ? (order ? "Contratado" : "Compatível") : "Fora dos critérios"}
+                    {offer.chosen
+                      ? order
+                        ? "Contratado"
+                        : "Compatível"
+                      : offer.eligible
+                        ? "Outra opção elegível"
+                        : "Fora dos critérios"}
                   </span>
-                  {offer.eligible && <span className="supplier-selected">✓</span>}
+                  {offer.chosen && <span className="supplier-selected">✓</span>}
                 </footer>
               </article>
             ))}
@@ -129,7 +147,7 @@ export function ContractNetwork({
                 {ended
                   ? "Contratação encerrada"
                   : rejected
-                    ? "Falta a prova mobile. Pagamento bloqueado."
+                    ? "A entrega não cobre o contrato. Pagamento bloqueado."
                     : passed
                       ? `Versão ${order?.order.current_delivery_version} aprovada. Evidências conferidas.`
                       : running
@@ -158,8 +176,12 @@ export function ContractNetwork({
                   {paid
                     ? "Pagamento concluído"
                     : passed
-                      ? "Aguarda seu aceite"
-                      : "Verificação + aceite humano"}
+                      ? automatic
+                        ? "Liquidação automática em andamento"
+                        : "Aguarda seu aceite"
+                      : automatic
+                        ? "Verificação + autorização prévia"
+                        : "Verificação + aceite humano"}
                 </span>
               </div>
             </div>
@@ -200,7 +222,9 @@ export function ContractNetwork({
               </div>
             )}
             <div className="activity-footnote">
-              Ofertas cadastradas · Sem contrapropostas automáticas
+              {market
+                ? "Negociação conforme as políticas dos fornecedores"
+                : "Ofertas cadastradas · Valores de demonstração"}
             </div>
           </aside>
         )}

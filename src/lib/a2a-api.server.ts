@@ -216,16 +216,49 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
           permissions: ["discover", "quote", "hire", "track"],
           spendingPolicy: "Saldo da empresa e orçamento de cada contratação.",
           humanApprovalRequired: true,
+          autonomousException:
+            "start_browser_mission: pagamento simulado automático somente com autorização explícita e critérios objetivos do contrato.",
         });
+      }
+      if (
+        ["browser/missions", "browser/quotes", "browser/quotes/hire"].includes(path) &&
+        request.method === "POST"
+      ) {
+        const runtime = await import("./browser-market.server.ts");
+        const input = JSON.parse(await limitedBody(request));
+        const result =
+          path === "browser/missions"
+            ? await runtime.startBrowserMission(actor.userId, actor.companyId, input)
+            : path === "browser/quotes"
+              ? await runtime.quoteBrowserMission(actor.userId, actor.companyId, input)
+              : await runtime.hireBrowserQuote(actor.userId, actor.companyId, {
+                  ...input,
+                  source: "mcp",
+                });
+        return json(
+          {
+            ...result,
+            ...(result.orderId
+              ? {
+                  reviewUrl: `/studio?view=advisor&orderId=${result.orderId}`,
+                  next: `/api/a2a/orders/${result.orderId}`,
+                }
+              : {}),
+          },
+          201,
+        );
       }
       const browserRetry = /^browser\/orders\/([a-f0-9-]{36})\/retry$/.exec(path);
       if (browserRetry && request.method === "POST") {
         await dependencies.orderDetails(actor.userId, browserRetry[1]!, actor.companyId);
-        return json(
-          await (
-            await import("./browser-runtime.server.ts")
-          ).retryBrowserTest(actor.userId, browserRetry[1]!),
-        );
+        const detail = await (
+          await import("./browser-runtime.server.ts")
+        ).retryBrowserTest(actor.userId, browserRetry[1]!);
+        return json({
+          orderId: detail.order.id,
+          status: detail.order.status,
+          reviewUrl: `/studio?view=advisor&orderId=${detail.order.id}`,
+        });
       }
       if (path === "browser/quote" && request.method === "POST") {
         const { browserQuote } = await import("./browser-qa.ts");
@@ -326,7 +359,10 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
       const orderId = z.string().uuid().parse(match[1]);
       const detail = await dependencies.orderDetails(actor.userId, orderId, actor.companyId);
       if (!match[2] && request.method === "GET") {
-        if (detail.contract.offer_version_id === "00000000-0000-0000-0000-000000002302") {
+        if (
+          detail.order.brief?.capability === "browser.qa.v1" ||
+          detail.contract.offer_version_id === "00000000-0000-0000-0000-000000002302"
+        ) {
           return json({
             ...detail,
             reviewUrl: `/studio?view=advisor&orderId=${orderId}`,

@@ -8,11 +8,13 @@ import {
   Monitor,
   Smartphone,
 } from "lucide-react";
-import { browserQuote, type BrowserEvidence } from "@/lib/browser-qa";
+import { type BrowserEvidence } from "@/lib/browser-qa";
 import {
   getBrowserSetup,
   createBrowserWorkerKey,
-  buyBrowserTest,
+  startBrowserGoal,
+  quoteBrowserGoal,
+  hireBrowserGoalQuote,
   retryBrowserOrder,
 } from "@/lib/browser.functions";
 import { getStudioOrder, submitHumanReview, cancelStudioOrder } from "@/lib/studio.functions";
@@ -48,7 +50,21 @@ export function BrowserAdvisor({
   const [selected, setSelected] = useState(initialOrderId ?? ""),
     [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const seenOrders = useRef<Set<string> | null>(null);
-  const quote = browserQuote(budget);
+  const [objective, setObjective] = useState(
+    "Teste o formulário da página de demonstração no computador e no celular.",
+  );
+  const [mode, setMode] = useState<"autonomous" | "manual">("autonomous");
+  const [authorized, setAuthorized] = useState(false);
+  const [manualQuote, setManualQuote] = useState<{
+    id: string;
+    quote: ReturnType<typeof import("@/lib/browser-market").evaluateBrowserSuppliers>;
+  } | null>(null);
+  const automatic = order ? !order.contract.requires_human_review : mode === "autonomous";
+  function resetInput() {
+    setManualQuote(null);
+    setRequestId(crypto.randomUUID());
+  }
+
   async function refresh() {
     const state = await getBrowserSetup();
     setSetup(state);
@@ -122,10 +138,12 @@ export function BrowserAdvisor({
   const state = order?.order.status;
   const fromMcp = order?.order.brief?.source === "mcp";
   const labels: Record<string, string> = {
-    contracted: "15 créditos reservados. Aguardando o executor.",
+    contracted: "Créditos reservados. Aguardando o executor.",
     in_progress: "O fornecedor está testando no navegador.",
     revision_requested: "Pagamento bloqueado. A entrega precisa de correção.",
-    accepted: "Testes conferidos. Falta o seu aceite.",
+    accepted: automatic
+      ? "Testes conferidos. Liquidação automática em andamento."
+      : "Testes conferidos. Falta o seu aceite.",
     settled: "Entrega aceita. Pagamento concluído.",
     cancelled: "Pedido cancelado. Reserva devolvida.",
     expired: "Pedido expirado.",
@@ -146,6 +164,61 @@ export function BrowserAdvisor({
         </span>
       </div>
       <ContractNetwork order={order} budget={budget} connected={signedIn} onConnect={onConnect} />
+      {!order && (
+        <div className="qa-goal-form">
+          <div className="qa-journey-tabs" aria-label="Quem conduz a contratação">
+            <button
+              aria-pressed={mode === "autonomous"}
+              disabled={busy}
+              onClick={() => {
+                setMode("autonomous");
+                resetInput();
+              }}
+            >
+              Agente resolve
+            </button>
+            <button
+              aria-pressed={mode === "manual"}
+              disabled={busy}
+              onClick={() => {
+                setMode("manual");
+                resetInput();
+              }}
+            >
+              Eu escolho os passos
+            </button>
+          </div>
+          <label>
+            O que precisa ser testado?
+            <textarea
+              value={objective}
+              disabled={busy}
+              onChange={(e) => {
+                setObjective(e.target.value);
+                resetInput();
+              }}
+              maxLength={1200}
+            />
+          </label>
+          <p>
+            {mode === "autonomous"
+              ? "Defina o objetivo e o limite. O agente compara, negocia, contrata e acompanha até o pagamento."
+              : "Compare as ofertas abaixo, escolha o fornecedor, peça a correção e aprove o pagamento. O objetivo é o mesmo."}
+          </p>
+          {mode === "autonomous" && (
+            <label className="qa-fault">
+              <input
+                type="checkbox"
+                checked={authorized}
+                disabled={busy}
+                onChange={(e) => setAuthorized(e.target.checked)}
+              />{" "}
+              Autorizo reservar e pagar até {budget} créditos simulados se a auditoria comprovar a
+              entrega. Uma correção incluída.
+            </label>
+          )}
+        </div>
+      )}
       <div className="qa-command-bar">
         <div className="qa-command-copy">
           <Bot size={18} />
@@ -174,36 +247,95 @@ export function BrowserAdvisor({
                 min={1}
                 max={1000}
                 value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
+                disabled={busy}
+                onChange={(e) => {
+                  setBudget(Number(e.target.value));
+                  resetInput();
+                  setAuthorized(false);
+                }}
               />{" "}
               cr
             </label>
             <button
-              disabled={busy || (signedIn && (!quote.selectedOffer || !setup?.workerOnline))}
+              disabled={
+                busy ||
+                !objective.trim() ||
+                (mode === "autonomous" && !authorized) ||
+                (signedIn && !setup?.workerOnline)
+              }
               onClick={() => {
                 if (!signedIn) {
                   onLogin();
                   return;
                 }
                 void action(async () => {
-                  const created = await buyBrowserTest({
-                    data: { requestId, budget, testFailure: fault, fixture: "lead-form-v1" },
+                  const input = { requestId, budget, objective, testFailure: fault };
+                  if (mode === "manual") {
+                    setManualQuote(await quoteBrowserGoal({ data: input }));
+                    return;
+                  }
+                  const created = await startBrowserGoal({
+                    data: { ...input, authorizeAutomaticPayment: true },
                   });
+                  if (!created.orderId)
+                    throw new Error(created.reason ?? "Nenhuma oferta atende ao pedido.");
                   setSelected(created.orderId);
                   setOrder(await getStudioOrder({ data: { orderId: created.orderId } }));
                 });
               }}
             >
               {busy ? <LoaderCircle size={16} /> : <ArrowRight size={16} />}{" "}
-              {signedIn ? "Contratar por 15 cr" : "Entrar para testar"}
+              {busy
+                ? "Interpretando e comparando…"
+                : signedIn
+                  ? mode === "autonomous"
+                    ? "Executar objetivo"
+                    : "Consultar ofertas"
+                  : "Entrar para testar"}
             </button>
           </div>
         )}
       </div>
+      {!order && manualQuote && (
+        <div className="qa-manual-offers">
+          {manualQuote.quote.offers.map((offer) => (
+            <article key={offer.id}>
+              <strong>
+                {offer.name} · {offer.price} cr
+              </strong>
+              <p>{offer.coverage}</p>
+              <p>{offer.negotiation}</p>
+              <small>{offer.reason}</small>
+              <button
+                disabled={busy || !offer.eligible}
+                onClick={() =>
+                  void action(async () => {
+                    const created = await hireBrowserGoalQuote({
+                      data: { quoteId: manualQuote.id, offerVersionId: offer.id },
+                    });
+                    setSelected(created.orderId);
+                    setOrder(await getStudioOrder({ data: { orderId: created.orderId } }));
+                  })
+                }
+              >
+                Escolher este fornecedor
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
       {!order && (
         <div className="qa-demo-options">
           <label className="qa-fault">
-            <input type="checkbox" checked={fault} onChange={(e) => setFault(e.target.checked)} />{" "}
+            <input
+              type="checkbox"
+              checked={fault}
+              disabled={busy}
+              onChange={(e) => {
+                setFault(e.target.checked);
+                resetInput();
+              }}
+            />{" "}
             Demonstrar uma entrega incompleta e a correção.
           </label>
           <a href="/qa-fixture" target="_blank" rel="noreferrer">
@@ -254,6 +386,16 @@ export function BrowserAdvisor({
             <ShieldCheck size={24} />
             {labels[state!] ?? state}
           </h2>
+          {order.reports.length > 1 && (
+            <div className="qa-checks">
+              {order.reports.map((r) => (
+                <span key={r.id} className={r.decision === "approved" ? "pass" : "fail"}>
+                  Versão {r.delivery_version}:{" "}
+                  {r.decision === "approved" ? "aprovada" : "reprovada"}
+                </span>
+              ))}
+            </div>
+          )}
           {report && (
             <div className="qa-checks">
               {report.checks.map((c) => (
@@ -284,7 +426,7 @@ export function BrowserAdvisor({
               </article>
             ))}
           </div>
-          {state === "revision_requested" && (
+          {state === "revision_requested" && !automatic && (
             <button
               disabled={busy}
               onClick={() =>
@@ -296,7 +438,7 @@ export function BrowserAdvisor({
               Solicitar a correção incluída no contrato
             </button>
           )}
-          {state === "accepted" && delivery && report && (
+          {state === "accepted" && !automatic && delivery && report && (
             <button
               disabled={busy}
               onClick={() =>
@@ -317,13 +459,23 @@ export function BrowserAdvisor({
                 })
               }
             >
-              <Check size={18} /> Aceitar entrega e pagar 15 créditos
+              <Check size={18} /> Aceitar entrega e pagar {order.contract.price_units} créditos
             </button>
           )}
           {state === "settled" && (
             <p className="qa-paid">
-              15 créditos pagos: 14 para o fornecedor + 1 para a NeuraMarket. A mesma aprovação não
-              gera outro pagamento.
+              {order.contract.price_units} créditos pagos:{" "}
+              {order.contract.price_units -
+                Math.floor(
+                  (order.contract.price_units * order.contract.commission_bps) / 10000,
+                )}{" "}
+              para o fornecedor +{" "}
+              {Math.floor((order.contract.price_units * order.contract.commission_bps) / 10000)}{" "}
+              para a NeuraMarket.{" "}
+              {automatic
+                ? "Liquidação automática conforme a autorização inicial."
+                : "Aceite humano registrado."}{" "}
+              A repetição não paga novamente.
             </p>
           )}
           {!["settled", "cancelled", "expired"].includes(state ?? "") && (
@@ -351,6 +503,50 @@ export function BrowserAdvisor({
             >
               Começar outro teste
             </button>
+          )}
+          {order.order.brief?.inference && (
+            <div className="qa-inference-audit">
+              <h3>Decisões e consumo</h3>
+              <p>
+                Interpretação do objetivo: NeuraLake · {order.order.brief.inference.requestedModel}.
+                Modelo retornado:{" "}
+                {order.order.brief.inference.resolvedModel ?? "não informado pelo provedor"}.
+              </p>
+              <p>
+                {order.order.brief.inference.usage?.total_tokens ?? "Não informado"} tokens ·{" "}
+                {(order.order.brief.inference.durationMs / 1000).toFixed(1)}s de inferência.
+              </p>
+              <p>
+                Custo de referência:{" "}
+                {order.order.brief.inference.estimatedCostUsd != null
+                  ? `$${order.order.brief.inference.estimatedCostUsd.toFixed(6)} USD`
+                  : "indisponível"}
+                .
+              </p>
+              <p>{order.order.brief.inference.costNote}</p>
+              <p>
+                Escolha: cobertura e menor preço negociado. Execução: Chromium. Auditoria: regras do
+                contrato, sem inferência adicional.
+              </p>
+              <button
+                className="qa-link"
+                onClick={() =>
+                  save(
+                    `auditoria-${order.order.id}.json`,
+                    JSON.stringify(
+                      {
+                        ...order,
+                        deliveries: order.deliveries.map(({ artifact_content, ...d }) => d),
+                      },
+                      null,
+                      2,
+                    ),
+                  )
+                }
+              >
+                Baixar trilha de auditoria
+              </button>
+            </div>
           )}
           <details>
             <summary>Contrato e histórico</summary>

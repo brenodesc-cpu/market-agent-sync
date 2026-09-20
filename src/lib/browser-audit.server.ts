@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { browserEvidenceSchema } from "./browser-qa.ts";
-export function auditBrowserEvidence(raw: unknown, orderId: string, token: string) {
+export function auditBrowserEvidence(
+  raw: unknown,
+  orderId: string,
+  token: string,
+  scope: { viewports: string[]; form: boolean } = { viewports: ["desktop", "mobile"], form: true },
+  expectedOrigin?: string,
+) {
   const parsed = browserEvidenceSchema.safeParse(raw);
   const data = parsed.success ? parsed.data : null;
   const identity = data?.orderId === orderId && data?.token === token;
@@ -17,13 +23,15 @@ export function auditBrowserEvidence(raw: unknown, orderId: string, token: strin
         createHash("sha256").update(bytes).digest("hex") === s.sha256 &&
         new URL(s.url).pathname === "/qa-fixture" &&
         !new URL(s.url).search &&
-        s.submitted &&
+        (!expectedOrigin || new URL(s.url).origin === expectedOrigin) &&
+        scope.viewports.includes(s.viewport) &&
+        (!scope.form || s.submitted) &&
         (s.outcome === "success" || s.finding.length >= 10)
       );
     }) &&
     new Set(data?.samples.map((s) => s.viewport)).size === data?.samples.length,
   );
-  const checks = ["desktop", "mobile", "evidence_integrity"].map((criterion) => {
+  const checks = [...scope.viewports, "evidence_integrity"].map((criterion) => {
     const sample = data?.samples.find((s) => s.viewport === criterion);
     const pass =
       criterion === "evidence_integrity"

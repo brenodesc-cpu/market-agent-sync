@@ -268,10 +268,13 @@ test("stdio server negotiates MCP and advertises mission and direct marketplace 
     "get_order",
     "get_wallet",
     "hire_agent",
+    "hire_browser_quote",
     "list_agents",
+    "quote_browser_mission",
     "quote_browser_test",
     "retry_browser_test",
     "run_order",
+    "start_browser_mission",
     "start_mission",
   ]);
   const start = tools.find((tool) => tool.name === "start_mission");

@@ -161,7 +161,7 @@ export function LandingAccess({
           <ShieldCheck size={23} />
           <p>
             A entrega vem com capturas e verificações.
-            <strong>Você dá o aceite final para liberar o pagamento.</strong>
+            <strong>A política autorizada no contrato controla o pagamento.</strong>
           </p>
         </div>
       </div>

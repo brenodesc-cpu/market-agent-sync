@@ -77,6 +77,7 @@ export async function neuralakeJson(
     .safeParse(payload.usage);
   return {
     value: extractJson(payload.choices[0].message.content),
+    resolvedModel: typeof payload.model === "string" ? payload.model : null,
     durationMs: Date.now() - started,
     usage: usage.success ? usage.data : null,
   };

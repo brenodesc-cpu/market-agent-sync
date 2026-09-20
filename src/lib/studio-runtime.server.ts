@@ -209,7 +209,7 @@ export async function orderDetails(
     db.from("verification_reports").select("*").eq("order_id", orderId).order("delivery_version"),
     db
       .from("order_events")
-      .select("id,actor_label,event_type,result,created_at")
+      .select("id,actor_label,event_type,result,created_at,metadata")
       .eq("order_id", orderId)
       .order("created_at"),
     db
@@ -383,7 +383,7 @@ export async function createOrder(userId: string, request: OrderRequest) {
 
 export async function runOrder(userId: string, orderId: string) {
   const before = await orderDetails(userId, orderId);
-  if (before.contract.offer_version_id === "00000000-0000-0000-0000-000000002302") return before;
+  if (before.order.brief?.capability === "browser.qa.v1") return before;
   for (let step = 0; step < 2; step++) {
     const claim = await rpc("studio_claim_execution", { _user: userId, _order: orderId });
     if (claim.status === "accepted") {

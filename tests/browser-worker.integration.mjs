@@ -14,6 +14,27 @@ try {
   assert.equal(auditBrowserEvidence(complete, job.orderId, job.token).decision, "approved");
   assert.equal(complete.samples.length, 2);
   assert.ok(complete.samples.every((s) => s.outcome === "success"));
+  const desktopScope = { viewports: ["desktop"], form: false };
+  const desktop = await executeBrowserJob(
+    { ...job, omitMobile: false, scope: desktopScope },
+    { baseUrl, browser },
+  );
+  assert.equal(desktop.samples.length, 1);
+  assert.equal(
+    desktop.samples[0].submitted,
+    false,
+    "screenshot-only scope must not submit the form",
+  );
+  assert.equal(
+    auditBrowserEvidence(desktop, job.orderId, job.token, desktopScope, new URL(baseUrl).origin)
+      .decision,
+    "approved",
+  );
+  assert.equal(
+    auditBrowserEvidence(desktop, job.orderId, job.token, desktopScope, "https://wrong.example")
+      .decision,
+    "rejected",
+  );
   await mkdir("/private/tmp/neuramarket-browser-evidence", { recursive: true });
   for (const s of complete.samples)
     await writeFile(

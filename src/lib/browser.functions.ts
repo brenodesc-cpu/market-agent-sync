@@ -26,3 +26,42 @@ export const retryBrowserOrder = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) =>
     (await import("./browser-runtime.server")).retryBrowserTest(context.userId, data.orderId),
   );
+
+export const startBrowserGoal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => data)
+  .handler(async ({ context, data }) => {
+    const runtime = await import("./browser-runtime.server");
+    const setup = await runtime.browserSetup(context.userId);
+    return (await import("./browser-market.server")).startBrowserMission(
+      context.userId,
+      setup.companyId,
+      data,
+      "studio",
+    );
+  });
+export const quoteBrowserGoal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => data)
+  .handler(async ({ context, data }) => {
+    const setup = await (await import("./browser-runtime.server")).browserSetup(context.userId);
+    return (await import("./browser-market.server")).quoteBrowserMission(
+      context.userId,
+      setup.companyId,
+      data,
+    );
+  });
+export const hireBrowserGoalQuote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => data)
+  .handler(async ({ context, data }) => {
+    const setup = await (await import("./browser-runtime.server")).browserSetup(context.userId);
+    const parsed = z
+      .object({ quoteId: z.string().uuid(), offerVersionId: z.string().uuid() })
+      .parse(data);
+    return (await import("./browser-market.server")).hireBrowserQuote(
+      context.userId,
+      setup.companyId,
+      { ...parsed, mode: "manual", source: "studio" },
+    );
+  });

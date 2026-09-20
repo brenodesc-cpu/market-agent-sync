@@ -1,3 +1,4 @@
+import { evaluateBrowserSuppliers } from "../src/lib/browser-market.ts";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -77,6 +78,7 @@ before(() => {
     "0012_persist_autonomous_missions",
     "0013_browser_qa",
     "0015_private_financial_records",
+    "0017_autonomous_browser_market",
   ]) {
     sql(readFileSync(new URL(`../drizzle/migrations/${file}.sql`, import.meta.url), "utf8"));
   }
@@ -986,14 +988,167 @@ test("browser QA: reserve, reject incomplete, correct, human accept and pay exac
   );
 });
 
-
 test("financial records require company membership, even for demo companies", () => {
   const c = company();
   sql(`UPDATE companies SET is_demo=true WHERE id='${c.companyId}'`);
   for (const table of ["accounts", "ledger_entries"]) {
     assert.throws(() => sql(`SET ROLE anon; SELECT * FROM ${table}`), /permission denied/);
-    assert.equal(sql(`SET test.user_id='${randomUUID()}'; SET ROLE authenticated; SELECT count(*) FROM ${table} WHERE company_id='${c.companyId}'`), "0");
-    assert.equal(sql(`SET test.user_id='${c.user}'; SET ROLE authenticated; SELECT count(*) FROM ${table} WHERE company_id='${c.companyId}'`), "1");
-    assert.equal(sql(`SET ROLE service_role; SELECT count(*) FROM ${table} WHERE company_id='${c.companyId}'`), "1");
+    assert.equal(
+      sql(
+        `SET test.user_id='${randomUUID()}'; SET ROLE authenticated; SELECT count(*) FROM ${table} WHERE company_id='${c.companyId}'`,
+      ),
+      "0",
+    );
+    assert.equal(
+      sql(
+        `SET test.user_id='${c.user}'; SET ROLE authenticated; SELECT count(*) FROM ${table} WHERE company_id='${c.companyId}'`,
+      ),
+      "1",
+    );
+    assert.equal(
+      sql(`SET ROLE service_role; SELECT count(*) FROM ${table} WHERE company_id='${c.companyId}'`),
+      "1",
+    );
   }
+});
+
+function autonomousFixture({
+  scope = {
+    supported: true,
+    viewports: ["desktop", "mobile"],
+    form: true,
+    reason: "Testar formulário nos dois tamanhos",
+  },
+  budget = 20,
+} = {}) {
+  const user = randomUUID(),
+    companyId = sql(`SELECT browser_buyer('${user}')`),
+    requestId = randomUUID();
+  const suppliers = call("browser_market_suppliers()");
+  const evaluated = evaluateBrowserSuppliers(suppliers, scope, budget);
+  const quoteId = sql(
+    `INSERT INTO browser_mission_quotes(company_id,requested_by,request_id,input_hash,objective,budget,scope,quote,inference) VALUES('${companyId}','${user}','${requestId}','hash','Testar a página de demonstração',${budget},${j(scope)},${j(evaluated)},'{"requestedModel":"text","usage":{"total_tokens":20}}') RETURNING id`,
+  );
+  const place = (mode = "autonomous", authorized = true, offer = null) =>
+    call(
+      `studio_place_browser_mission('${user}','${companyId}','${quoteId}',${q(mode)},${offer ? q(offer) : "NULL"},${authorized},'mcp')`,
+    );
+  return { user, companyId, quoteId, requestId, place, evaluated, scope };
+}
+function browserRecord(o, decision = "approved", badCheck = false) {
+  const lease = claim(o);
+  const checks = [...o.scope.viewports, "evidence_integrity"].map((criterion) => ({
+    criterion,
+    expected: true,
+    observed: !badCheck,
+    status: badCheck ? "failed" : "passed",
+    evidence: "Execução controlada",
+  }));
+  return call(
+    `studio_record_browser_delivery('${o.orderId}','${lease.token}','{"test":true}',${j({ decision, checks, summary: "Relatório de teste" })})`,
+  );
+}
+const advanceBrowser = (o) => call(`advance_browser_contract('${o.user}','${o.orderId}')`);
+test("autonomous contract negotiates, corrects and settles once without human review", () => {
+  const f = autonomousFixture(),
+    o = { ...f, ...f.place() };
+  assert.equal(o.price, 13);
+  assert.equal(balance(o), "87,13,0");
+  assert.equal(f.place().orderId, o.orderId);
+  browserRecord(o, "rejected", true);
+  assert.throws(() => call(`settle_verified_order('${o.orderId}','bad')`));
+  assert.equal(advanceBrowser(o).status, "contracted");
+  assert.equal(balance(o), "87,13,0");
+  assert.equal(advanceBrowser(o).status, "contracted");
+  browserRecord(o);
+  assert.equal(advanceBrowser(o).status, "settled");
+  assert.equal(advanceBrowser(o).status, "already_settled");
+  assert.equal(balance(o), "87,0,13");
+  assert.equal(sql(`SELECT count(*) FROM human_reviews WHERE order_id='${o.orderId}'`), "0");
+  assert.equal(
+    sql(
+      `SELECT count(*) FROM ledger_entries WHERE order_id='${o.orderId}' AND entry_type='payment'`,
+    ),
+    "1",
+  );
+  assert.equal(
+    sql(
+      `SELECT count(*) FROM order_events WHERE order_id='${o.orderId}' AND event_type='correction_requested'`,
+    ),
+    "1",
+  );
+  assert.equal(
+    sql(
+      `SELECT metadata->>'requestedModel' FROM order_events WHERE order_id='${o.orderId}' AND event_type='goal_interpreted'`,
+    ),
+    "text",
+  );
+  assert.equal(
+    sql(
+      `SELECT amount_units FROM ledger_entries WHERE order_id='${o.orderId}' AND entry_type='commission'`,
+    ),
+    "1",
+  );
+});
+test("automatic payment requires explicit authorization and cannot change an existing contract mode", () => {
+  const f = autonomousFixture();
+  assert.throws(() => f.place("autonomous", false), /automatic_payment_authorization_required/);
+  assert.equal(
+    sql(`SELECT available_units FROM accounts WHERE company_id='${f.companyId}'`),
+    "100",
+  );
+  const o = { ...f, ...f.place("manual", false, f.evaluated.selectedOffer) };
+  browserRecord(o);
+  assert.equal(advanceBrowser(o).status, "accepted");
+  assert.throws(
+    () => call(`settle_verified_order('${o.orderId}','bad')`),
+    /human_approval_required/,
+  );
+  assert.throws(() => f.place(), /idempotency_conflict/);
+  assert.equal(balance(o), "87,13,0");
+});
+test("different goals select different suppliers; insufficient budget and unsupported selection reserve nothing", () => {
+  const desktop = autonomousFixture({
+    scope: { supported: true, viewports: ["desktop"], form: false, reason: "Captura simples" },
+    budget: 5,
+  });
+  const o = { ...desktop, ...desktop.place() };
+  assert.equal(o.price, 4);
+  browserRecord(o);
+  assert.equal(advanceBrowser(o).status, "settled");
+  const poor = autonomousFixture({ budget: 12 });
+  assert.equal(poor.evaluated.selectedOffer, null);
+  assert.throws(() => poor.place());
+  const f = autonomousFixture();
+  assert.throws(
+    () => f.place("manual", false, "00000000-0000-0000-0000-000000002301"),
+    /offer_does_not_cover_goal/,
+  );
+  assert.equal(
+    sql(`SELECT available_units FROM accounts WHERE company_id='${f.companyId}'`),
+    "100",
+  );
+});
+test("invalid approved checks, expired quotes and exhausted correction never release funds", () => {
+  const f = autonomousFixture(),
+    o = { ...f, ...f.place() };
+  browserRecord(o, "approved", true);
+  assert.throws(() => advanceBrowser(o), /invalid_verification_checks/);
+  assert.equal(balance(o), "87,13,0");
+  const g = autonomousFixture(),
+    x = { ...g, ...g.place() };
+  browserRecord(x, "rejected", true);
+  advanceBrowser(x);
+  browserRecord(x, "rejected", true);
+  assert.equal(advanceBrowser(x).status, "revision_requested");
+  assert.equal(balance(x), "87,13,0");
+  assert.throws(
+    () => call(`advance_browser_contract('${randomUUID()}','${x.orderId}')`),
+    /order_access_denied/,
+  );
+  const expired = autonomousFixture();
+  sql(
+    `ALTER TABLE browser_mission_quotes DISABLE TRIGGER browser_quotes_immutable; UPDATE browser_mission_quotes SET expires_at=now()-interval '1 minute' WHERE id='${expired.quoteId}'; ALTER TABLE browser_mission_quotes ENABLE TRIGGER browser_quotes_immutable;`,
+  );
+  assert.throws(() => expired.place(), /quote_expired/);
 });

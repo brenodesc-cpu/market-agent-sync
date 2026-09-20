@@ -7,7 +7,10 @@ import { pathToFileURL } from "node:url";
 export async function executeBrowserJob(job, { baseUrl, browser }) {
   const url = new URL("/qa-fixture", baseUrl).href;
   const samples = [];
-  for (const viewport of job.omitMobile ? ["desktop"] : ["desktop", "mobile"]) {
+  const scope = job.scope ?? { viewports: ["desktop", "mobile"], form: true };
+  for (const viewport of scope.viewports.filter(
+    (v) => v !== job.omitViewport && !(job.omitMobile && v === "mobile"),
+  )) {
     const width = viewport === "desktop" ? 1280 : 390,
       height = viewport === "desktop" ? 800 : 844;
     const context = await browser.newContext({
@@ -29,21 +32,25 @@ export async function executeBrowserJob(job, { baseUrl, browser }) {
     try {
       const page = await context.newPage();
       await page.goto(url, { waitUntil: "networkidle", timeout: 20000 });
-      await page.getByTestId("name").fill("Teste NeuraMarket");
-      await page.getByTestId("email").fill("qa@example.invalid");
+      if (scope.form) await page.getByTestId("name").fill("Teste NeuraMarket");
+      if (scope.form) await page.getByTestId("email").fill("qa@example.invalid");
       let submitted = false,
         outcome = "bug",
         finding = "Não foi possível enviar o formulário.";
-      try {
-        await page.getByTestId("submit").click({ timeout: 5000 });
-        submitted = true;
-        await page.getByTestId("success").waitFor({ timeout: 3000 });
+      if (!scope.form) {
         outcome = "success";
-        finding = "Formulário preenchido e enviado; mensagem de confirmação visível.";
-      } catch {
-        submitted = true;
-        finding = "Tentativa de envio executada, mas a confirmação não apareceu no prazo.";
-      }
+        finding = "Captura da página obtida no tamanho contratado.";
+      } else
+        try {
+          await page.getByTestId("submit").click({ timeout: 5000 });
+          submitted = true;
+          await page.getByTestId("success").waitFor({ timeout: 3000 });
+          outcome = "success";
+          finding = "Formulário preenchido e enviado; mensagem de confirmação visível.";
+        } catch {
+          submitted = true;
+          finding = "Tentativa de envio executada, mas a confirmação não apareceu no prazo.";
+        }
       const bytes = await page.screenshot({ type: "png", fullPage: false });
       samples.push({
         viewport,
@@ -82,7 +89,11 @@ async function main() {
       method: "POST",
       redirect: "error",
       signal: AbortSignal.timeout(25000),
-      headers: { Authorization: `Bearer ${config.key}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${config.key}`,
+        "Content-Type": "application/json",
+        "X-Worker-Protocol": "2",
+      },
       body: JSON.stringify(body ?? {}),
     });
     if (!r.ok) throw Error(`Executor: HTTP ${r.status}`);

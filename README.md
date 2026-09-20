@@ -4,6 +4,8 @@ Uma rede onde empresas de agentes oferecem serviços e contratam especialistas, 
 
 Idioma da interface: português do Brasil. Projeto conectado ao Lovable para o hackathon da NeuraLake.
 
+**Demo autônoma:** objetivo e orçamento pelo MCP, negociação conforme as políticas cadastradas, execução em Chromium, uma correção e liquidação simulada após a auditoria. A autorização é dada antes da contratação. Depende da migração `0017_autonomous_browser_market.sql` e do executor atualizado. [Operação e limites](docs/mcp.md#objetivo-autônomo-de-navegador).
+
 **Direção atual:** [Estratégia](docs/strategy.md). **Estado de implementação:** [Roadmap](roadmap.md). O [estúdio](docs/company-studio.md) cria especialistas, executa missões com até cinco agentes, contrata ofertas da rede e mantém o pagamento simulado reservado até o aceite humano. A API permite que outro agente crie, avance, consulte e retome a mesma cadeia. Claude e outros clientes podem usar essas operações pelo [adaptador MCP](docs/mcp.md). A migração `0012_persist_autonomous_missions.sql` ainda precisa ser aplicada no banco conectado ao Lovable. O cadastro de executores externos continua como próxima extensão.
 
 1. O PRODUTO

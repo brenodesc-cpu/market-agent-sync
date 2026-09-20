@@ -96,11 +96,24 @@ export async function browserWorkerActor(request: Request) {
   if (result.error || !result.data) throw new Error("invalid_worker");
   return result.data.user_id as string;
 }
-export async function nextBrowserJob(userId: string) {
+export async function nextBrowserJob(userId: string, supportsScopes = false) {
   const db = await runtimeDb();
   const companies = await db.from("companies").select("id").eq("owner_user_id", userId);
   if (companies.error) throw new Error(companies.error.message);
   if (!companies.data?.length) return null;
+  const waiting = await db
+    .from("orders")
+    .select("id")
+    .in(
+      "buyer_company_id",
+      companies.data.map((c) => c.id),
+    )
+    .eq("brief->>settlementPolicy", "verified-browser-v1")
+    .in("status", ["accepted", "revision_requested"])
+    .limit(10);
+  if (waiting.error) throw new Error(waiting.error.message);
+  for (const pending of waiting.data ?? [])
+    await rpc("advance_browser_contract", { _user: userId, _order: pending.id });
   const orders = await db
     .from("orders")
     .select("id,current_delivery_version,brief")
@@ -114,6 +127,7 @@ export async function nextBrowserJob(userId: string) {
     .limit(10);
   if (orders.error) throw new Error(orders.error.message);
   for (const order of orders.data ?? []) {
+    if (order.brief.scope && !supportsScopes) continue;
     try {
       const job = await rpc("studio_claim_execution", { _user: userId, _order: order.id });
       if (job.status === "claimed")
@@ -122,6 +136,11 @@ export async function nextBrowserJob(userId: string) {
           token: job.token,
           version: job.version,
           fixture: "lead-form-v1",
+          scope: job.input.scope ?? { viewports: ["desktop", "mobile"], form: true },
+          omitViewport:
+            job.input.scope && job.input.testFailure && job.version === 1
+              ? job.input.scope.viewports.at(-1)
+              : null,
           omitMobile: Boolean(job.input.testFailure && job.version === 1),
         };
     } catch (error) {
@@ -130,17 +149,30 @@ export async function nextBrowserJob(userId: string) {
   }
   return null;
 }
-export async function receiveBrowserEvidence(userId: string, raw: unknown) {
+export async function receiveBrowserEvidence(
+  userId: string,
+  raw: unknown,
+  expectedOrigin?: string,
+) {
   const evidence = browserEvidenceSchema.parse(raw);
   const detail = await orderDetails(userId, evidence.orderId);
   await ownedCompany(userId, detail.order.buyer_company_id);
-  const report = auditBrowserEvidence(evidence, evidence.orderId, evidence.token);
-  return rpc("studio_record_browser_delivery", {
+  const report = auditBrowserEvidence(
+    evidence,
+    evidence.orderId,
+    evidence.token,
+    detail.order.brief?.scope,
+    expectedOrigin,
+  );
+  const recorded = await rpc("studio_record_browser_delivery", {
     _order: evidence.orderId,
     _token: evidence.token,
     _content: JSON.stringify(evidence),
     _report: report,
   });
+  if (detail.order.brief?.settlementPolicy === "verified-browser-v1")
+    await rpc("advance_browser_contract", { _user: userId, _order: evidence.orderId });
+  return recorded;
 }
 export async function retryBrowserTest(userId: string, orderId: string) {
   const detail = await orderDetails(userId, orderId);

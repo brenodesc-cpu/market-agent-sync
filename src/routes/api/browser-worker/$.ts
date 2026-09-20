@@ -9,7 +9,9 @@ async function handle(request: Request, path: string) {
   }
   try {
     if (path === "next" && request.method === "POST")
-      return Response.json({ job: await runtime.nextBrowserJob(userId) });
+      return Response.json({
+        job: await runtime.nextBrowserJob(userId, request.headers.get("X-Worker-Protocol") === "2"),
+      });
     if (path === "deliver" && request.method === "POST") {
       const reader = request.body?.getReader();
       let body = "";
@@ -27,7 +29,9 @@ async function handle(request: Request, path: string) {
         body += decoder.decode(value, { stream: true });
       }
       body += decoder.decode();
-      return Response.json(await runtime.receiveBrowserEvidence(userId, JSON.parse(body)));
+      return Response.json(
+        await runtime.receiveBrowserEvidence(userId, JSON.parse(body), new URL(request.url).origin),
+      );
     }
     return Response.json({ error: "not_found" }, { status: 404 });
   } catch {

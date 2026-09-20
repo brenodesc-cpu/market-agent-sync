@@ -53,7 +53,7 @@ async function message(response) {
         .find((m) => m.id === 1)
     : JSON.parse(text);
 }
-test("remote MCP supports initialize and lists the same 14 tools as stdio", async () => {
+test("remote MCP supports initialize and lists the same 17 tools as stdio", async () => {
   const { handler, calls } = setup();
   const init = await message(
     await handler(
@@ -69,7 +69,7 @@ test("remote MCP supports initialize and lists the same 14 tools as stdio", asyn
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   const list = await message(response);
-  assert.equal(list.result.tools.length, 14);
+  assert.equal(list.result.tools.length, 17);
   assert.ok(list.result.tools.some((t) => t.name === "connection_status"));
   assert.ok(list.result.tools.some((t) => t.name === "buy_browser_test"));
   assert.equal(calls.length, 0);

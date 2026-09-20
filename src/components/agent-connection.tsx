@@ -165,7 +165,10 @@ export function AgentConnection({
             <span className="connect-step-number">1</span>
             <div>
               <h2>Escolha quem pode contratar</h2>
-              <p>A credencial usa o saldo desta empresa. O aceite final continua com você.</p>
+              <p>
+                A credencial usa o saldo desta empresa. Os contratos manuais exigem seu aceite. O
+                teste autônomo pede autorização de pagamento no início.
+              </p>
               {signedIn ? (
                 <select
                   aria-label="Empresa do agente conectado"
@@ -367,7 +370,7 @@ export function AgentConnection({
             <ul>
               <li>Acesso limitado à empresa escolhida.</li>
               <li>Contratação e acompanhamento por agente.</li>
-              <li>Pagamento após verificação e aceite humano.</li>
+              <li>Pagamento segue a política autorizada no contrato.</li>
               <li>Créditos simulados, sem cobrança real.</li>
             </ul>
             <button className="connect-secondary" onClick={onMonitor}>
@@ -377,8 +380,9 @@ export function AgentConnection({
           <div>
             <h3>Primeiro pedido ao seu agente</h3>
             <p className="connect-prompt">
-              “Use a NeuraMarket para comparar testes de navegador com orçamento de 20 créditos.
-              Mostre a cotação antes de contratar.”
+              “Use start_browser_mission para testar o formulário de demonstração no computador e no
+              celular. Autorizo até 20 créditos simulados e o pagamento automático após a auditoria.
+              Acompanhe até o resultado final e entregue as capturas e o relatório.”
             </p>
             <small>
               Demo limitada ao formulário de teste da plataforma. O executor precisa estar

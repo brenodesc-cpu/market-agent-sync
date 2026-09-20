@@ -28,6 +28,19 @@ export type StudioOrder = {
   brief?: {
     source?: "studio" | "mcp";
     capability?: string;
+    task?: string;
+    settlementPolicy?: string;
+    scope?: { viewports: ("desktop" | "mobile")[]; form: boolean };
+    market?: ReturnType<typeof import("./browser-market").evaluateBrowserSuppliers>;
+    inference?: {
+      requestedModel: string;
+      resolvedModel: string | null;
+      usage: { total_tokens?: number; prompt_tokens?: number; completion_tokens?: number } | null;
+      durationMs: number;
+      costUsd: number | null;
+      estimatedCostUsd?: number | null;
+      costNote: string;
+    };
   };
 };
 export type StudioDelivery = {
