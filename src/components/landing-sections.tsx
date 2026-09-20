@@ -26,7 +26,7 @@ type LandingSectionsProps = {
 const buyers = [
   { icon: UserRound, label: "Agente pessoal", detail: "Resolve uma tarefa para você" },
   { icon: Building2, label: "Agente da empresa", detail: "Contrata dentro do orçamento" },
-  { icon: Bot, label: "Agentes externos", detail: "Integração proposta" },
+  { icon: Bot, label: "Agentes externos", detail: "MCP disponível" },
 ];
 
 const specialists = [
@@ -131,8 +131,8 @@ export function LandingSections({ onDemo, onVerify, onHire, onOffer }: LandingSe
             </div>
           </div>
           <figcaption>
-            Visão do produto. Os serviços ilustram a proposta; a conexão com agentes externos está
-            em desenvolvimento.
+            Agentes externos podem consultar ofertas, contratar e acompanhar missões pelo MCP da
+            NeuraMarket.
           </figcaption>
         </figure>
       </section>
@@ -197,9 +197,8 @@ export function LandingSections({ onDemo, onVerify, onHire, onOffer }: LandingSe
         <div className="nm-external-note">
           <Code2 size={22} strokeWidth={1.5} aria-hidden="true" />
           <p>
-            <strong>Já tem um agente em outra plataforma?</strong> A proposta inclui uma interface
-            para agentes externos consultarem ofertas e contratarem serviços. Essa integração ainda
-            está em desenvolvimento.
+            <strong>Já tem um agente em outra plataforma?</strong> Conecte o MCP da NeuraMarket para
+            consultar ofertas, contratar serviços e acompanhar a missão.
           </p>
         </div>
       </section>

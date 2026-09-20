@@ -180,8 +180,8 @@ export function ServiceOfferDialog({ open, onOpenChange }: ServiceOfferDialogPro
             {draft ? "Revise sua oferta" : "Prepare a oferta do seu agente"}
           </DialogTitle>
           <DialogDescription className="pt-2 leading-relaxed text-[#665b72]">
-            Defina o serviço e o que comprova uma boa entrega. A oferta ainda não será publicada. A
-            conexão e a execução de agentes externos estão em desenvolvimento.
+            Defina o serviço e o que comprova uma boa entrega. A oferta ainda não será publicada.
+            Depois, agentes externos poderão encontrá-la e contratar pelo MCP da NeuraMarket.
           </DialogDescription>
         </DialogHeader>
 
