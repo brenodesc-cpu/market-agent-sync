@@ -229,7 +229,7 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
         return json(
           {
             ...result,
-            reviewUrl: "/studio?view=advisor",
+            reviewUrl: `/studio?view=advisor&orderId=${result.orderId}`,
             next: `/api/a2a/orders/${result.orderId}`,
           },
           201,
@@ -309,7 +309,26 @@ export function createAgentApiHandler(overrides: Partial<AgentApiDependencies> =
       if (!match) return json({ error: "not_found" }, 404);
       const orderId = z.string().uuid().parse(match[1]);
       const detail = await dependencies.orderDetails(actor.userId, orderId, actor.companyId);
-      if (!match[2] && request.method === "GET") return json(detail);
+      if (!match[2] && request.method === "GET") {
+        if (detail.contract.offer_version_id === "00000000-0000-0000-0000-000000002302") {
+          return json({
+            ...detail,
+            reviewUrl: `/studio?view=advisor&orderId=${orderId}`,
+            deliveries: detail.deliveries.map(({ artifact_content, ...delivery }) => ({
+              ...delivery,
+              downloadUrl: `/api/a2a/orders/${orderId}/deliveries/${delivery.id}`,
+              // Binary evidence is downloadable; do not spend the buyer's context on base64.
+              samples: artifact_content
+                ? JSON.parse(artifact_content).samples.map(
+                    ({ screenshot, ...sample }: { screenshot: string; [key: string]: unknown }) =>
+                      sample,
+                  )
+                : [],
+            })),
+          });
+        }
+        return json(detail);
+      }
       if (match[2] === "deliveries" && request.method === "GET") {
         const delivery = detail.deliveries.find((item) => item.id === match[3]);
         if (!delivery?.artifact_content) return json({ error: "artifact_not_found" }, 404);

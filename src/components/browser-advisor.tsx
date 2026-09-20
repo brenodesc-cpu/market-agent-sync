@@ -24,14 +24,22 @@ function save(name: string, content: string) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function BrowserAdvisor({ signedIn, onLogin }: { signedIn: boolean; onLogin: () => void }) {
+export function BrowserAdvisor({
+  signedIn,
+  onLogin,
+  initialOrderId,
+}: {
+  signedIn: boolean;
+  onLogin: () => void;
+  initialOrderId?: string;
+}) {
   const [setup, setSetup] = useState<Setup | null>(null),
     [order, setOrder] = useState<StudioDetails | null>(null);
   const [budget, setBudget] = useState(20),
     [fault, setFault] = useState(true),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [selected, setSelected] = useState(""),
+  const [selected, setSelected] = useState(initialOrderId ?? ""),
     [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const quote = browserQuote(budget);
   async function refresh() {

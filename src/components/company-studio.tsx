@@ -632,7 +632,13 @@ export function CompanyStudio({
           </div>
         )}
 
-        {view === "advisor" && <BrowserAdvisor signedIn={!!user} onLogin={() => setLogin(true)} />}
+        {view === "advisor" && (
+          <BrowserAdvisor
+            signedIn={!!user}
+            onLogin={() => setLogin(true)}
+            initialOrderId={initialOrderId}
+          />
+        )}
 
         {(view === "mission" || view === "market") && (
           <AgentMarket
