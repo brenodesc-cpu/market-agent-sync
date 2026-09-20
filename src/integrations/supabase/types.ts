@@ -376,6 +376,88 @@ export type Database = {
           },
         ]
       }
+      browser_mission_quotes: {
+        Row: {
+          budget: number
+          company_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          inference: Json
+          input_hash: string
+          objective: string
+          quote: Json
+          request_id: string
+          requested_by: string
+          scope: Json
+          test_failure: boolean
+        }
+        Insert: {
+          budget: number
+          company_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          inference: Json
+          input_hash: string
+          objective: string
+          quote: Json
+          request_id: string
+          requested_by: string
+          scope: Json
+          test_failure?: boolean
+        }
+        Update: {
+          budget?: number
+          company_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          inference?: Json
+          input_hash?: string
+          objective?: string
+          quote?: Json
+          request_id?: string
+          requested_by?: string
+          scope?: Json
+          test_failure?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "browser_mission_quotes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      browser_supplier_terms: {
+        Row: {
+          estimated_ms: number
+          minimum_price: number
+          offer_version_id: string
+        }
+        Insert: {
+          estimated_ms: number
+          minimum_price: number
+          offer_version_id: string
+        }
+        Update: {
+          estimated_ms?: number
+          minimum_price?: number
+          offer_version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "browser_supplier_terms_offer_version_id_fkey"
+            columns: ["offer_version_id"]
+            isOneToOne: true
+            referencedRelation: "offer_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       browser_workers: {
         Row: {
           expires_at: string
@@ -1263,9 +1345,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      advance_browser_contract: {
+        Args: { _order: string; _user: string }
+        Returns: Json
+      }
       agent_acceptance_criteria: { Args: { _sections: Json }; Returns: Json }
       browser_buyer: { Args: { _user: string }; Returns: string }
       browser_criteria: { Args: never; Returns: Json }
+      browser_market_suppliers: { Args: never; Returns: Json }
       catalogue_acceptance_criteria: { Args: never; Returns: Json }
       has_role: {
         Args: {
@@ -1340,6 +1427,18 @@ export type Database = {
       }
       studio_place_agent_order: {
         Args: { _payload: Json; _user: string }
+        Returns: Json
+      }
+      studio_place_browser_mission: {
+        Args: {
+          _authorized: boolean
+          _company: string
+          _mode: string
+          _offer: string
+          _quote: string
+          _source: string
+          _user: string
+        }
         Returns: Json
       }
       studio_place_browser_order: {

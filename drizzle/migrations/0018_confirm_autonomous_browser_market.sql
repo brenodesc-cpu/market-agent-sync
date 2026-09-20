@@ -1,0 +1,1 @@
+GRANT ALL ON public.browser_supplier_terms TO service_role;
