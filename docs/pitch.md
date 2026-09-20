@@ -21,8 +21,8 @@ A apresentação não depende de migração ou banco de dados. A publicação ex
 
 ## Tela financeira para acompanhar a fala
 
-`/demo` abre sem login e mostra o objetivo de receber US$ 1.000, o limite de R$ 5.600 e a contratação de Câmbio B por R$ 5.500, incluindo a taxa de R$ 5. Há três visões: fluxo dos participantes, ofertas comparadas e recibo. A tela de tesouraria e o cabeçalho do pitch oferecem um link direto.
+`/demo` abre a tesouraria do aplicativo em `/studio?view=fx`. O painel mostra ofertas, contratos, comprovantes e saldos recebidos do servidor. As visões Fluxo, Ofertas e Recibo pertencem à operação, com opção de tela cheia. A encenação separada foi removida a pedido do Breno.
 
-O botão Apresentar avança a cada 6,5 segundos até a revisão humana. As setas permitem acompanhar a fala manualmente. O comprovante inicial declara US$ 990, o auditor pede correção e a versão seguinte apresenta US$ 1.000. A conclusão exige clicar em Aprovar demonstração. Reiniciar repõe o roteiro. Há um controle de tela cheia.
+Escolha Agente + revisão humana, defina US$ 1.000, limite de R$ 5.600 e uma hora, autorize os valores fictícios e execute. O servidor escolhe o fornecedor e corrige o comprovante de teste, conservando a reserva. Aprovar conversão simulada envia o aceite autenticado ao servidor. O recibo só aparece após a liquidação persistida.
 
-É uma ilustração interativa com instituições e valores fictícios, identificada no topo e no rodapé. Não chama API, cria pedido ou altera saldo. O aceite humano desta tela segue o pitch solicitado em 20/09, sem modificar o modo autônomo da tesouraria real do aplicativo. Não serve como prova de execução ou publicação da migração 0019.
+O modo usa os contratos com revisão humana já suportados pela migração 0019, sem uma nova migração. Instituições e dinheiro continuam fictícios. O fluxo autônomo do MCP permanece disponível. Os 12 testes de banco incluem a correção, o bloqueio de pagamento e a repetição sem cobrança duplicada. A consulta ao servidor público confirmou a carteira de teste com R$ 10.000, sem operações. A versão local está sem servidor configurado; a execução da nova tela no domínio público depende de publicar o código no Lovable e entrar na conta.

@@ -1,4 +1,5 @@
 import { evaluateBrowserSuppliers } from "../src/lib/browser-market.ts";
+import { runFxReviewFlow } from "../src/lib/fx-review-flow.ts";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -257,6 +258,46 @@ test("manual contracts stop for human acceptance and cannot change mode on retry
   assert.throws(() => hire(c, qt.id), /fx_idempotency_conflict/);
   assert.equal(step(c, id, true), "settled");
   assert.equal(snapshot(c, id).events.at(-1).detail.humanAccepted, true);
+});
+test("agent-selected review flow corrects the receipt and never pays until human approval", async () => {
+  const c = company();
+  const qt = quote(c);
+  const id = hire(c, qt.id, { mode: "manual", supplier: qt.data.selected.supplierId });
+  const port = { read: async () => snapshot(c, id), step: async () => step(c, id, false) };
+  const pending = await runFxReviewFlow(port);
+  assert.equal(pending.order.status, "awaiting_approval");
+  assert.equal(pending.order.contract.supplierId, "fx-b");
+  assert.equal(pending.receipts.length, 2);
+  assert.deepEqual(
+    pending.reports.map((r) => r.decision),
+    ["rejected", "approved"],
+  );
+  assert.equal(pending.wallet.reserved_brl, 550000);
+  assert.equal(pending.wallet.available_usd, 0);
+  assert.equal(pending.ledger, null);
+  assert.deepEqual((await runFxReviewFlow(port)).wallet, pending.wallet);
+  assert.equal(step(c, id, true), "settled");
+  const paid = await runFxReviewFlow(port);
+  assert.equal(paid.ledger.platform_fee_brl, 500);
+  assert.equal(paid.wallet.available_usd, 100000);
+  assert.deepEqual((await runFxReviewFlow(port)).wallet, paid.wallet);
+  assert.equal(sql(`SELECT count(*) FROM fx_ledger WHERE order_id='${id}'`), "1");
+});
+test("review flow holds funds when a corrected receipt cannot pass the audit", async () => {
+  const c = company();
+  const qt = quote(c);
+  const id = hire(c, qt.id, { mode: "manual", supplier: qt.data.selected.supplierId });
+  step(c, id);
+  sql(`UPDATE fx_operations SET target_usd=1 WHERE order_id='${id}'`);
+  const result = await runFxReviewFlow({
+    read: async () => snapshot(c, id),
+    step: async () => step(c, id),
+  });
+  assert.equal(result.order.status, "rejected");
+  assert.equal(result.order.current_version, 2);
+  assert.equal(result.wallet.available_usd, 0);
+  assert.equal(result.wallet.reserved_brl, 550000);
+  assert.equal(result.ledger, null);
 });
 test("expired contracts refund once and cannot settle", () => {
   const c = company(),

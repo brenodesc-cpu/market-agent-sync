@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { rpc, runtimeDb, ownedCompany } from "./studio-runtime.server.ts";
 import { neuralakeJson } from "./neuralake-json.server.ts";
+import { runFxReviewFlow } from "./fx-review-flow.ts";
 import {
   fxGoalSchema,
   fxStartSchema,
@@ -150,4 +151,32 @@ export async function cancelFx(userId: string, companyId: string, orderId: strin
   z.string().uuid().parse(orderId);
   await rpc("fx_cancel", { _user: userId, _company: companyId, _order: orderId });
   return getFx(userId, companyId, orderId);
+}
+
+// Authenticated UI only: the buyer chooses the supplier, the human approves settlement.
+export async function startFxReview(userId: string, companyId: string, raw: unknown) {
+  const input = fxStartSchema.parse(raw);
+  await ownedCompany(userId, companyId);
+  const quote = await quoteFx(userId, companyId, input);
+  const supplier = quote.data.selected;
+  if (!supplier) throw new Error("fx_no_eligible_offer");
+  const orderId = (await rpc("fx_hire", {
+    _user: userId,
+    _company: companyId,
+    _quote: quote.id,
+    _authorized: input.authorizeSimulation,
+    _test_failure: input.testFailure,
+    _mode: "manual",
+    _supplier: supplier.supplierId,
+  })) as string;
+  return runFxReviewFlow({
+    read: () => getFx(userId, companyId, orderId),
+    step: () =>
+      rpc("fx_step", {
+        _user: userId,
+        _company: companyId,
+        _order: orderId,
+        _human_accept: false,
+      }),
+  });
 }

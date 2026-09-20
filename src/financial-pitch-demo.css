@@ -1014,3 +1014,157 @@
     transition: none !important;
   }
 }
+.nm-financial-demo.fd-embedded {
+  min-height: 0;
+  border-radius: 16px;
+  margin: 24px 0;
+  overflow: hidden;
+}
+.fd-embedded:fullscreen {
+  border-radius: 0;
+  margin: 0;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+.fd-embedded .fd-header {
+  margin: 0 22px;
+  min-height: 58px;
+}
+.fd-embedded .fd-header > button {
+  border: 1px solid var(--fd-line);
+  background: transparent;
+  padding: 8px;
+  border-radius: 6px;
+}
+.fd-embedded .fd-main {
+  width: calc(100% - 44px);
+  padding-top: 22px;
+}
+.fd-embedded .fd-intro h2 {
+  font-size: clamp(21px, 2.5vw, 32px);
+  font-weight: 500;
+  line-height: 1.15;
+}
+.fd-embedded .fd-record-id {
+  font:
+    10px DemoMono,
+    monospace;
+  color: var(--fd-muted);
+}
+.fd-embedded .fd-party {
+  padding-bottom: 16px;
+}
+.fd-embedded .fd-party-top {
+  color: var(--fd-purple);
+}
+.fd-embedded .fd-narration h3 {
+  margin-bottom: 7px;
+  font-size: 20px;
+  font-weight: 500;
+}
+.fd-embedded .fd-offer h3 {
+  font-size: 20px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.fd-embedded .fd-offer-price {
+  font-size: clamp(24px, 3vw, 36px);
+}
+.fd-record-reports {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+.fd-record-reports article {
+  padding: 16px;
+  border: 1px solid var(--fd-line);
+  border-radius: 8px;
+  background: #19171f;
+}
+.fd-record-reports strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 9px;
+}
+.fd-record-reports .rejected strong {
+  color: #f0a49e;
+}
+.fd-record-reports .approved strong {
+  color: var(--fd-green);
+}
+.fd-record-reports p {
+  font-size: 11px;
+  color: var(--fd-muted);
+  line-height: 1.7;
+}
+.fd-pending-receipt {
+  min-height: 230px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+.fd-pending-receipt > svg {
+  color: var(--fd-purple);
+}
+.fd-pending-receipt h3 {
+  font-size: 23px;
+  font-weight: 500;
+}
+.fd-pending-receipt p {
+  font-size: 13px;
+  color: var(--fd-muted);
+  max-width: 400px;
+  line-height: 1.6;
+}
+.fd-data-source {
+  font-size: 10px;
+  color: var(--fd-muted);
+  margin-top: 17px !important;
+}
+@media (max-width: 1050px) {
+  .fd-embedded .fd-chain {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .fd-embedded .fd-party:nth-child(3) .fd-edge {
+    display: none;
+  }
+  .fd-embedded .fd-mission {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .fd-embedded .fd-mission > div:nth-child(3) {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .fd-embedded .fd-intro {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
+@media (max-width: 760px) {
+  .fd-record-reports {
+    grid-template-columns: 1fr;
+  }
+  .fd-embedded .fd-main {
+    width: calc(100% - 28px);
+  }
+  .fd-embedded .fd-header {
+    margin: 0 14px;
+  }
+  .fd-embedded .fd-stage-label {
+    display: none;
+  }
+  .fd-embedded .fd-party > strong {
+    font-size: 13px;
+  }
+  .fd-embedded .fd-narration > div {
+    flex-basis: 100%;
+  }
+  .fd-embedded .fd-approve {
+    margin-left: 0;
+  }
+}

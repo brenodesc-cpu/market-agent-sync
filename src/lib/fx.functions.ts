@@ -32,6 +32,16 @@ export const startFxView = createServerFn({ method: "POST" })
       ).startFx(context.userId, await company(context.userId, data.companyId), data),
     ),
   );
+export const startFxReviewView = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(fxStartSchema.extend({ companyId: z.string().uuid().optional() }))
+  .handler(async ({ context, data }) =>
+    JSON.stringify(
+      await (
+        await import("./fx-market.server")
+      ).startFxReview(context.userId, await company(context.userId, data.companyId), data),
+    ),
+  );
 export const quoteFxView = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator(fxGoalSchema.extend({ companyId: z.string().uuid().optional() }))

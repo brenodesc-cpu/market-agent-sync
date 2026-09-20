@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, ShieldCheck, LoaderCircle, Download } from "lucide-react";
-import { getFxView, startFxView, quoteFxView, hireFxView, actFxView } from "@/lib/fx.functions";
+import { ArrowRight, LoaderCircle, Download } from "lucide-react";
+import {
+  getFxView,
+  startFxView,
+  startFxReviewView,
+  quoteFxView,
+  hireFxView,
+  actFxView,
+} from "@/lib/fx.functions";
+import { FxExecutionBoard } from "./fx-execution-board";
 import type { FxSnapshot, FxQuote, FxOffer } from "@/lib/fx-market";
 import "@/fx-advisor.css";
 const money = (c: number, currency = "BRL") =>
@@ -60,7 +68,7 @@ export function FxAdvisor({
   const [snapshot, setSnapshot] = useState<FxSnapshot | null>(null),
     [quote, setQuote] = useState<FxQuote | null>(null),
     [orderId, setOrderId] = useState(initialOrderId ?? ""),
-    [mode, setMode] = useState<"autonomous" | "manual">("autonomous");
+    [mode, setMode] = useState<"review" | "autonomous" | "manual">("review");
   const [amount, setAmount] = useState(1000),
     [budget, setBudget] = useState(5600),
     [minutes, setMinutes] = useState(60),
@@ -69,6 +77,8 @@ export function FxAdvisor({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const request = useRef("");
+  const generation = useRef(0);
+  const mutation = useRef(false);
   const scope = companyId ? { companyId } : {};
   const storageKey = `nm-fx-request:${identity}:${companyId ?? "default"}`;
   useEffect(() => {
@@ -81,15 +91,16 @@ export function FxAdvisor({
     let alive = true,
       fetching = false;
     async function refresh() {
-      if (fetching) return;
+      if (fetching || mutation.current) return;
       fetching = true;
+      const startedAt = generation.current;
       try {
         const data = JSON.parse(
           await getFxView({
             data: { ...(companyId ? { companyId } : {}), ...(orderId ? { orderId } : {}) },
           }),
         ) as FxSnapshot;
-        if (!alive) return;
+        if (!alive || startedAt !== generation.current) return;
         setSnapshot(data);
         if (!orderId && data.orders) {
           const ids = new Set(data.orders.map((o) => o.id));
@@ -113,22 +124,30 @@ export function FxAdvisor({
     };
   }, [signedIn, companyId, orderId]);
   async function act(work: () => Promise<string>) {
+    generation.current++;
+    mutation.current = true;
     setBusy(true);
     setError("");
     try {
       const data = JSON.parse(await work()) as FxSnapshot;
       setSnapshot(data);
-      if (data.order) setOrderId(data.order.id);
+      if (data.order) {
+        setOrderId(data.order.id);
+        const url = new URL(window.location.href);
+        url.searchParams.set("orderId", data.order.id);
+        window.history.replaceState(window.history.state, "", url);
+      }
     } catch (e) {
       setError(friendly(e));
     } finally {
+      generation.current++;
+      mutation.current = false;
       setBusy(false);
     }
   }
   const order = snapshot?.order;
   const comparison = order ? snapshot?.quote : quote;
   const offers = comparison?.data.offers ?? [];
-  const total = order?.contract.totalBrlCents;
   const done = order?.status === "settled";
   const input = () => ({
     ...scope,
@@ -138,6 +157,7 @@ export function FxAdvisor({
     maxSettlementMinutes: minutes,
   });
   function fresh() {
+    generation.current++;
     request.current = crypto.randomUUID();
     sessionStorage.setItem(storageKey, request.current);
     setOrderId("");
@@ -145,6 +165,9 @@ export function FxAdvisor({
     setQuote(null);
     setError("");
     setAuthorized(false);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("orderId");
+    window.history.replaceState(window.history.state, "", url);
   }
   async function submit() {
     if (!signedIn) {
@@ -161,7 +184,11 @@ export function FxAdvisor({
       } finally {
         setBusy(false);
       }
-    } else
+    } else if (mode === "review")
+      await act(() =>
+        startFxReviewView({ data: { ...input(), authorizeSimulation: true, testFailure: fault } }),
+      );
+    else
       await act(() =>
         startFxView({ data: { ...input(), authorizeSimulation: true, testFailure: fault } }),
       );
@@ -178,9 +205,6 @@ export function FxAdvisor({
           Defina quanto precisa receber e o limite de gasto. A contratação segue até a conferência
           da operação.
         </p>
-        <a href="/demo" className="studio-secondary">
-          Ver a demonstração do pitch <ArrowRight size={15} />
-        </a>
       </header>
       <div className="fx-wallet">
         <span>
@@ -205,6 +229,15 @@ export function FxAdvisor({
       {!order && (
         <div className="fx-goal">
           <div className="fx-mode">
+            <button
+              aria-pressed={mode === "review"}
+              onClick={() => {
+                setMode("review");
+                setQuote(null);
+              }}
+            >
+              Agente + revisão humana
+            </button>
             <button
               aria-pressed={mode === "autonomous"}
               onClick={() => {
@@ -308,7 +341,18 @@ export function FxAdvisor({
           )}
         </div>
       )}
-      {comparison && (
+      {(comparison || order) && (
+        <FxExecutionBoard
+          snapshot={snapshot}
+          quote={quote}
+          busy={busy}
+          onApprove={() => {
+            if (!order || order.status !== "awaiting_approval") return;
+            void act(() => actFxView({ data: { ...scope, orderId: order.id, action: "accept" } }));
+          }}
+        />
+      )}
+      {comparison && mode === "manual" && !order && (
         <>
           <h2>Quem atende ao pedido?</h2>
           <div className="fx-offers">
@@ -316,10 +360,7 @@ export function FxAdvisor({
               <article
                 key={offer.supplierId}
                 className={
-                  offer.supplierId ===
-                  (order?.contract.supplierId ?? comparison.data.selected?.supplierId)
-                    ? "fx-selected"
-                    : ""
+                  offer.supplierId === comparison.data.selected?.supplierId ? "fx-selected" : ""
                 }
               >
                 <span>{offer.name} · simulado</span>
@@ -363,57 +404,7 @@ export function FxAdvisor({
       )}
       {order && (
         <>
-          <div className="fx-result">
-            <div>
-              <span>{labels[order.status] ?? order.status}</span>
-              <h2>{money(order.contract.targetUsdCents, "USD")}</h2>
-              <p>{done ? "Disponibilizados na carteira simulada" : "Valor líquido contratado"}</p>
-            </div>
-            <ArrowRight size={30} />
-            <div>
-              <span>Custo total contratado</span>
-              <h2>{money(total!)}</h2>
-              <p>
-                {money(order.contract.principalBrlCents)} para o fornecedor + {money(500)} para a
-                plataforma
-              </p>
-            </div>
-            {done && <Check size={30} />}
-          </div>
-          <div className="fx-actors">
-            {["Tesouraria", order.contract.name, "Auditor", "Liquidação"].map((v, i) => (
-              <span key={v}>
-                <b>{i + 1}</b>
-                {v}
-              </span>
-            ))}
-          </div>
           <div className="fx-details">
-            <div>
-              <h2>
-                <ShieldCheck size={20} /> Conferência da operação
-              </h2>
-              {snapshot?.reports?.map((report) => (
-                <article className="fx-audit" key={report.version}>
-                  <strong>
-                    Comprovante {report.version}:{" "}
-                    {report.decision === "approved" ? "aprovado" : "reprovado"}
-                  </strong>
-                  {report.checks.map((c) => (
-                    <p key={c.criterion} className={c.passed ? "fx-pass" : "fx-fail"}>
-                      {c.passed ? "✓" : "×"} {c.criterion}
-                      {c.expected != null
-                        ? ` · esperado ${money(c.expected, "USD")}, recebido ${money(c.observed ?? 0, "USD")}`
-                        : ""}
-                    </p>
-                  ))}
-                </article>
-              ))}
-              <p className="fx-caption">
-                O auditor consulta o registro do simulador. A correção altera apenas o comprovante
-                da mesma operação.
-              </p>
-            </div>
             <div>
               <h2>O que aconteceu</h2>
               <ol className="fx-timeline">
