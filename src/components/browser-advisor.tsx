@@ -202,93 +202,111 @@ export function BrowserAdvisor({
           </span>
         </div>
       </div>
-      <div className="qa-request">
-        <span className="qa-label">PEDIDO DO AGENTE CRIADOR DE SITES</span>
-        <p>
-          “Terminei a página. Teste o formulário no computador e no celular, com capturas que
-          comprovem o resultado.”
-        </p>
-        <a href="/qa-fixture" target="_blank" rel="noreferrer">
-          Abrir a página que será testada ↗
-        </a>
-        <div className="qa-controls">
-          <label>
-            Orçamento{" "}
-            <input
-              aria-label="Orçamento em créditos simulados"
-              type="number"
-              min={1}
-              max={1000}
-              value={budget}
-              disabled={!!order}
-              onChange={(e) => setBudget(Number(e.target.value))}
-            />{" "}
-            créditos
-          </label>
-          <button
-            disabled={
-              busy ||
-              !!order ||
-              (!quote.selectedOffer && signedIn) ||
-              Boolean(signedIn && !setup?.workerOnline)
-            }
-            onClick={() => {
-              if (!signedIn) {
-                onLogin();
-                return;
-              }
-              void action(async () => {
-                const created = await buyBrowserTest({
-                  data: { requestId, budget, testFailure: fault, fixture: "lead-form-v1" },
-                });
-                setSelected(created.orderId);
-                setOrder(await getStudioOrder({ data: { orderId: created.orderId } }));
-              });
-            }}
-          >
-            {busy ? <LoaderCircle size={17} /> : <ArrowRight size={17} />}{" "}
-            {signedIn ? "Contratar teste" : "Entrar para testar"}
-          </button>
+      {order ? (
+        <div className="qa-active-summary">
+          <div>
+            <span className="qa-label">PEDIDO</span>
+            <p>Testar o formulário no computador e no celular, com capturas.</p>
+          </div>
+          <div>
+            <span className="qa-label">ESCOLHA DO ASSESSOR</span>
+            <p>
+              <strong>BrowserQA</strong> · desktop + mobile + envio · &lt; 20 s
+            </p>
+          </div>
+          <b>15 créditos</b>
         </div>
-        <label className="qa-fault">
-          <input
-            type="checkbox"
-            checked={fault}
-            disabled={!!order}
-            onChange={(e) => setFault(e.target.checked)}
-          />{" "}
-          Demonstrar bloqueio: omitir a evidência mobile na primeira entrega.
-        </label>
-      </div>
+      ) : (
+        <>
+          <div className="qa-request">
+            <span className="qa-label">PEDIDO DO AGENTE CRIADOR DE SITES</span>
+            <p>
+              “Terminei a página. Teste o formulário no computador e no celular, com capturas que
+              comprovem o resultado.”
+            </p>
+            <a href="/qa-fixture" target="_blank" rel="noreferrer">
+              Abrir a página que será testada ↗
+            </a>
+            <div className="qa-controls">
+              <label>
+                Orçamento{" "}
+                <input
+                  aria-label="Orçamento em créditos simulados"
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={budget}
+                  disabled={!!order}
+                  onChange={(e) => setBudget(Number(e.target.value))}
+                />{" "}
+                créditos
+              </label>
+              <button
+                disabled={
+                  busy ||
+                  !!order ||
+                  (!quote.selectedOffer && signedIn) ||
+                  Boolean(signedIn && !setup?.workerOnline)
+                }
+                onClick={() => {
+                  if (!signedIn) {
+                    onLogin();
+                    return;
+                  }
+                  void action(async () => {
+                    const created = await buyBrowserTest({
+                      data: { requestId, budget, testFailure: fault, fixture: "lead-form-v1" },
+                    });
+                    setSelected(created.orderId);
+                    setOrder(await getStudioOrder({ data: { orderId: created.orderId } }));
+                  });
+                }}
+              >
+                {busy ? <LoaderCircle size={17} /> : <ArrowRight size={17} />}{" "}
+                {signedIn ? "Contratar teste" : "Entrar para testar"}
+              </button>
+            </div>
+            <label className="qa-fault">
+              <input
+                type="checkbox"
+                checked={fault}
+                disabled={!!order}
+                onChange={(e) => setFault(e.target.checked)}
+              />{" "}
+              Demonstrar bloqueio: omitir a evidência mobile na primeira entrega.
+            </label>
+          </div>
+          <div className="qa-offers">
+            {quote.offers.map((o) => (
+              <div key={o.name} className={o.eligible ? "eligible" : ""}>
+                <strong>{o.name}</strong>
+                <b>{o.price} créditos</b>
+                <p>{o.reason}</p>
+                <dl>
+                  <div>
+                    <dt>Cobertura</dt>
+                    <dd>{o.coverage}</dd>
+                  </div>
+                  <div>
+                    <dt>Tempo</dt>
+                    <dd>{o.estimatedTime}</dd>
+                  </div>
+                </dl>
+                <small>{o.eligible ? "Selecionado pelo assessor" : "Não atende ao pedido"}</small>
+              </div>
+            ))}
+          </div>
+          <p className="qa-explanation">
+            {quote.reason} Criar essa capacidade agora exigiria integrar e validar um navegador. A
+            compra custa 15 créditos e entrega o teste completo em menos de 20 segundos.
+          </p>
+        </>
+      )}
       {error && (
         <p role="alert" className="qa-error">
           {error}
         </p>
       )}
-      <div className="qa-offers">
-        {quote.offers.map((o) => (
-          <div key={o.name} className={o.eligible ? "eligible" : ""}>
-            <strong>{o.name}</strong>
-            <b>{o.price} créditos</b>
-            <p>{o.reason}</p>
-            <dl>
-              <div>
-                <dt>Cobertura</dt>
-                <dd>{o.coverage}</dd>
-              </div>
-              <div>
-                <dt>Tempo</dt>
-                <dd>{o.estimatedTime}</dd>
-              </div>
-            </dl>
-            <small>{o.eligible ? "Selecionado pelo assessor" : "Não atende ao pedido"}</small>
-          </div>
-        ))}
-      </div>
-      <p className="qa-explanation">
-        {quote.reason} Criar essa capacidade agora exigiria integrar e validar um navegador. A
-        compra custa 15 créditos e entrega o teste completo em menos de 20 segundos.
-      </p>
       {signedIn && (
         <p className="qa-connection">
           <span className={setup?.workerOnline ? "online" : ""} />{" "}
