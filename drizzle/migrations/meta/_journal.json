@@ -127,6 +127,13 @@
       "when": 1789909605546,
       "tag": "0017_autonomous_browser_market",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789912106542,
+      "tag": "0018_confirm_autonomous_browser_market",
+      "breakpoints": true
     }
   ]
 }
